@@ -1,0 +1,27 @@
+{
+  "name": "hud",
+  "version": "0.1.0",
+  "description": "claude-hud rebuilt as a mod: the same lines, drawn above the prompt",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "position": {
+      "type": "string",
+      "title": "Position",
+      "description": "Where the HUD draws: above the prompt (a band) or below it (beside the hint line, where the statusline sat)",
+      "options": ["above", "below"],
+      "default": "above"
+    },
+    "extraCmd": {
+      "type": "string",
+      "title": "Extra command",
+      "description": "claude-hud's --extra-cmd: a shell command whose output becomes a label (needs CLAUDE_HUD_ALLOW_EXTRA_CMD=1)",
+      "default": ""
+    },
+    "debug": {
+      "type": "boolean",
+      "title": "Debug tool",
+      "description": "Register mcp__hud__hud_debug, which reports the stdin the mod built, the rendered lines and the last error",
+      "default": false
+    }
+  }
+}

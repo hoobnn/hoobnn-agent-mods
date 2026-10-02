@@ -1,0 +1,8 @@
+{
+  "extends": "./.claude-plugin/types/tsconfig.json",
+  "compilerOptions": {
+    // hooks/hud is claude-hud's own source, written without this check.
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["hooks", "types", "tests"]
+}

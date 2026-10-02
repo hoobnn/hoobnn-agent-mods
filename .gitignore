@@ -1,0 +1,4 @@
+# Laid by Claude Code at each load: the API's declarations for this build.
+.claude-plugin/types/
+node_modules/
+.DS_Store

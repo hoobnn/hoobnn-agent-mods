@@ -1,0 +1,103 @@
+import { atom, read, update } from 'claude-code'
+import type { Register } from 'claude-code'
+
+import type { Node, Snapshot } from '../types'
+import { parseStatus } from './parse'
+
+const snapshot = atom({ plugin: 'ts-band', key: 'snapshot' } as const, null)
+const isHidden = atom({ plugin: 'ts-band', key: 'isHidden' } as const, false)
+
+const TAILSCALE = '/usr/local/bin/tailscale'
+const INTERVAL_MS = 60_000
+
+const LINK_LABEL = { direct: '直连', 'peer-relay': '中继', derp: 'DERP', offline: '离线' }
+
+function linkText(node: Node): string {
+  return node.link === 'derp' && node.via ? `DERP-${node.via}` : LINK_LABEL[node.link]
+}
+
+export const register: Register = on => {
+  on('session.start', async ($, e, next) => {
+    await $.command.register({ name: 'ts', description: '显示 / 隐藏 Tailscale 节点状态横条' })
+
+    const refresh = async () => {
+      const previous = await read($, snapshot)
+      let fresh: Snapshot
+      try {
+        const { exitCode, stdout, stderr } = await $.process.run([TAILSCALE, 'status', '--json'], {
+          timeoutMs: 10_000,
+        })
+        fresh =
+          exitCode === 0
+            ? { nodes: parseStatus(stdout), checkedAt: await $.clock.now(), error: null }
+            : { nodes: [], checkedAt: await $.clock.now(), error: stderr.trim() || `exit ${exitCode}` }
+      } catch (err) {
+        fresh = { nodes: [], checkedAt: await $.clock.now(), error: String(err) }
+      }
+
+      if (previous && !previous.error && !fresh.error) {
+        const was = new Map(previous.nodes.map(n => [n.name, n.isOnline]))
+        for (const node of fresh.nodes) {
+          if (was.has(node.name) && was.get(node.name) !== node.isOnline) {
+            $.ui.toast(`Tailscale: ${node.name} ${node.isOnline ? '上线' : '离线'}`)
+          }
+        }
+      }
+      await update($, snapshot, () => fresh)
+    }
+
+    await refresh()
+    $.clock.every(INTERVAL_MS, () => void refresh())
+
+    return next(e)
+  })
+
+  on('command.run', { command: 'ts' }, async $ => {
+    const hidden = await update($, isHidden, v => !v)
+
+    return { text: hidden ? 'Tailscale 横条已隐藏' : 'Tailscale 横条已显示' }
+  })
+
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    const snap = await read($, snapshot)
+    if (e.props.hasSurvey || snap === null || (await read($, isHidden))) {
+      return next(e)
+    }
+
+    const { Box, Text } = $.ui.resolve(e)
+    // Other bands (another mod's) draw beneath this one rather than being replaced.
+    const below = await next(e)
+
+    if (snap.error) {
+      return (
+        <Box flexDirection="column">
+          <Box>
+            <Text color="red">TS 读取失败: </Text>
+            <Text dimColor wrap="truncate-end">{snap.error}</Text>
+          </Box>
+          {below}
+        </Box>
+      )
+    }
+
+    const online = snap.nodes.filter(n => n.isOnline).length
+
+    return (
+      <Box flexDirection="column">
+      <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
+        <Text bold>TS {online}/{snap.nodes.length}</Text>
+        {snap.nodes.map(node => (
+          <Box key={node.name}>
+            <Text color={node.isOnline ? (node.link === 'direct' ? 'green' : 'yellow') : 'red'}>
+              {node.isOnline ? '●' : '○'}{' '}
+            </Text>
+            <Text dimColor={!node.isOnline}>{node.name} </Text>
+            <Text dimColor>{linkText(node)}</Text>
+          </Box>
+        ))}
+      </Box>
+      {below}
+      </Box>
+    )
+  })
+}

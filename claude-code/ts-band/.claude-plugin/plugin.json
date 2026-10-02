@@ -1,0 +1,1 @@
+{ "name": "ts-band", "version": "0.1.0", "description": "Tailscale 节点状态横条", "types": "./types/index.d.ts" }
