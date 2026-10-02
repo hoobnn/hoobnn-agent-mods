@@ -126,6 +126,12 @@
       "description": "Summarize the task in one line after the first turn and every N turns (a fork of the conversation, served from the prompt cache); 0 turns it off",
       "default": 5
     },
+    "compactWarnPercent": {
+      "type": "number",
+      "title": "Auto-compact countdown",
+      "description": "Show the tokens left before auto-compaction once the context is this percent of the way there; 0 turns it off",
+      "default": 60
+    },
     "gitDirtyWarn": {
       "type": "number",
       "title": "Uncommitted changes warning",

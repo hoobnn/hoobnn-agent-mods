@@ -148,3 +148,15 @@ test('replies follow Claude Code\'s language setting', async ($, on) => {
   const again = await $.command.run({ ...RUN, command: 'hitokoto', args: '' })
   expect(again.text).toBe('Hitokoto を取得できませんでした: HTTP 503')
 })
+
+test('a click on ↻ brings a new line', async ($, on) => {
+  const { clock, urls } = host(on, () => ({ status: 200, text: BODY }))
+  await $.session.start(START)
+  await clock.settle()
+  const ui = await $.ui.mount({ plugin: 'hitokoto', surface: 'terminal', ...BAND })
+  const before = urls.length
+  await ui.press({ key: 'hitokoto-next' })
+  await clock.settle()
+  expect(urls.length).toBe(before + 1)
+  await ui.unmount()
+})

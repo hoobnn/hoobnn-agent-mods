@@ -18,6 +18,7 @@ type Key =
   | 'streak'
   | 'git.dirty'
   | 'git.ahead'
+  | 'compact.left'
   | 'alert.context'
   | 'alert.fiveHour'
   | 'alert.sevenDay'
@@ -40,6 +41,8 @@ type Key =
   | 'pane.none'
   | 'pane.todos'
   | 'pane.spend'
+  | 'pane.turns'
+  | 'pane.turnRow'
   | 'spend.today'
   | 'spend.week'
   | 'summary.language'
@@ -62,6 +65,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     streak: '{n}-day streak',
     'git.dirty': { one: '{n} uncommitted change', other: '{n} uncommitted changes' },
     'git.ahead': { one: '{n} unpushed commit', other: '{n} unpushed commits' },
+    'compact.left': '{tokens} to auto-compact',
     'alert.context': 'Context is {p}% full — consider /compact',
     'alert.fiveHour': '5-hour limit at {p}%',
     'alert.sevenDay': '7-day limit at {p}%',
@@ -84,6 +88,8 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'pane.none': 'None',
     'pane.todos': 'Todos',
     'pane.spend': 'Spend',
+    'pane.turns': 'Recent turns',
+    'pane.turnRow': '#{n} · {time} · {cost} · context {tokens}',
     'spend.today': 'Today {spent}',
     'spend.week': '7 days {spent}',
     'summary.language': 'English',
@@ -101,6 +107,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     streak: '连续 {n} 天',
     'git.dirty': '{n} 个改动未提交',
     'git.ahead': '{n} 个提交未推送',
+    'compact.left': '距自动压缩 {tokens}',
     'alert.context': '上下文已用 {p}%，可以考虑 /compact',
     'alert.fiveHour': '5 小时额度已用 {p}%',
     'alert.sevenDay': '7 天额度已用 {p}%',
@@ -123,6 +130,8 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'pane.none': '无',
     'pane.todos': '待办',
     'pane.spend': '花费',
+    'pane.turns': '最近几轮',
+    'pane.turnRow': '#{n} · {time} · {cost} · 上下文 {tokens}',
     'spend.today': '今日 {spent}',
     'spend.week': '7 天 {spent}',
     'summary.language': 'Simplified Chinese',
@@ -140,6 +149,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     streak: '連續 {n} 天',
     'git.dirty': '{n} 個變更尚未提交',
     'git.ahead': '{n} 個提交尚未推送',
+    'compact.left': '距自動壓縮 {tokens}',
     'alert.context': '上下文已使用 {p}%，可以考慮執行 /compact',
     'alert.fiveHour': '5 小時額度已使用 {p}%',
     'alert.sevenDay': '7 天額度已使用 {p}%',
@@ -162,6 +172,8 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'pane.none': '無',
     'pane.todos': '待辦事項',
     'pane.spend': '花費',
+    'pane.turns': '最近幾輪',
+    'pane.turnRow': '#{n} · {time} · {cost} · 上下文 {tokens}',
     'spend.today': '今日 {spent}',
     'spend.week': '7 天 {spent}',
     'summary.language': 'Traditional Chinese as used in Taiwan',
@@ -179,6 +191,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     streak: '{n}日連続',
     'git.dirty': '未コミットの変更 {n} 件',
     'git.ahead': '未プッシュのコミット {n} 件',
+    'compact.left': '自動圧縮まで {tokens}',
     'alert.context': 'コンテキストの使用率が {p}% に達しました。/compact の実行を検討してください',
     'alert.fiveHour': '5時間枠の使用率が {p}% に達しました',
     'alert.sevenDay': '7日間枠の使用率が {p}% に達しました',
@@ -201,6 +214,8 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'pane.none': 'なし',
     'pane.todos': 'ToDo',
     'pane.spend': 'コスト',
+    'pane.turns': '最近のターン',
+    'pane.turnRow': '#{n} · {time} · {cost} · コンテキスト {tokens}',
     'spend.today': '今日 {spent}',
     'spend.week': '7日間 {spent}',
     'summary.language': 'Japanese',
@@ -218,6 +233,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     streak: '{n}일 연속',
     'git.dirty': '커밋하지 않은 변경 {n}개',
     'git.ahead': '푸시하지 않은 커밋 {n}개',
+    'compact.left': '자동 압축까지 {tokens}',
     'alert.context': '컨텍스트 사용량이 {p}%에 도달했습니다. /compact 실행을 고려해 보세요',
     'alert.fiveHour': '5시간 한도의 {p}%를 사용했습니다',
     'alert.sevenDay': '7일 한도의 {p}%를 사용했습니다',
@@ -240,6 +256,8 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'pane.none': '없음',
     'pane.todos': '할 일',
     'pane.spend': '비용',
+    'pane.turns': '최근 턴',
+    'pane.turnRow': '#{n} · {time} · {cost} · 컨텍스트 {tokens}',
     'spend.today': '오늘 {spent}',
     'spend.week': '7일 {spent}',
     'summary.language': 'Korean',
@@ -257,6 +275,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     streak: { one: '{n} día seguido', other: '{n} días seguidos' },
     'git.dirty': { one: '{n} cambio sin confirmar', other: '{n} cambios sin confirmar' },
     'git.ahead': { one: '{n} commit sin enviar', other: '{n} commits sin enviar' },
+    'compact.left': '{tokens} hasta la compactación',
     'alert.context': `Contexto al {p}${NB}%: conviene ejecutar /compact`,
     'alert.fiveHour': `Límite de 5 horas al {p}${NB}%`,
     'alert.sevenDay': `Límite de 7 días al {p}${NB}%`,
@@ -279,6 +298,8 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'pane.none': 'Ninguno',
     'pane.todos': 'Tareas',
     'pane.spend': 'Gasto',
+    'pane.turns': 'Últimos turnos',
+    'pane.turnRow': '#{n} · {time} · {cost} · contexto {tokens}',
     'spend.today': 'Hoy: {spent}',
     'spend.week': '7 días: {spent}',
     'summary.language': 'Spanish',
@@ -296,6 +317,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     streak: { one: '{n} jour d’affilée', other: '{n} jours d’affilée' },
     'git.dirty': { one: '{n} modification non commitée', other: '{n} modifications non commitées' },
     'git.ahead': { one: '{n} commit non poussé', other: '{n} commits non poussés' },
+    'compact.left': '{tokens} avant la compaction',
     'alert.context': `Contexte rempli à {p}${NB}%${NB}: pensez à /compact`,
     'alert.fiveHour': `Limite de 5 heures utilisée à {p}${NB}%`,
     'alert.sevenDay': `Limite de 7 jours utilisée à {p}${NB}%`,
@@ -318,6 +340,8 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'pane.none': 'Aucun',
     'pane.todos': 'Tâches',
     'pane.spend': 'Dépenses',
+    'pane.turns': 'Derniers tours',
+    'pane.turnRow': '#{n} · {time} · {cost} · contexte {tokens}',
     'spend.today': `Aujourd’hui${NB}: {spent}`,
     'spend.week': `7 jours${NB}: {spent}`,
     'summary.language': 'French',
@@ -335,6 +359,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     streak: { one: '{n} Tag in Folge', other: '{n} Tage in Folge' },
     'git.dirty': { one: '{n} nicht committete Änderung', other: '{n} nicht committete Änderungen' },
     'git.ahead': { one: '{n} nicht gepushter Commit', other: '{n} nicht gepushte Commits' },
+    'compact.left': '{tokens} bis zur Komprimierung',
     'alert.context': `Kontext zu {p}${NB}% belegt – /compact empfohlen`,
     'alert.fiveHour': `5-Stunden-Limit zu {p}${NB}% ausgeschöpft`,
     'alert.sevenDay': `7-Tage-Limit zu {p}${NB}% ausgeschöpft`,
@@ -357,6 +382,8 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'pane.none': 'Keine',
     'pane.todos': 'Aufgaben',
     'pane.spend': 'Ausgaben',
+    'pane.turns': 'Letzte Runden',
+    'pane.turnRow': '#{n} · {time} · {cost} · Kontext {tokens}',
     'spend.today': 'Heute: {spent}',
     'spend.week': '7 Tage: {spent}',
     'summary.language': 'German',
@@ -374,6 +401,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     streak: { one: '{n} dia seguido', other: '{n} dias seguidos' },
     'git.dirty': { one: '{n} alteração sem commit', other: '{n} alterações sem commit' },
     'git.ahead': { one: '{n} commit sem push', other: '{n} commits sem push' },
+    'compact.left': '{tokens} até a compactação',
     'alert.context': 'Contexto em {p}%: considere usar /compact',
     'alert.fiveHour': 'Limite de 5 horas em {p}%',
     'alert.sevenDay': 'Limite de 7 dias em {p}%',
@@ -396,6 +424,8 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'pane.none': 'Nenhum',
     'pane.todos': 'Tarefas',
     'pane.spend': 'Gastos',
+    'pane.turns': 'Últimos turnos',
+    'pane.turnRow': '#{n} · {time} · {cost} · contexto {tokens}',
     'spend.today': 'Hoje: {spent}',
     'spend.week': '7 dias: {spent}',
     'summary.language': 'Brazilian Portuguese',
@@ -423,6 +453,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
       many: '{n} неотправленных коммитов',
       other: '{n} неотправленного коммита',
     },
+    'compact.left': '{tokens} до автосжатия',
     'alert.context': `Контекст заполнен на {p}${NB}% — стоит выполнить /compact`,
     'alert.fiveHour': `Лимит на 5 часов израсходован на {p}${NB}%`,
     'alert.sevenDay': `Лимит на 7 дней израсходован на {p}${NB}%`,
@@ -445,6 +476,8 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'pane.none': 'Нет',
     'pane.todos': 'Задачи',
     'pane.spend': 'Расходы',
+    'pane.turns': 'Последние ходы',
+    'pane.turnRow': '#{n} · {time} · {cost} · контекст {tokens}',
     'spend.today': 'Сегодня: {spent}',
     'spend.week': '7 дн.: {spent}',
     'summary.language': 'Russian',

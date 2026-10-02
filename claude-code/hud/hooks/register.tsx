@@ -10,10 +10,11 @@ import './shims/globals.js'
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { DockPet, Fired, HudLine, Remote, StepInfo, ToolStats } from '../types'
+import type { DockPet, Fired, HudLine, Remote, StepInfo, ToolStats, TurnCost } from '../types'
 import { readConfig } from './config.js'
 import { drawPane, drawRows } from './draw.js'
-import { appendExtras, chimeWav, crossThresholds, exhaustAt, extrasLine, formatDuration, lastDays, localDay, pruneHistory, streak } from './extras.js'
+import { addSample, appendExtras, chimeWav, crossThresholds, exhaustAt, extrasLine, formatDuration, lastDays, localDay, paceAt, pruneHistory, streak } from './extras.js'
+import type { Samples } from './extras.js'
 import { loadConfig, setConfigPatch } from './hud/config.js'
 import { setLanguage } from './hud/i18n/index.js'
 import { setTranscriptProvider } from './hud/transcript.js'
@@ -52,6 +53,10 @@ const turns = atom({ plugin: 'hud', key: 'turns' } as const, 0)
 const fired = atom({ plugin: 'hud', key: 'fired' } as const, { context: [], fiveHour: [], sevenDay: [] } as Fired)
 const history = atom({ plugin: 'hud', key: 'history' } as const, {} as Record<string, number>)
 const tools = atom({ plugin: 'hud', key: 'tools' } as const, {} as ToolStats)
+const turnLog = atom({ plugin: 'hud', key: 'turnLog' } as const, [] as TurnCost[])
+const turnStart = atom({ plugin: 'hud', key: 'turnStart' } as const, null as { usd: number | null; tokens: number | null } | null)
+/** Turns `/hud detail` lists. */
+const TURN_LOG_SIZE = 8
 // spinner's pet, and whether it stands beside the HUD's rows (below the prompt only).
 const petDock = atom({ plugin: 'spinner', key: 'dock' } as const, null as DockPet | null)
 const isPetDocked = atom({ plugin: 'hud', key: 'dock' } as const, false)
@@ -147,6 +152,11 @@ export const register: Register = (on, options) => {
   let isQueued = false
   let isScheduled = false
   let isStarted = false
+  // Where auto-compaction runs (null: off), for the window it was read for: it
+  // moves only with the window, so a model switch reads it again.
+  let compactAt: { window: number; at: number | null } | null = null
+  // The 5-hour window's readings this session: its forecast follows the last hour's pace.
+  let fiveHour: Samples | undefined
 
   const schedule = () => {
     // A draw can come before session.start: nothing to schedule on yet, and
@@ -198,15 +208,28 @@ export const register: Register = (on, options) => {
       const started = Date.now()
       try {
         const { rows, stdin, todayUsd } = await renderHud(io, session)
+        const window = stdin.context_window?.context_window_size ?? 0
+        if (config.compactWarnPercent > 0 && window > 0 && compactAt?.window !== window) {
+          const breakdown = (await $.session.usage({ breakdown: 'summary' }).catch(() => null))?.context.breakdown
+          compactAt = { window, at: breakdown?.isAutoCompactEnabled ? (breakdown.autoCompactThreshold ?? null) : null }
+        }
+        const tokens = stdin.context_window?.total_input_tokens ?? 0
+        const compactLeft =
+          compactAt?.at && tokens >= (compactAt.at * config.compactWarnPercent) / 100 ? compactAt.at - tokens : null
         const pet = config.position === 'below' ? await read($, petDock) : null
         const now = await $.clock.now()
         if (todayUsd !== null) await recordSpend(now, todayUsd)
         const days = await read($, history)
         const today = localDay(now)
         const limits = stdin.rate_limits
+        const five = limits?.five_hour
+        if (five && typeof five.used_percentage === 'number' && five.resets_at) {
+          fiveHour = addSample(fiveHour, five.used_percentage, five.resets_at, now)
+        }
+        // The 7-day window keeps the pace since it began: an hour of work says little about a week.
         const exhaust = config.hasForecast
           ? [
-              { label: m('limit.fiveHour'), at: exhaustAt(limits?.five_hour?.used_percentage, limits?.five_hour?.resets_at, FIVE_HOUR_WINDOW_MS, now) },
+              { label: m('limit.fiveHour'), at: paceAt(fiveHour, five?.used_percentage, five?.resets_at, FIVE_HOUR_WINDOW_MS, now) },
               { label: m('limit.sevenDay'), at: exhaustAt(limits?.seven_day?.used_percentage, limits?.seven_day?.resets_at, SEVEN_DAY_WINDOW_MS, now) },
             ].flatMap(({ label, at }) => (at === null ? [] : [{ label, at }]))
           : []
@@ -216,6 +239,7 @@ export const register: Register = (on, options) => {
           todayUsd,
           budgetUsd: config.budgetUsd,
           week: config.hasHistory ? { values: lastDays(days, today, 7), streak: streak(days, today) } : null,
+          compactLeft,
           git: config.gitDirtyWarn > 0 || config.gitAheadWarn > 0 ? await gitCounts(io, stdin.cwd ?? '') : null,
           gitDirtyWarn: config.gitDirtyWarn,
           gitAheadWarn: config.gitAheadWarn,
@@ -372,7 +396,12 @@ export const register: Register = (on, options) => {
   })
   on('command.run', async ($, e, next) => {
     if (await sawBridge($, e.origin)) schedule()
-    return next(e)
+    if (e.command !== 'model') return next(e)
+    // /model: the last step's model is the old one; the session's is shown until the next step.
+    const result = await next(e)
+    await update($, steps, step => ({ ...step, model: null }))
+    schedule()
+    return result
   })
 
   // Remote Control's prompts reach the session as deliveries before they are a prompt.
@@ -469,9 +498,33 @@ export const register: Register = (on, options) => {
     return result
   })
 
+  // What the turn about to run starts from, for its row in `/hud detail`.
+  on('turn.start', async ($, e, next) => {
+    const usage = await $.session.usage().catch(() => null)
+    await update($, turnStart, () => ({ usd: usage?.cost?.usd ?? null, tokens: usage?.context.tokens ?? null }))
+    return next(e)
+  })
+
   on('turn.complete', async ($, e, next) => {
     schedule()
-    if (e.agentId !== undefined || e.isAborted) return next(e)
+    if (e.agentId !== undefined) return next(e)
+    const start = await read($, turnStart)
+    if (start) {
+      const usage = await $.session.usage().catch(() => null)
+      const usd = usage?.cost?.usd
+      const tokens = usage?.context.tokens
+      await update($, turnStart, () => null)
+      await update($, turnLog, log => [
+        ...log.slice(-(TURN_LOG_SIZE - 1)),
+        {
+          n: (log[log.length - 1]?.n ?? 0) + 1,
+          durationMs: e.durationMs,
+          usd: usd !== undefined && start.usd !== null ? usd - start.usd : null,
+          tokens: tokens !== undefined && start.tokens !== null ? tokens - start.tokens : null,
+        },
+      ])
+    }
+    if (e.isAborted) return next(e)
 
     if (config.notifyMs > 0 && e.durationMs >= config.notifyMs && e.reason === 'answer') {
       $.ui.toast(m('turn.done', { d: formatDuration(e.durationMs) }))
@@ -556,6 +609,7 @@ export const register: Register = (on, options) => {
     const now = await $.clock.now()
     return drawPane($.ui.resolve(e), {
       tools: await read($, tools),
+      turns: await read($, turnLog),
       agents: transcript?.agents ?? [],
       todos: transcript?.todos ?? [],
       history: await read($, history),

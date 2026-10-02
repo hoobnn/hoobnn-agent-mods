@@ -185,12 +185,14 @@ export const register: Register = (on, options) => {
     }
 
     const ui = $.ui.resolve(e)
-    const { Box, Text } = ui
+    const { Box, Button, Text } = ui
     const by = attribution(q)
     const line = (
       <Box flexDirection="row" flexWrap="wrap" columnGap={1}>
         <Text dimColor italic>『{q.text}』</Text>
         {by ? <Text dimColor>{by}</Text> : null}
+        {/* A click brings a new line; daily mode keeps today's. */}
+        {isDaily ? null : <Button key="hitokoto-next" plain dimColor label="↻" onPress={() => void fetchNew($, url, false)} />}
       </Box>
     )
     return stackAbove(ui, line, await next(e))

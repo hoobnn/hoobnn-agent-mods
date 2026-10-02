@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
 import { parseCommand } from '../hooks/command'
-import { formatDuration, levelOf, toolLabel } from '../hooks/pet'
+import { busyLabel, formatDuration, levelOf, newsOf, toolLabel } from '../hooks/pet'
 import { FINALE_MS, SPRITE_MS, STAGE_MS, THEMES, THEME_NAMES, finaleScene, petRow, pickRandom, segments, textWidth } from '../hooks/themes'
 import type { Act } from '../hooks/themes'
 
@@ -41,11 +41,14 @@ let asked: { question: string; options: string[] } | null = null
 let answer: string | null = null
 // The id of the last tool call the host ran, for a check about it.
 let lastCallId = ''
+// How a call the host runs ends: denied, or run with or without an error.
+let ends: 'deny' | 'ok' | 'fail' = 'deny'
 
 function host(on: On, stored: Record<string, unknown> = {}) {
   rows = []
   asked = null
   answer = null
+  ends = 'deny'
   const clock = mock.clock(on, { now: 1_000_000 })
   mock.store(on, stored)
   mock.env(on, { LANG: 'zh_CN.UTF-8' })
@@ -68,7 +71,8 @@ function host(on: On, stored: Record<string, unknown> = {}) {
     }
     lastCallId = e.tool_use_id
     await clock.sleep(1000)
-    return { deny: 'test' }
+    if (ends === 'deny') return { deny: 'test' }
+    return ends === 'fail' ? { result: 'out', text: 'out', isError: true } : { result: 'out', text: 'out' }
   })
   on('ui.render', ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
@@ -114,6 +118,18 @@ test('helpers', async () => {
   expect(toolLabel({ tool: 'Bash', command: 'npm test\nnpm run lint' })).toBe('Bash: npm test')
   expect(toolLabel({ tool: 'Edit', file_path: '/a/b/themes.ts' })).toBe('Edit: themes.ts')
   expect(toolLabel({ tool: 'mcp__github__create_issue' })).toBe('create_issue')
+  expect(newsOf('npm test', false)).toBe('testPass')
+  expect(newsOf('cd a && CI=1 pytest -q', true)).toBe('testFail')
+  expect(newsOf('go test ./...', false)).toBe('testPass')
+  expect(newsOf('git -C repo commit -m "x"', false)).toBe('commit')
+  expect(newsOf('git commit -m x', true)).toBe(null)
+  expect(newsOf('git commit --dry-run', false)).toBe(null)
+  expect(newsOf('cat test.log', false)).toBe(null)
+  expect(newsOf('npm run lint', false)).toBe(null)
+  expect(toolLabel({ tool: 'Agent', description: 'Study HUD mods', prompt: '…' })).toBe('Agent: Study HUD mods')
+  expect(busyLabel(['Agent: a', 'Agent: b', 'Agent: c'])).toBe('Agent ×3')
+  expect(busyLabel(['Read: a.ts', 'Agent: b'])).toBe('Agent: b')
+  expect(busyLabel([])).toBe(undefined)
 })
 
 test('one mascot: in the companion row, or in front of the engine line without it', async ($, on) => {
@@ -163,6 +179,29 @@ test('band plays the scene and the companion while working, keeps other bands', 
   await off.unmount()
 })
 
+test('a short band gets the pet in one row', async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  const ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND, props: { ...BAND.props, maxRows: 2 } })
+  expect(await ui.findAll({ type: 'Client' })).toHaveLength(0)
+  expect(await said(ui)).toContain('Lv.1 ♥0')
+  await ui.unmount()
+})
+
+test('reduced motion draws one still frame', { options: { reducedMotion: true } }, async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.command.run({ ...RUN, command: 'spinner', args: 'dino' })
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  const ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  expect(await drawn(ui, 'work')).toContain('HI 00000')
+  await ui.advance(STAGE_MS * 5)
+  expect(await drawn(ui, 'work')).toContain('HI 00000')
+  await ui.unmount()
+})
+
 test('the companion follows tool calls and permission prompts', async ($, on) => {
   const clock = host(on)
   await $.session.start(START)
@@ -191,6 +230,34 @@ test('the companion follows tool calls and permission prompts', async ($, on) =>
   expect(await said(ui)).not.toContain('Bash: npm test')
   expect(await said(ui)).not.toContain('等你确认')
   await ui.unmount()
+})
+
+test('tests and commits Claude runs: a word from the pet, xp for good news', async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  ends = 'ok'
+  const pass = $.tool.call({ tool: 'Bash', command: 'npm test' })
+  await clock.advance(1000)
+  await pass
+  let ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  expect(await said(ui)).toContain('测试通过啦！')
+  expect(await said(ui)).toContain('Lv.1 ♥0')
+  await ui.unmount()
+  ends = 'fail'
+  const fail = $.tool.call({ tool: 'Bash', command: 'pytest' })
+  await clock.advance(1000)
+  await fail
+  ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  expect(await said(ui)).toContain('测试没过')
+  await ui.unmount()
+  await clock.advance(4000)
+  ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  expect(await said(ui)).not.toContain('测试没过')
+  await ui.unmount()
+  // One xp for the tests that passed, none for those that failed.
+  expect((await $.command.run({ ...RUN, command: 'spinner', args: '' })).text).toContain('经验 1 ·')
 })
 
 test('an ask the mode settles at once never reaches the pet', async ($, on) => {

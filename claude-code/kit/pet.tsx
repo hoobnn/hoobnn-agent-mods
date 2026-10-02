@@ -48,6 +48,23 @@ const TONE: Record<DockPet['tone'], { color?: string; bold?: boolean; dimColor?:
 
 type Ui = Pick<Elements['terminal'], 'Box' | 'Text' | 'Client'>
 
+/** The pet in one row, for a band too short or narrow for its block: `mascot`, the bubble, the stats. */
+export function drawPetLine(ui: Pick<Ui, 'Box' | 'Text'>, pet: DockPet, mascot: { text: string; color?: string }): RenderElement {
+  const { Box, Text } = ui
+  return (
+    <Box flexDirection="row" columnGap={1} flexShrink={1}>
+      <Text color={mascot.color} bold>{mascot.text}</Text>
+      {pet.bubble ? (
+        <Text {...TONE[pet.tone]} wrap="truncate-end">
+          {pet.tone === 'ask' ? '❯ ' : ''}
+          {pet.bubble}
+        </Text>
+      ) : null}
+      <Text color="#6c757d">{pet.stats}</Text>
+    </Box>
+  )
+}
+
 /** The bubble and stats, right-aligned, then the pet: `rows` tall. */
 export function drawPet(ui: Ui, pet: DockPet, key: string): RenderElement {
   const { Box, Text, Client } = ui

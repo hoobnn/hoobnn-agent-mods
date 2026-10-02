@@ -3,6 +3,7 @@
 // Pure helpers; register.tsx feeds them from `$` and draws the row.
 import type { HudLine } from '../types'
 import { textWidth } from './hud/render/ansi.js'
+import { formatTokens } from './hud/utils/format.js'
 import { m, money } from './i18n.js'
 
 /** "80, 90" → [80, 90]: whole percents in 1-100, ascending; empty turns alerts off. */
@@ -54,6 +55,38 @@ export function exhaustAt(
   if (elapsed <= 0 || resetsAt <= now) return null
   const at = now + ((100 - percent) / percent) * elapsed
   return at < resetsAt ? at : null
+}
+
+/** Readings of one rate-limit window: `[ms, percent]`, oldest first, for the window that resets at `resetsAt`. */
+export type Samples = { resetsAt: number; points: [number, number][] }
+
+/** How far back the recent pace looks, and the least span it needs to mean anything. */
+const PACE_LOOKBACK_MS = 60 * 60_000
+const PACE_MIN_SPAN_MS = 10 * 60_000
+
+/** `samples` with a reading at `now` added: a new window starts over, readings past the lookback leave. */
+export function addSample(samples: Samples | undefined, percent: number, resetsAtSec: number, now: number): Samples {
+  const resetsAt = resetsAtSec * 1000
+  const kept = samples && samples.resetsAt === resetsAt ? samples.points.filter(([t]) => now - t <= PACE_LOOKBACK_MS) : []
+  return { resetsAt, points: [...kept, [now, percent]] }
+}
+
+/**
+ * When a window runs out at the pace of the last hour (ms), or null when that
+ * pace lasts until the reset. With under ten minutes of readings, the pace
+ * since the window began (exhaustAt) stands in.
+ */
+export function paceAt(samples: Samples | undefined, percent: number | null | undefined, resetsAtSec: number | null | undefined, windowMs: number, now: number): number | null {
+  const first = samples?.points[0]
+  if (!samples || !first || !resetsAtSec || samples.resetsAt !== resetsAtSec * 1000 || now - first[0] < PACE_MIN_SPAN_MS) {
+    return exhaustAt(percent, resetsAtSec, windowMs, now)
+  }
+  if (percent === null || percent === undefined || percent < MIN_USED_PERCENT) return null
+  if (percent >= 100) return now
+  const rate = (percent - first[1]) / (now - first[0])
+  if (rate <= 0) return null
+  const at = now + (100 - percent) / rate
+  return at < samples.resetsAt ? at : null
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -163,6 +196,8 @@ export type ExtrasInput = {
   /** The last 7 days' spend, oldest first, and the streak; null hides the history. */
   week: { values: number[]; streak: number } | null
   git: { dirty: number; ahead: number } | null
+  /** Tokens left before auto-compaction runs, once the context is far enough in; null hides it. */
+  compactLeft?: number | null
   gitDirtyWarn: number
   gitAheadWarn: number
   /** The row's width; parts that do not fit leave it, least important first. */
@@ -196,6 +231,9 @@ export function extrasLine(x: ExtrasInput): HudLine {
   if (x.summary) parts.push({ spans: [{ text: `${style.summary ?? '✎'} ${x.summary}`, color: style.summaryColor ?? 'cyan' }], rank: 3 })
   for (const { label, at } of x.exhaust) {
     parts.push({ spans: [{ text: m('forecast', { label, time: clockTime(at) }), color: style.forecastColor ?? 'magenta' }], rank: 2 })
+  }
+  if (typeof x.compactLeft === 'number') {
+    parts.push({ spans: [{ text: m('compact.left', { tokens: formatTokens(Math.max(0, x.compactLeft)) }), color: style.forecastColor ?? 'magenta' }], rank: 2 })
   }
   if (x.budgetUsd > 0 && x.todayUsd !== null) parts.push({ spans: budgetSpans(x.todayUsd, x.budgetUsd), rank: 1 })
   if (x.week && x.week.values.some(v => v > 0)) {

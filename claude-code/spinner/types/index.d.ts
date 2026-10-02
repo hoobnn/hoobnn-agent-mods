@@ -41,6 +41,8 @@ declare module 'claude-code' {
       mood: 'hello' | 'ready' | 'aborted' | 'error' | 'sleep'
       pet: PetStats
       pat: string | null
+      /** What the pet says for a moment about a command that just ran: tests, a commit. */
+      news: { kind: 'testPass' | 'testFail' | 'commit'; id: string } | null
       /** The pet for whoever draws it; null while it is off. */
       dock: DockPet | null
       /** Whether a turn is running. */

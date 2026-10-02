@@ -38,6 +38,9 @@ export type Fired = { context: number[]; fiveHour: number[]; sevenDay: number[] 
 /** Each tool's calls this session: how many, their total time, how many failed. */
 export type ToolStats = Record<string, { count: number; totalMs: number; errors: number }>
 
+/** One finished main-thread turn: how long, what it cost, how far the context grew (null: unknown). */
+export type TurnCost = { n: number; durationMs: number; usd: number | null; tokens: number | null }
+
 /** A run of cells in a pet's frame. */
 export type DockSeg = { text: string; c?: string; bg?: string; b?: boolean; d?: boolean }
 
@@ -77,6 +80,10 @@ declare module 'claude-code' {
       /** Spend per day (`YYYY-MM-DD` → USD), mirrored to the store. */
       history: Record<string, number>
       tools: ToolStats
+      /** The session's last finished turns, oldest first. */
+      turnLog: TurnCost[]
+      /** Spend and context size when the running turn began. */
+      turnStart: { usd: number | null; tokens: number | null } | null
       /** True while the pet stands beside the HUD's rows. */
       dock: boolean
       /** Pats the pet took here, which spinner counts. */

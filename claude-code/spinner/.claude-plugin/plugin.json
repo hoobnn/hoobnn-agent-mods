@@ -71,6 +71,12 @@
       "description": "A pet in a row above the prompt: it shows what the model is doing (the tool running, a permission waiting), stays between turns, levels up as turns finish, and a click or /spinner pet pats it (/spinner companion off|on overrides it)",
       "default": true
     },
+    "reducedMotion": {
+      "type": "boolean",
+      "title": "Reduced motion",
+      "description": "Draw the mascot, the band's scene and the pet as still pictures: they still change with what the model does, without moving",
+      "default": false
+    },
     "language": {
       "type": "string",
       "title": "Language",

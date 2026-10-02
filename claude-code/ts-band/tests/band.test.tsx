@@ -117,6 +117,24 @@ test('a failed read keeps the nodes and backs off', { options: { intervalSeconds
   expect(calls).toBe(failed + 1)
 })
 
+test('a tailscale command Claude runs refreshes the band at once', async ($, on) => {
+  let calls = 0
+  const clock = host(on, () => {
+    calls += 1
+    return { exitCode: 0, stdout: STATUS, stderr: '' }
+  })
+  on('tool.call', () => ({ result: 'ok', text: 'ok' }))
+  await $.session.start(START)
+  await clock.settle()
+  const before = calls
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
+  await clock.settle()
+  expect(calls).toBe(before)
+  await $.tool.call({ tool: 'Bash', command: 'sudo tailscale switch work' })
+  await clock.settle()
+  expect(calls).toBe(before + 1)
+})
+
 test('tailscalePath option names the CLI', { options: { tailscalePath: '/opt/ts/tailscale' } }, async ($, on) => {
   const seen: string[] = []
   const clock = host(on, argv => {

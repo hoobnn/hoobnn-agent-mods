@@ -181,11 +181,13 @@ export function dockPetOf(
   state: PetState,
   view: Pick<DockPet, 'id' | 'bubble' | 'tone' | 'stats'>,
   isPatted = false,
+  isStill = false,
 ): DockPet {
   const frames: DockPet['frames'] = []
   const seen = new Map<string, number>()
   const order: number[] = []
-  const loop = loopOf(state)
+  // Still: the loop's first frame alone, which the player never has to redraw.
+  const loop = isStill ? 1 : loopOf(state)
   for (let t = 0; t < loop; t++) {
     // A pat floats hearts over the first frames of the loop.
     const rows = petFrame(art, state, t, isPatted && t < 16 ? t + 1 : 0).map(row => segments(row).map(plainSeg))

@@ -2,9 +2,10 @@
 // (above or below the prompt) and the `/hud detail` pane.
 import type { Elements, RenderElement } from 'claude-code'
 
-import type { HudLine, ToolStats } from '../types'
+import type { HudLine, ToolStats, TurnCost } from '../types'
 import { formatDuration, lastDays, sparkline, streak } from './extras.js'
 import type { AgentEntry, TodoItem } from './hud/types.js'
+import { formatTokens } from './hud/utils/format.js'
 import { m, money } from './i18n.js'
 
 type Ui = Pick<Elements['terminal'], 'Box' | 'Text' | 'Link'>
@@ -53,6 +54,8 @@ export function drawRows(ui: Ui, rows: HudLine[], rest: RenderElement, indent = 
 
 export type PaneData = {
   tools: ToolStats
+  /** The last finished turns, oldest first. */
+  turns: readonly TurnCost[]
   agents: readonly AgentEntry[]
   todos: readonly TodoItem[]
   /** Spend per day, `YYYY-MM-DD` → USD. */
@@ -62,7 +65,7 @@ export type PaneData = {
   now: number
 }
 
-/** `/hud detail`: each tool's calls and time, subagents, todos, and the spend. */
+/** `/hud detail`: each tool's calls and time, the last turns, subagents, todos, and the spend. */
 export function drawPane(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, data: PaneData): RenderElement {
   const { Box, Text } = ui
   const stats = Object.entries(data.tools).sort((a, b) => b[1].totalMs - a[1].totalMs)
@@ -89,6 +92,19 @@ export function drawPane(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, data: P
           </Text>
           {s.errors > 0 ? <Text color="red">{m('pane.failed', { n: s.errors })}</Text> : null}
         </Box>
+      ))}
+      <Text> </Text>
+      {heading(m('pane.turns'))}
+      {data.turns.length === 0 && <Text dimColor>{m('pane.none')}</Text>}
+      {[...data.turns].reverse().map(t => (
+        <Text key={`turn-${t.n}`} dimColor>
+          {m('pane.turnRow', {
+            n: t.n,
+            time: formatDuration(t.durationMs),
+            cost: t.usd === null ? '—' : money(t.usd),
+            tokens: t.tokens === null ? '—' : `${t.tokens < 0 ? '−' : '+'}${formatTokens(Math.abs(t.tokens))}`,
+          })}
+        </Text>
       ))}
       <Text> </Text>
       {heading(m('pane.agents'))}

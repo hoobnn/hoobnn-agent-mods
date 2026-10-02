@@ -27,6 +27,8 @@ export type Config = {
   hasHistory: boolean
   /** Summarize after the first turn and every this many; 0 is off. */
   summaryEvery: number
+  /** Show the tokens left before auto-compaction from this percent of the way there; 0 is off. */
+  compactWarnPercent: number
   gitDirtyWarn: number
   gitAheadWarn: number
   hasAgents: boolean
@@ -49,6 +51,7 @@ export function readConfig(options: PluginOptions): Config {
     budgetUsd: count(options.dailyBudgetUsd, 0, { min: 0 }),
     hasHistory: flag(options.showHistory, false),
     summaryEvery: count(options.summaryEveryTurns, 5, { min: 0, isInteger: true }),
+    compactWarnPercent: count(options.compactWarnPercent, 60, { min: 0 }),
     gitDirtyWarn: count(options.gitDirtyWarn, 20, { min: 0 }),
     gitAheadWarn: count(options.gitAheadWarn, 5, { min: 0 }),
     hasAgents: flag(options.showAgents, false),

@@ -7,11 +7,11 @@ import { readConfig } from './config'
 import type { Choice } from './config'
 import { m, setLang } from './i18n'
 import { isPickerOpen, stackAbove } from './kit/band'
-import { drawPet } from './kit/pet'
+import { drawPet, drawPetLine } from './kit/pet'
 import { resolveLanguage } from './kit/lang'
 import { keptRows, migrateStore, persist } from './kit/prefs'
 import type { Prefs } from './kit/prefs'
-import { bubbleOf, finaleOf, formatDuration, levelOf, toolLabel } from './pet'
+import { bubbleOf, busyLabel, finaleOf, formatDuration, levelOf, newsOf, toolLabel } from './pet'
 import { FINALE_MS, THEMES, THEME_NAMES, isThemeName, pickRandom, textWidth } from './themes'
 import type { Act, Mood, ThemeName } from './themes'
 import { PET_ROWS, dockPetOf, petArtOf } from './pets'
@@ -31,6 +31,7 @@ const activity = atom({ plugin: 'spinner', key: 'activity' } as const, { act: 't
 const mood = atom({ plugin: 'spinner', key: 'mood' } as const, 'hello' as Mood)
 const pet = atom({ plugin: 'spinner', key: 'pet' } as const, { xp: 0, love: 0 })
 const pat = atom({ plugin: 'spinner', key: 'pat' } as const, null)
+const news = atom({ plugin: 'spinner', key: 'news' } as const, null)
 // The pet for whoever draws it (hud beside its rows, or this plugin above the prompt).
 const dock = atom({ plugin: 'spinner', key: 'dock' } as const, null as DockPet | null)
 const isTurn = atom({ plugin: 'spinner', key: 'isTurn' } as const, false)
@@ -40,8 +41,12 @@ const isPicking = atom({ plugin: 'spinner', key: 'isPicking' } as const, false)
 const hudDock = atom({ plugin: 'hud', key: 'dock' } as const, false)
 
 const PREVIEW_MS = 8000
+/** Below this many columns the band draws the pet in one row. */
+const COMPACT_COLUMNS = 60
 /** Cells the pet's bubble and stats take beside it above the prompt. */
 const PET_LABEL_W = 24
+/** How long the pet speaks of tests or a commit. */
+const NEWS_MS = 4000
 /** How long a pat's hearts float. */
 const PAT_MS = 2500
 /** How long an `ask` must stand before the pet shows it: the mode settles most at once. */
@@ -90,6 +95,27 @@ async function bumpPet($: EngineInterface, by: PetStats): Promise<PetStats> {
   return update($, pet, () => next)
 }
 
+/** One more xp, kept, and a toast when it brings a level. */
+async function gainXp($: EngineInterface): Promise<void> {
+  const after = await bumpPet($, { xp: 1, love: 0 })
+  if (levelOf(after.xp) > levelOf(after.xp - 1)) {
+    $.ui.toast(m('pet.levelUp', { theme: await read($, theme), level: levelOf(after.xp) }))
+  }
+}
+
+/** Tests or a commit the main thread just ran: a word from the pet for a moment, and xp for good news. */
+async function noteNews($: EngineInterface, command: string, isError: boolean, id: string): Promise<void> {
+  const kind = newsOf(command, isError)
+  if (kind === null) return
+  await update($, news, () => ({ kind, id }))
+  if (kind !== 'testFail') await gainXp($)
+  $.clock.after(NEWS_MS, async () => {
+    if ((await read($, news))?.id !== id) return
+    await update($, news, () => null)
+    await publishPet($)
+  })
+}
+
 /** A pat: hearts in the band, one more point of affection, kept. */
 async function patPet($: EngineInterface): Promise<PetStats> {
   const next = await bumpPet($, { xp: 0, love: 1 })
@@ -105,6 +131,9 @@ async function patPet($: EngineInterface): Promise<PetStats> {
   return next
 }
 
+/** Reduced motion (the `reducedMotion` row): every animation one still frame. */
+let isStill = false
+
 const TONE: Partial<Record<PetState, DockPet['tone']>> = { ask: 'ask', error: 'error', aborted: 'aborted', sleep: 'sleep' }
 
 /** Publishes the pet as it is now (`spinner.dock`), or null while it is off. */
@@ -118,23 +147,25 @@ async function publishPet($: EngineInterface): Promise<void> {
   const state: PetState = (await read($, isTurn)) ? now.act : await read($, mood)
   const stats = await read($, pet)
   const patId = await read($, pat)
+  // A permission prompt waiting outranks news: it is the one the person must act on.
+  const said = state === 'ask' ? null : await read($, news)
   const art = petArtOf(name, isThemeName(name) ? THEMES[name].color : THEMES.clawd.color)
   const view = {
     id: `${name}:${state}:${patId ?? ''}`,
-    bubble: bubbleOf(state, now.tool),
-    tone: TONE[state] ?? 'plain',
+    bubble: said ? m(`pet.${said.kind}`) : bubbleOf(state, now.tool),
+    tone: said?.kind === 'testFail' ? 'error' : (TONE[state] ?? 'plain'),
     stats: `Lv.${levelOf(stats.xp)} ♥${stats.love}`,
   }
   const was = await read($, dock)
   // The same loop with new words keeps its frames.
-  const next = was?.id === view.id ? { ...was, ...view } : dockPetOf(art, state, view, patId !== null)
+  const next = was?.id === view.id ? { ...was, ...view } : dockPetOf(art, state, view, patId !== null, isStill)
   if (was?.id === next.id && was.bubble === next.bubble && was.stats === next.stats && was.tone === next.tone) return
   await update($, dock, () => next)
 }
 
-/** Busy with the latest tool still running, else back to thinking. */
+/** Busy with the latest tool still running (subagents counted), else back to thinking. */
 async function settle($: EngineInterface, running: Map<string, string>): Promise<void> {
-  const last = [...running.values()].pop()
+  const last = busyLabel([...running.values()])
   await update($, activity, () => (last ? { act: 'tool' as Act, tool: last } : { act: 'think' as Act }))
   await publishPet($)
 }
@@ -181,6 +212,7 @@ const STORE_MOVES = {
 
 export const register: Register = (on, options) => {
   const config = readConfig(options)
+  isStill = config.isStill
   // Tool calls running now: a pet stays busy until the last of parallel calls ends.
   const running = new Map<string, string>()
   // Every call still open, a subagent's too: an ask is shown only while its call is.
@@ -235,10 +267,15 @@ export const register: Register = (on, options) => {
     open.add(e.tool_use_id)
     const label = toolLabel(e as unknown as { tool: string } & Record<string, unknown>)
     running.set(e.tool_use_id, label)
-    await update($, activity, () => (e.tool === 'AskUserQuestion' ? { act: 'ask' as Act } : { act: 'tool' as Act, tool: label }))
+    await update($, activity, () => (e.tool === 'AskUserQuestion' ? { act: 'ask' as Act } : { act: 'tool' as Act, tool: busyLabel([...running.values()]) }))
     await publishPet($)
     try {
-      return await next(e)
+      const result = await next(e)
+      const command = (e as unknown as { command?: unknown }).command
+      if (e.tool === 'Bash' && typeof command === 'string' && !('deny' in result && result.deny !== undefined)) {
+        await noteNews($, command, result.isError === true, e.tool_use_id)
+      }
+      return result
     } finally {
       open.delete(e.tool_use_id)
       running.delete(e.tool_use_id)
@@ -278,10 +315,7 @@ export const register: Register = (on, options) => {
     })
 
     if (kind === 'answer') {
-      const after = await bumpPet($, { xp: 1, love: 0 })
-      if (levelOf(after.xp) > levelOf(after.xp - 1)) {
-        $.ui.toast(m('pet.levelUp', { theme: await read($, theme), level: levelOf(after.xp) }))
-      }
+      await gainXp($)
     }
 
     await publishPet($)
@@ -405,7 +439,7 @@ export const register: Register = (on, options) => {
       <Box flexDirection="row" columnGap={1}>
         {/* The engine's line opens with a blank row; the mascot sits on the line itself. */}
         <Box marginTop={1}>
-          <Client key="sprite" module="./sprite.tsx" width={spriteWidth(name)} props={{ theme: name, mode: e.props.mode }} />
+          <Client key="sprite" module="./sprite.tsx" width={spriteWidth(name)} props={{ theme: name, mode: e.props.mode, still: isStill }} />
         </Box>
         {native}
       </Box>
@@ -431,19 +465,24 @@ export const register: Register = (on, options) => {
     let scene = null
 
     if (shown && isThemeName(shown.theme)) {
-      scene = <Client key={`preview-${shown.id}`} module="./stage.tsx" width={columns} props={{ theme: shown.theme, columns, act: 'think' }} />
+      scene = <Client key={`preview-${shown.id}`} module="./stage.tsx" width={columns} props={{ theme: shown.theme, columns, act: 'think', still: isStill }} />
     } else if (!(await read($, isHidden)) && !(await read($, isStageOff)) && sceneFits(THEMES[name].rows)) {
       const ended: FinaleState | null = await read($, finale)
       const now: Activity = await read($, activity)
       if (e.props.isWorking) {
-        scene = <Client key="work" module="./stage.tsx" width={columns} props={{ theme: name, columns, act: now.act }} />
+        scene = <Client key="work" module="./stage.tsx" width={columns} props={{ theme: name, columns, act: now.act, still: isStill }} />
       } else if (ended) {
-        const props = { theme: name, columns, act: now.act, finale: ended.kind, label: ended.label }
+        const props = { theme: name, columns, act: now.act, finale: ended.kind, label: ended.label, still: isStill }
         scene = <Client key={`finale-${ended.id}`} module="./stage.tsx" width={columns} props={props} />
       }
     }
     if (!scene && !pet) return next(e)
 
+    // Too short or narrow for the pet's block: the pet in one row, the scene left out.
+    if (pet && !shown && (e.props.maxRows < PET_ROWS || e.props.bodyColumns < COMPACT_COLUMNS)) {
+      const mascot = { text: THEMES[name].sprite.say[0] ?? '', color: THEMES[name].color }
+      return stackAbove(ui, <Box justifyContent="flex-end">{drawPetLine(ui, pet, mascot)}</Box>, await next(e))
+    }
     const band = (
       <Box flexDirection="row" justifyContent="space-between" alignItems="flex-end">
         {scene ?? <Box />}

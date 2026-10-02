@@ -4,11 +4,11 @@ import type { ClientModule } from 'claude-code'
 
 import { SPRITE_MS, frame, hsl, poseOf, textWidth, padTo, themeOf } from './themes'
 
-export type SpriteProps = { theme: string; mode: string }
+export type SpriteProps = { theme: string; mode: string; still?: boolean }
 
 const Sprite: ClientModule<SpriteProps, number> = (props, surface) => {
   const { Text } = surface.elements
-  if (surface.state === undefined) {
+  if (surface.state === undefined && !props.still) {
     let tick = 0
     surface.every(SPRITE_MS, () => surface.setState(++tick))
     surface.setState(0)

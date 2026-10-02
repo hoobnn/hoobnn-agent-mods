@@ -1,0 +1,8 @@
+# The widest reach each mod may have, as awesome-claude-code-mods grades it:
+# 0 draws and remembers, 1 reads, 2 writes or runs, 3 reaches the network.
+# scripts/check.sh fails when a mod's `$` calls go past its level here.
+hitokoto 3
+hud 2
+spinner 2
+todo-bar 2
+ts-band 2

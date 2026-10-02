@@ -13,11 +13,13 @@ export type StageProps = {
   act: Act
   finale?: Finale
   label?: string
+  /** One frame, never redrawn (reduced motion). */
+  still?: boolean
 }
 
 const Stage: ClientModule<StageProps, number> = (props, surface) => {
   const { Box, Text } = surface.elements
-  if (surface.state === undefined) {
+  if (surface.state === undefined && !props.still) {
     let tick = 0
     surface.every(STAGE_MS, () => surface.setState(++tick))
     surface.setState(0)

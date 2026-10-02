@@ -32,15 +32,18 @@ function prefsOf($: EngineInterface): Prefs {
 
 /** Reads into the snapshot sooner than the timer would, when it is older than this. */
 const PROMPT_REFRESH_MS = 10_000
+/** A shell command that changes this machine's tailnet: `tailscale up`, `…/Tailscale switch`. */
+const TAILSCALE_CHANGE = /(?:^|[\s/;&|(])tailscale\s+(?:up|down|set|switch|login|logout)\b/i
+
 /** After failed reads the next waits longer, doubling up to this. */
 const MAX_BACKOFF_MS = 10 * 60_000
 
 /**
  * Reads `tailscale status` on a timer into the snapshot, toasting nodes that
- * come up or go down. Returns a read to run now, skipped while one runs or the
- * snapshot is fresh.
+ * come up or go down. Returns a read to run now, skipped while one runs or,
+ * unless forced, while the snapshot is fresh or failed reads wait.
  */
-function startPolling($: EngineInterface, config: Config): () => void {
+function startPolling($: EngineInterface, config: Config): (isForced?: boolean) => Promise<void> {
   // The first candidate that runs is kept for the session.
   let tailscale: string | null = null
   const status = async () => {
@@ -97,8 +100,8 @@ function startPolling($: EngineInterface, config: Config): () => void {
   }
 
   let isRunning = false
-  const run = async () => {
-    if (isRunning || (await $.clock.now()) < retryAt) return
+  const run = async (isForced = false) => {
+    if (isRunning || (!isForced && (await $.clock.now()) < retryAt)) return
     isRunning = true
     try {
       await refresh()
@@ -110,10 +113,10 @@ function startPolling($: EngineInterface, config: Config): () => void {
   // Not awaited: session.start holds the first prompt until it settles.
   void run()
   $.clock.every(config.intervalMs, () => void run())
-  return async () => {
+  return async (isForced = false) => {
     const snap = await read($, snapshot)
-    if (snap && (await $.clock.now()) - snap.checkedAt < PROMPT_REFRESH_MS) return
-    await run()
+    if (!isForced && snap && (await $.clock.now()) - snap.checkedAt < PROMPT_REFRESH_MS) return
+    await run(isForced)
   }
 }
 
@@ -123,7 +126,7 @@ const STORE_MOVES = { isHidden: (kept: unknown) => ['visible', kept !== true] as
 export const register: Register = (on, options) => {
   const config = readConfig(options)
   // Set in session.start: a read now, for each prompt the person sends.
-  let refreshNow: () => Promise<void> | void = () => {}
+  let refreshNow: (isForced?: boolean) => Promise<void> | void = () => {}
 
   on('session.start', async ($, e, next) => {
     // `-p` runs and the SDK draw no band: no tailscale to run for it.
@@ -163,6 +166,13 @@ export const register: Register = (on, options) => {
     // A new round: the nodes as they are now, not as the last tick saw them.
     void refreshNow()
     return next(e)
+  })
+
+  // Claude ran `tailscale up`, `down`, `switch`…: the band shows what it did at once.
+  on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+    const result = await next(e)
+    if (TAILSCALE_CHANGE.test(String(e.command ?? ''))) void refreshNow(true)
+    return result
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {

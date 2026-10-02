@@ -4,6 +4,7 @@ import { type Engine, expect, mock, test } from 'claude-code/testing'
 import { parseAnsi } from '../hooks/ansi'
 import {
   addDays,
+  addSample,
   appendExtras,
   chimeWav,
   crossThresholds,
@@ -11,6 +12,7 @@ import {
   exhaustAt,
   extrasLine,
   lastDays,
+  paceAt,
   parseGitStatus,
   parseThresholds,
   sparkline,
@@ -263,6 +265,16 @@ test('forecast names the time a window runs out before its reset', async () => {
   // 20% after 2h lasts to the reset.
   expect(exhaustAt(20, resets, 5 * hour, now)).toBe(null)
   expect(exhaustAt(5, resets, 5 * hour, now)).toBe(null)
+  // The last hour's pace: 40% → 50% over 30 minutes runs out 2h30m on, before the reset at 3h.
+  const min = 60_000
+  let samples = addSample(undefined, 40, resets, now - 30 * min)
+  samples = addSample(samples, 50, resets, now)
+  expect(paceAt(samples, 50, resets, 5 * hour, now)).toBe(now + 150 * min)
+  // Idle for the half hour: it lasts. Under ten minutes of readings: the window's average.
+  expect(paceAt(addSample(addSample(undefined, 50, resets, now - 30 * min), 50, resets, now), 50, resets, 5 * hour, now)).toBe(null)
+  expect(paceAt(addSample(undefined, 60, resets, now), 60, resets, 5 * hour, now)).toBe(exhaustAt(60, resets, 5 * hour, now))
+  // A new window starts its readings over.
+  expect(addSample(samples, 1, resets + 5 * 3600, now).points).toEqual([[now, 1]])
 })
 
 test('extras fit the width: low parts drop, the row joins the last line when it fits', async () => {
@@ -274,6 +286,7 @@ test('extras fit the width: low parts drop, the row joins the last line when it 
   expect(narrow).toMatch(/Fix login │ /)
   expect(narrow).not.toMatch(/▁/)
   expect(text(extrasLine({ ...x, columns: 12 }))).toBe('✎ Fix login')
+  expect(text(extrasLine({ ...x, summary: null, budgetUsd: 0, week: null, compactLeft: 42_000 }))).toMatch(/42k/)
   const rows = [[{ text: 'a' }], [{ text: '◐ Read' }]]
   const extra = [{ text: '✎ x' }]
   expect(appendExtras(rows, extra, 80)).toEqual([[{ text: 'a' }], [{ text: '◐ Read' }, { text: ' │ ', dimColor: true }, { text: '✎ x' }]])
@@ -383,9 +396,13 @@ test('detail pane lists tool time and the spend history', async ($, on) => {
   on('tool.call', () => ({ result: 'ok', text: 'ok' }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.panes', () => ({ value: [] }))
+  on('turn.start', ($, e) => ({ turnId: e.turnId }))
+  on('turn.complete', ($, e) => ({ text: e.answer }))
   await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
   for (let i = 0; i < 30; i++) await clock.settle()
   await $.tool.call({ tool: 'Bash', input: { command: 'ls' }, tool_use_id: 'u1' } as never)
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  await $.turn.complete(DONE)
   const opened = await $.command.run({
     origin: { kind: 'composer' },
     presentation: { isFullscreen: false, columns: 120 },
@@ -404,6 +421,8 @@ test('detail pane lists tool time and the spend history', async ($, on) => {
     expect(await pane.find({ type: 'Text', text: 'Bash' })).toBeDefined()
     const shown = (await pane.findAll({ type: 'Text' })).map(t => t.text).join('')
     expect(/连续 2 天/.test(shown)).toBe(true)
+    expect(shown).toContain('最近几轮')
+    expect(/#1 · .* · 上下文 \+0/.test(shown)).toBe(true)
     await pane.unmount()
   }
 })
