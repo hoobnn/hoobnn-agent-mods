@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Mods for Claude Code: a claude-hud port, a Tailscale band, a Hitokoto band spinner animations and a task progress band",
-    "version": "0.3.0"
+    "version": "0.4.0"
   },
   "plugins": [
     {
       "name": "hud",
       "source": "./claude-code/hud",
       "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt, plus alerts, budget, history, a task summary, a detail pane and switchable themes",
-      "version": "0.8.0",
+      "version": "0.9.0",
       "category": "monitoring",
       "tags": [
         "hud",
@@ -25,7 +25,7 @@
       "name": "ts-band",
       "source": "./claude-code/ts-band",
       "description": "Tailscale nodes' state in a band above the prompt",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "category": "monitoring",
       "tags": [
         "tailscale",
@@ -37,7 +37,7 @@
       "name": "hitokoto",
       "source": "./claude-code/hitokoto",
       "description": "A line from Hitokoto (一言) in a band above the prompt, refreshed on a timer, per session, per prompt or once a day",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "category": "productivity",
       "tags": [
         "hitokoto",
@@ -49,7 +49,7 @@
       "name": "spinner",
       "source": "./claude-code/spinner",
       "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt (a shoot-em-up, Clawd, pixel homages and more), a finale and a pet that levels up, in fourteen themes",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "category": "productivity",
       "tags": [
         "spinner",
