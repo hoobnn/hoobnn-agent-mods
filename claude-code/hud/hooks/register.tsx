@@ -5,7 +5,7 @@
 import './shims/globals.js'
 
 import { atom, read, update } from 'claude-code'
-import type { Elements, Register, RenderElement, SessionRepo, SessionUsage, SessionVersion } from 'claude-code'
+import type { Elements, EngineInterface, Register, RenderElement, SessionRepo, SessionUsage, SessionVersion } from 'claude-code'
 
 import type { Fired, HudLine, Remote, StepInfo, ToolStats } from '../types'
 import { parseAnsi } from './ansi.js'
@@ -185,7 +185,22 @@ async function remoteControl(io: Io, id: string): Promise<string | null> {
   return null
 }
 
+/**
+ * A client known only by the messages it sends over Remote Control: the
+ * Claude app and claude.ai raise no `session.attach`.
+ */
+const BRIDGE = 'bridge'
+
+/** Marks the message-only client present when `origin` came over the bridge; true if that is news. */
+async function sawBridge($: EngineInterface, origin: { kind: string }): Promise<boolean> {
+  if (origin.kind !== 'bridge') return false
+  if ((await read($, remotes)).some(r => r.surface === BRIDGE)) return false
+  await update($, remotes, rs => [...rs.filter(r => r.surface !== BRIDGE), { id: BRIDGE, surface: BRIDGE }])
+  return true
+}
+
 function surfaceLabel(surface: string): string {
+  if (surface === BRIDGE) return m('surface.bridge')
   if (surface === 'mobile') return m('surface.mobile')
   if (surface === 'desktop') return m('surface.desktop')
   return surface === 'vscode' ? 'VS Code' : surface
@@ -193,7 +208,8 @@ function surfaceLabel(surface: string): string {
 
 /**
  * ` │ ⇄ Remote Control` (linked to the session on claude.ai), then who is attached
- * by surface (`phone · web/desktop×2`), or that it waits for a client.
+ * by surface (`phone · web/desktop×2`). A client that has not attached or sent
+ * a message is unknown, so nothing is said of one.
  */
 export function rcSpans(bridgeSessionId: string | null, attached: readonly Remote[]): HudLine {
   if (!bridgeSessionId) return []
@@ -201,10 +217,10 @@ export function rcSpans(bridgeSessionId: string | null, attached: readonly Remot
     { text: ' │ ' },
     { text: m('rc.label'), color: 'green', href: `https://claude.ai/code/${bridgeSessionId}` },
   ]
-  if (attached.length === 0) {
-    spans.push({ text: ` ${m('rc.waiting')}`, dimColor: true })
-    return spans
-  }
+  // A client that attached already names its surface; the message-only one adds nothing.
+  const named = attached.filter(r => r.surface !== BRIDGE)
+  if (named.length > 0) attached = named
+  if (attached.length === 0) return spans
   const counts = new Map<string, number>()
   for (const r of attached) {
     const label = surfaceLabel(r.surface)
@@ -592,7 +608,11 @@ export const register: Register = (on, options) => {
     // `--remote-control` connecting): a cheap read of the session file, a redraw on a change.
     $.clock.every(RC_POLL_MS, async () => {
       const bridge = await remoteControl(io, await $.session.id()).catch(() => live.bridgeSessionId)
-      if (bridge !== live.bridgeSessionId) schedule()
+      if (bridge !== live.bridgeSessionId) {
+        // A new bridge, or none: whoever wrote over the old one is not known to be there.
+        await update($, remotes, all => all.filter(r => r.surface !== BRIDGE))
+        schedule()
+      }
     })
 
     return next(e)
@@ -631,6 +651,16 @@ export const register: Register = (on, options) => {
     }
     schedule()
 
+    return next(e)
+  })
+
+  // Remote Control's clients are seen by what they send.
+  on('prompt.submit', async ($, e, next) => {
+    if (await sawBridge($, e.origin)) schedule()
+    return next(e)
+  })
+  on('command.run', async ($, e, next) => {
+    if (await sawBridge($, e.origin)) schedule()
     return next(e)
   })
 

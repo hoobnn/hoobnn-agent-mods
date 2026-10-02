@@ -201,10 +201,13 @@ test('rc label links the bridge session and names attached clients by surface', 
   expect(rcSpans('session_x', [])).toEqual([
     { text: ' │ ' },
     { text: '⇄ 远程控制', color: 'green', href: 'https://claude.ai/code/session_x' },
-    { text: ' 等待连接', dimColor: true },
   ])
   const attached = [phone, { id: 'w1', surface: 'desktop' }, { id: 'w2', surface: 'desktop' }]
   expect(rcSpans('session_x', attached).at(-1)).toEqual({ text: ' 已连接 手机 · 网页/桌面×2', color: 'cyan' })
+  // The Claude app over Remote Control is known only by its messages.
+  const bridge = { id: 'bridge', surface: 'bridge' }
+  expect(rcSpans('session_x', [bridge]).at(-1)).toEqual({ text: ' 已连接 手机/网页', color: 'cyan' })
+  expect(rcSpans('session_x', [bridge, phone]).at(-1)).toEqual({ text: ' 已连接 手机', color: 'cyan' })
 })
 
 test('rc state follows this session\'s entry in sessions/', async ($, on) => {
