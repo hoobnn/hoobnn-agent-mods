@@ -17,13 +17,21 @@ Mods, extensions and plugins for coding-agent harnesses, grouped by harness.
 | [`hud`](claude-code/hud) | [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt |
 | [`ts-band`](claude-code/ts-band) | Tailscale nodes' state in a band above the prompt |
 
-Load them in every session by naming their folders in `~/.claude/settings.json`:
+Install them from this repo's marketplace:
 
-```json
-{ "env": { "CLAUDE_CODE_PLUGIN_DIRS": "~/Code/personal/active/hoobnn-agent-mods/claude-code/hud:~/Code/personal/active/hoobnn-agent-mods/claude-code/ts-band" } }
+```sh
+claude plugin marketplace add hoobnn/hoobnn-agent-mods
+claude plugin install hud@hoobnn-agent-mods
+claude plugin install ts-band@hoobnn-agent-mods
 ```
 
-`scripts/check.sh` validates, tests and type-checks them; the mod API is early access, so run it after a Claude Code update.
+Options (`hud`'s `position`, `ts-band`'s `tailscalePath` and `intervalSeconds`, …) are rows in `/config`, or `pluginConfigs` in `~/.claude/settings.json`.
+
+### Developing
+
+- Run a working copy over the installed one: `claude --plugin-dir claude-code/<mod>` (watched: a save reloads the hooks module).
+- `scripts/check.sh` validates, tests and type-checks every mod; the mod API is early access, so run it after a Claude Code update too. `tsc` needs the types Claude Code lays in `.claude-plugin/types/` the first time it loads the mod.
+- Release: bump `version` in the mod's `plugin.json` and its entry in `.claude-plugin/marketplace.json`, commit, then `claude plugin tag claude-code/<mod> --push` (tags `<mod>--v<version>`). Installs pick it up with `claude plugin marketplace update hoobnn-agent-mods && claude plugin update <mod>@hoobnn-agent-mods`.
 
 ## License
 

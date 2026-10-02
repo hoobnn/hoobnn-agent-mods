@@ -7,8 +7,14 @@ import { parseStatus } from './parse'
 const snapshot = atom({ plugin: 'ts-band', key: 'snapshot' } as const, null)
 const isHidden = atom({ plugin: 'ts-band', key: 'isHidden' } as const, false)
 
-const TAILSCALE = '/usr/local/bin/tailscale'
-const INTERVAL_MS = 60_000
+// Where the CLI is looked for when the `tailscalePath` option is empty: PATH,
+// then the Homebrew and macOS app locations a GUI-started session's PATH may lack.
+const TAILSCALE_CANDIDATES = [
+  'tailscale',
+  '/usr/local/bin/tailscale',
+  '/opt/homebrew/bin/tailscale',
+  '/Applications/Tailscale.app/Contents/MacOS/Tailscale',
+]
 
 const LINK_LABEL = { direct: '直连', 'peer-relay': '中继', derp: 'DERP', offline: '离线' }
 
@@ -16,17 +22,35 @@ function linkText(node: Node): string {
   return node.link === 'derp' && node.via ? `DERP-${node.via}` : LINK_LABEL[node.link]
 }
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  const configuredPath = typeof options.tailscalePath === 'string' ? options.tailscalePath.trim() : ''
+  const candidates = configuredPath ? [configuredPath] : TAILSCALE_CANDIDATES
+  const intervalSeconds = typeof options.intervalSeconds === 'number' ? options.intervalSeconds : 60
+  const intervalMs = Math.max(10, intervalSeconds) * 1000
+
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'ts', description: '显示 / 隐藏 Tailscale 节点状态横条' })
+
+    // The first candidate that runs is kept for the session.
+    let tailscale: string | null = null
+    const status = async () => {
+      for (const candidate of tailscale ? [tailscale] : candidates) {
+        try {
+          const out = await $.process.run([candidate, 'status', '--json'], { timeoutMs: 10_000 })
+          tailscale = candidate
+          return out
+        } catch {
+          // Not found or hung: try the next location.
+        }
+      }
+      throw new Error(`tailscale not found (tried ${candidates.join(', ')})`)
+    }
 
     const refresh = async () => {
       const previous = await read($, snapshot)
       let fresh: Snapshot
       try {
-        const { exitCode, stdout, stderr } = await $.process.run([TAILSCALE, 'status', '--json'], {
-          timeoutMs: 10_000,
-        })
+        const { exitCode, stdout, stderr } = await status()
         fresh =
           exitCode === 0
             ? { nodes: parseStatus(stdout), checkedAt: await $.clock.now(), error: null }
@@ -46,8 +70,9 @@ export const register: Register = on => {
       await update($, snapshot, () => fresh)
     }
 
-    await refresh()
-    $.clock.every(INTERVAL_MS, () => void refresh())
+    // Not awaited: session.start holds the first prompt until it settles.
+    void refresh()
+    $.clock.every(intervalMs, () => void refresh())
 
     return next(e)
   })

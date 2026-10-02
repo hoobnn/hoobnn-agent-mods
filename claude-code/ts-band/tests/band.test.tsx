@@ -27,33 +27,53 @@ test('parses link kinds', async () => {
   expect(byName['home-router']?.link).toBe('peer-relay')
 })
 
-function host(on: On, run: () => { exitCode: number; stdout: string; stderr: string }) {
-  mock.clock(on)
+const SURFACES = ['terminal', 'desktop'] as const
+
+function host(on: On, run: (argv: readonly string[]) => { exitCode: number; stdout: string; stderr: string }) {
+  const clock = mock.clock(on)
   on('command.register', ($, e) => ({ value: { command: e.name } }))
-  on('process.run', () => ({ value: { ...run(), isStdoutTruncated: false, isStderrTruncated: false } }))
+  on('process.run', ($, e) => ({ value: { ...run(e.argv), isStdoutTruncated: false, isStderrTruncated: false } }))
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('ui.render', ($, e) => {
     const { Box } = $.ui.resolve(e)
     return <Box key="core" />
   })
+  return clock
 }
 
 const START = { cwd: '/tmp', surface: 'terminal', isInteractive: true } as const
 
-test('band shows nodes and online count', async ($, on) => {
-  host(on, () => ({ exitCode: 0, stdout: STATUS, stderr: '' }))
+test('band shows nodes and online count on every surface', async ($, on) => {
+  const clock = host(on, () => ({ exitCode: 0, stdout: STATUS, stderr: '' }))
   await $.session.start(START)
-  const ui = await $.ui.mount({ plugin: 'ts-band', surface: 'terminal', ...BAND })
-  expect(await ui.find({ type: 'Text', text: 'TS 3/4' })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: 'DERP-sfo' })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: '中继' })).toBeDefined()
-  await ui.unmount()
+  await clock.settle()
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ plugin: 'ts-band', surface, ...BAND })
+    expect(await ui.find({ type: 'Text', text: 'TS 3/4' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: 'DERP-sfo' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '中继' })).toBeDefined()
+    await ui.unmount()
+  }
 })
 
 test('band shows read error', async ($, on) => {
-  host(on, () => ({ exitCode: 1, stdout: '', stderr: 'not running' }))
+  const clock = host(on, () => ({ exitCode: 1, stdout: '', stderr: 'not running' }))
   await $.session.start(START)
-  const ui = await $.ui.mount({ plugin: 'ts-band', surface: 'terminal', ...BAND })
-  expect(await ui.find({ type: 'Text', text: 'not running' })).toBeDefined()
-  await ui.unmount()
+  await clock.settle()
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ plugin: 'ts-band', surface, ...BAND })
+    expect(await ui.find({ type: 'Text', text: 'not running' })).toBeDefined()
+    await ui.unmount()
+  }
+})
+
+test('tailscalePath option names the CLI', { options: { tailscalePath: '/opt/ts/tailscale' } }, async ($, on) => {
+  const seen: string[] = []
+  const clock = host(on, argv => {
+    seen.push(argv[0]!)
+    return { exitCode: 0, stdout: STATUS, stderr: '' }
+  })
+  await $.session.start(START)
+  await clock.settle()
+  expect(seen[0]).toBe('/opt/ts/tailscale')
 })

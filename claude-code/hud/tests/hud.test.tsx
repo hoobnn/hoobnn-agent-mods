@@ -108,7 +108,10 @@ test('https links ride on spans, file links drop', async () => {
   ])
 })
 
-test('band renders claude-hud lines from the session', async ($, on) => {
+const SURFACES = ['terminal', 'desktop'] as const
+const HINT = { component: 'PromptHint', props: { isDraft: false, isWorking: false, hint: '? for shortcuts' } } as const
+
+test('band renders claude-hud lines from the session on every surface', async ($, on) => {
   const clock = host(on)
   on('ui.render', ($, e) => {
     const { Box } = $.ui.resolve(e)
@@ -116,14 +119,36 @@ test('band renders claude-hud lines from the session', async ($, on) => {
   })
   await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
   for (let i = 0; i < 30; i++) await clock.settle()
-  const ui = await $.ui.mount({ plugin: 'hud', surface: 'terminal', ...BAND })
-  const shown = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
-  expect(/Opus 5\.5/.test(shown)).toBe(true)
-  expect(/proj git:\(main\*\)/.test(shown)).toBe(true)
-  expect(await ui.find({ type: 'Link' })).toBeDefined()
-  expect(/45k\/200k/.test(shown)).toBe(true)
-  expect(/25%/.test(shown)).toBe(true)
-  expect(/◐ Read/.test(shown)).toBe(true)
-  await ui.unmount()
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount({ plugin: 'hud', surface, ...BAND })
+    const shown = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
+    expect(/Opus 5\.5/.test(shown)).toBe(true)
+    expect(/proj git:\(main\*\)/.test(shown)).toBe(true)
+    expect(await ui.find({ type: 'Link' })).toBeDefined()
+    expect(/45k\/200k/.test(shown)).toBe(true)
+    expect(/25%/.test(shown)).toBe(true)
+    expect(/◐ Read/.test(shown)).toBe(true)
+    await ui.unmount()
+  }
+})
+
+test('position below draws under the prompt and leaves the band alone', { options: { position: 'below' } }, async ($, on) => {
+  const clock = host(on)
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text key="core">? for shortcuts</Text>
+  })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  for (let i = 0; i < 30; i++) await clock.settle()
+  for (const surface of SURFACES) {
+    const hint = await $.ui.mount({ plugin: 'hud', surface, ...HINT })
+    const shown = (await hint.findAll({ type: 'Text' })).map(t => t.text).join('')
+    expect(/Opus 5\.5/.test(shown)).toBe(true)
+    expect(/for shortcuts/.test(shown)).toBe(true)
+    await hint.unmount()
+    const band = await $.ui.mount({ plugin: 'hud', surface, ...BAND })
+    expect(await band.find({ type: 'Text', text: /Opus/ })).toBeUndefined()
+    await band.unmount()
+  }
 })
 

@@ -1,0 +1,37 @@
+{
+  "name": "hoobnn-agent-mods",
+  "owner": {
+    "name": "hoobnn",
+    "url": "https://github.com/hoobnn"
+  },
+  "metadata": {
+    "description": "Mods for Claude Code: a claude-hud port and a Tailscale band",
+    "version": "0.2.0"
+  },
+  "plugins": [
+    {
+      "name": "hud",
+      "source": "./claude-code/hud",
+      "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt",
+      "version": "0.2.0",
+      "category": "monitoring",
+      "tags": [
+        "hud",
+        "statusline",
+        "mod"
+      ]
+    },
+    {
+      "name": "ts-band",
+      "source": "./claude-code/ts-band",
+      "description": "Tailscale nodes' state in a band above the prompt",
+      "version": "0.2.0",
+      "category": "monitoring",
+      "tags": [
+        "tailscale",
+        "network",
+        "mod"
+      ]
+    }
+  ]
+}

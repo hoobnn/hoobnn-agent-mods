@@ -1,14 +1,31 @@
 {
   "name": "hud",
-  "version": "0.1.0",
-  "description": "claude-hud rebuilt as a mod: the same lines, drawn above the prompt",
+  "version": "0.2.0",
+  "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt",
+  "author": {
+    "name": "hoobnn",
+    "url": "https://github.com/hoobnn"
+  },
+  "homepage": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "repository": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "license": "MIT",
+  "keywords": [
+    "hud",
+    "statusline",
+    "context",
+    "usage",
+    "mod"
+  ],
   "types": "./types/index.d.ts",
   "userConfig": {
     "position": {
       "type": "string",
       "title": "Position",
       "description": "Where the HUD draws: above the prompt (a band) or below it (beside the hint line, where the statusline sat)",
-      "options": ["above", "below"],
+      "options": [
+        "above",
+        "below"
+      ],
       "default": "above"
     },
     "extraCmd": {

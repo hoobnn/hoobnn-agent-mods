@@ -1,1 +1,33 @@
-{ "name": "ts-band", "version": "0.1.0", "description": "Tailscale 节点状态横条", "types": "./types/index.d.ts" }
+{
+  "name": "ts-band",
+  "version": "0.2.0",
+  "description": "Tailscale nodes' state in a band above the prompt, with a toast when a node comes up or goes down",
+  "author": {
+    "name": "hoobnn",
+    "url": "https://github.com/hoobnn"
+  },
+  "homepage": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "repository": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "license": "MIT",
+  "keywords": [
+    "tailscale",
+    "network",
+    "band",
+    "mod"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "tailscalePath": {
+      "type": "string",
+      "title": "tailscale CLI",
+      "description": "Path to the tailscale CLI; empty looks on PATH, then Homebrew and the macOS app",
+      "default": ""
+    },
+    "intervalSeconds": {
+      "type": "number",
+      "title": "Refresh interval (s)",
+      "description": "Seconds between reads of tailscale status (at least 10)",
+      "default": 60
+    }
+  }
+}
