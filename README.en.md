@@ -16,7 +16,7 @@ Mods, extensions and plugins I've written for coding-agent harnesses, one folder
 
 | Mod | What it does |
 | --- | --- |
-| [`hud`](claude-code/hud) | [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, above or below the prompt. On top of that: a turn-done alert for long turns, context and limit alerts, a forecast of when a limit runs out, a daily budget, the last 7 days' spend, a nag about uncommitted changes, a one-line task summary and a `/hud detail` pane |
+| [`hud`](claude-code/hud) | [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, above or below the prompt. On top of that: a turn-done alert for long turns, context and limit alerts, a forecast of when a limit runs out, a daily budget, the last 7 days' spend, a nag about uncommitted changes, a one-line task summary, a `/hud detail` pane, and 12 themes to switch between live (neon, rainbow gradient, emoji, anime ones with a kaomoji mascot: sakura, kawaii, mecha, shonen; Nerd Font and powerline) |
 | [`ts-band`](claude-code/ts-band) | Tailscale node state in a band above the prompt: one short mark while every node is direct, otherwise only the nodes on a relay or DERP (yellow) or offline (red), with a toast when a node comes up or goes down |
 | [`hitokoto`](claude-code/hitokoto) | A line from [Hitokoto (一言)](https://hitokoto.cn) above the prompt, refreshed on a timer, once a day, per session or per prompt |
 
@@ -29,7 +29,7 @@ claude plugin install ts-band@hoobnn-agent-mods
 claude plugin install hitokoto@hoobnn-agent-mods
 ```
 
-Options (`hud`'s `position`, `dailyBudgetUsd` and `summaryEveryTurns`, `ts-band`'s `nodes` and `hideOffline`, `hitokoto`'s `refreshMode` and `categories`, …) are rows in `/config`, or `pluginConfigs` in `~/.claude/settings.json`. Each mod's folder has its own README with the details.
+Options (`hud`'s `position`, `theme`, `dailyBudgetUsd` and `summaryEveryTurns`, `ts-band`'s `nodes` and `hideOffline`, `hitokoto`'s `refreshMode` and `categories`, …) are rows in `/config`, or `pluginConfigs` in `~/.claude/settings.json`. Each mod's folder has its own README with the details.
 
 All three mods speak English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, Brazilian Portuguese and Russian. `hud` follows `language` in claude-hud's config; `ts-band` and `hitokoto` each have a `language` option whose default, `auto`, follows Claude Code's `language` setting, then the system locale, then English.
 

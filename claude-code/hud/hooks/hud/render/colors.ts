@@ -1,5 +1,6 @@
 import type { HudColorName, HudColorValue, HudColorOverrides, UsageValueMode } from '../config.js';
 import { isPaceAlert, type UsagePace } from '../usage-pace.js';
+import { glyph } from './theme.js';
 
 export const RESET = '\x1b[0m';
 
@@ -160,7 +161,7 @@ export function formatQuotaPercent(
   const color = getQuotaColor(percent, colors, pace);
   const displayPercent = mode === 'remaining' ? Math.max(0, 100 - percent) : percent;
   // The marker takes the pace's own colour, which the percent band may outrank.
-  const marker = isPaceAlert(pace) ? ` ${colorize('▲', getQuotaColor(0, colors, pace))}` : '';
+  const marker = isPaceAlert(pace) ? ` ${colorize(glyph('pace'), getQuotaColor(0, colors, pace))}` : '';
   return `${color}${displayPercent}%${RESET}${marker}`;
 }
 

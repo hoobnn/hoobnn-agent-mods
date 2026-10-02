@@ -7,6 +7,7 @@ import { outputStyle } from './derive.js';
 import { barLabel, type LabelAlign } from './labels.js';
 import { addedDirs, configCountParts } from './parts.js';
 import { formatAbsoluteTime, formatAgo, wallClock } from './time.js';
+import { iconLabel, glyph } from './theme.js';
 
 const MAX_NAMED_MCP_ERRORS = 3;
 
@@ -14,7 +15,7 @@ const MAX_NAMED_MCP_ERRORS = 3;
 function mcpErrors(f: Frame, names: string[]): string {
   const safe = names.map((name) => sanitizeDisplayText(name).trim().slice(0, 64)).filter(Boolean);
   const overflow = safe.length > MAX_NAMED_MCP_ERRORS ? ` +${safe.length - MAX_NAMED_MCP_ERRORS}` : '';
-  return critical(`⚠ ${safe.slice(0, MAX_NAMED_MCP_ERRORS).join(', ')}${overflow}`, f.config?.colors);
+  return critical(`${glyph('warning')} ${safe.slice(0, MAX_NAMED_MCP_ERRORS).join(', ')}${overflow}`, f.config?.colors);
 }
 
 /** Config counts, output style, and failing MCP servers. */
@@ -51,7 +52,7 @@ export function promptCacheLine(f: Frame): string | null {
     const until = formatAbsoluteTime(new Date(expiresAtMs), new Date(f.now), wallClock(display), 'format.untilTime');
     value = remainingMs <= warnMs ? warning(until, colors) : `${getContextColor(0, colors)}${until}${RESET}`;
   }
-  return `${label(t('label.promptCache'), colors)} ${value}`;
+  return `${label(iconLabel('label.promptCache', t('label.promptCache')), colors)} ${value}`;
 }
 
 export function cacheHitRateLine(f: Frame): string | null {

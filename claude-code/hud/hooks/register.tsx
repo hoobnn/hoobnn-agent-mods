@@ -31,6 +31,7 @@ import { setLanguage } from './hud/i18n/index.js'
 import type { GitRepoIdentity } from './hud/git.js'
 import { main } from './hud/index.js'
 import { setRenderSink } from './hud/render/index.js'
+import { setGlyphs } from './hud/render/theme.js'
 import { setTranscriptProvider } from './hud/transcript.js'
 import type { StdinData } from './hud/types.js'
 import { FIVE_HOUR_WINDOW_MS, SEVEN_DAY_WINDOW_MS } from './hud/usage-pace.js'
@@ -39,6 +40,7 @@ import { factsSummary, type Io, markStable, runWithFacts, setIo } from './shims/
 import { sysinfo } from './shims/os.js'
 import { basename, setCwdProvider } from './shims/path.js'
 import { m, money, summaryPrompt } from './i18n.js'
+import { applyPalette, applyTheme, findTheme, moodOf, THEMES, themeOverhead, type Theme } from './themes.js'
 import { pullTranscript, transcriptData, transcriptMeta } from './transcript-feed.js'
 
 const lines = atom({ plugin: 'hud', key: 'lines' } as const, [])
@@ -88,6 +90,17 @@ const live = {
   // This process's `sessions/<pid>.json`, found by session id.
   sessionFile: undefined as string | undefined,
   bridgeSessionId: null as string | null,
+  theme: THEMES[0]! as Theme,
+}
+
+/** Columns claude-hud and the extras row may fill, leaving room for the theme's span effects. */
+function fitColumns(): number | undefined {
+  return live.columns ? Math.max(20, live.columns - themeOverhead(live.theme)) : undefined
+}
+
+function useTheme(theme: Theme): void {
+  live.theme = theme
+  setGlyphs(theme.glyphs)
 }
 
 /** The session reads the stdin is built from, closed over `$` in session.start. */
@@ -370,7 +383,8 @@ export function cleanSummary(text: string, columns = SUMMARY_COLUMNS): string | 
 type Rendered = { rows: HudLine[]; stdin: StdinData; todayUsd: number | null }
 
 async function renderHud(io: Io, session: SessionApi): Promise<Rendered> {
-  if (live.columns) processShim.env.COLUMNS = String(live.columns)
+  const columns = fitColumns()
+  if (columns) processShim.env.COLUMNS = String(columns)
   const stdin = await buildStdin(io, session)
   live.lastStdin = stdin
   let out: string[] = []
@@ -413,7 +427,14 @@ export const register: Register = (on, options) => {
   // Claude Code lists running subagents itself, with their time and tokens; claude-hud's
   // agent lines would repeat them, so they show only when asked for.
   const showAgents = options.showAgents === true
-  setConfigPatch(config => (showAgents ? config : { ...config, display: { ...config.display, showAgents: false } }))
+  const hasMascot = options.showMascot !== false
+  // The /config option; a theme picked with `/hud theme` (kept in the store) wins over it.
+  const optionTheme = findTheme(options.theme) ?? THEMES[0]!
+  useTheme(optionTheme)
+  setConfigPatch(config => {
+    const themed = applyPalette(config, live.theme)
+    return showAgents ? themed : { ...themed, display: { ...themed.display, showAgents: false } }
+  })
   // Set in session.start: everything that outlives one dispatch calls the
   // engine through these closures.
   let refresh: () => Promise<void> = async () => {}
@@ -494,9 +515,11 @@ export const register: Register = (on, options) => {
           git: gitDirtyWarn > 0 || gitAheadWarn > 0 ? await gitCounts(io, stdin.cwd ?? '') : null,
           gitDirtyWarn,
           gitAheadWarn,
-          columns: live.columns,
+          columns: fitColumns(),
+          style: live.theme.extras,
+          mascot: hasMascot && live.theme.mascot ? live.theme.mascot[mood(stdin)] : null,
         })
-        const all = appendExtras(rows, extra, live.columns)
+        const all = applyTheme(appendExtras(rows, extra, fitColumns()), live.theme)
         live.lastLines = all.map(row => row.map(span => span.text).join(''))
         live.lastError = null
         await update($, lines, () => all)
@@ -525,6 +548,13 @@ export const register: Register = (on, options) => {
       const now = { context: context.fired, fiveHour: fiveHour.fired, sevenDay: sevenDay.fired }
       if (JSON.stringify(now) !== JSON.stringify(was)) await update($, fired, () => now)
     }
+    // The mascot's mood: the quota, the context, whether a tool is running.
+    const mood = (stdin: StdinData) => {
+      const limits = stdin.rate_limits
+      const usage = Math.max(limits?.five_hour?.used_percentage ?? 0, limits?.seven_day?.used_percentage ?? 0)
+      const tools = live.transcriptPath ? transcriptData(live.transcriptPath)?.tools ?? [] : []
+      return moodOf(stdin.context_window?.used_percentage, usage, tools.some(t => t.status === 'running'))
+    }
     // Today's spend into the history, and the store, which other sessions share.
     const recordSpend = async (now: number, todayUsd: number) => {
       const today = localDay(now)
@@ -542,10 +572,13 @@ export const register: Register = (on, options) => {
       await update($, history, () => pruneHistory(kept as Record<string, number>, today, HISTORY_DAYS))
     }
 
+    const keptTheme = findTheme(await $.store.get('theme'))
+    if (keptTheme) useTheme(keptTheme)
+
     await loadHostFacts(io, extraCmd)
     // claude-hud sets its language in each pass; the command's description is read before the first.
     await runWithFacts(async () => setLanguage((await loadConfig()).language))
-    await $.command.register({ name: 'hud', description: m('cmd.description'), argumentHint: '[detail]' })
+    await $.command.register({ name: 'hud', description: m('cmd.description'), argumentHint: '[detail | theme [name|next|reset]]' })
     if (isDebug) {
       await $.tool.register({
           name: 'hud_debug',
@@ -566,7 +599,20 @@ export const register: Register = (on, options) => {
   })
 
   on('command.run', { command: 'hud' }, async ($, e) => {
-    if (e.args.trim().toLowerCase() === 'detail') {
+    const [verb, arg = ''] = e.args.trim().toLowerCase().split(/\s+/)
+    if (verb === 'theme') {
+      const list = THEMES.map(t => `${t.name}${t.isNerdFont ? '*' : ''} ${t.sample}`).join(' · ')
+      if (!arg) return { text: m('theme.list', { name: live.theme.name, list }) }
+      const at = THEMES.indexOf(live.theme)
+      const picked = arg === 'next' ? THEMES[(at + 1) % THEMES.length] : arg === 'reset' ? optionTheme : findTheme(arg)
+      if (!picked) return { text: m('theme.unknown', { name: arg, list: THEMES.map(t => t.name).join(', ') }) }
+      if (arg === 'reset') await $.store.delete('theme')
+      else await $.store.set('theme', picked.name)
+      useTheme(picked)
+      schedule()
+      return { text: m('theme.set', { name: `${picked.name} ${picked.sample}` }) }
+    }
+    if (verb === 'detail') {
       if ((await $.ui.panes()).some(p => p.id === PANE)) {
         await $.ui.close({ id: PANE })
         return { text: m('pane.closed') }

@@ -5,6 +5,7 @@ import { FIVE_HOUR_WINDOW_MS, SEVEN_DAY_WINDOW_MS, resolveUsagePaces, type Usage
 import type { Frame, Layout } from './frame.js';
 import { critical, formatQuotaPercent, label, quotaBar } from './colors.js';
 import { barLabel, type LabelAlign } from './labels.js';
+import { glyph } from './theme.js';
 import { formatResetTime, formatWindowTime, limitTimeFormat, wallClock } from './time.js';
 
 interface UsageWindow {
@@ -56,11 +57,11 @@ function limitNotice(f: Frame): string {
   const resetAt = usage.fiveHour === 100 ? usage.fiveHourResetAt : usage.sevenDayResetAt;
   const reset = formatResetTime(resetAt, format, wallClock(display), f.now);
   if (display?.usageCompact) {
-    return critical(`⚠ Limit${reset ? ` (${reset})` : ''}`, f.config?.colors);
+    return critical(`${glyph('warning')} Limit${reset ? ` (${reset})` : ''}`, f.config?.colors);
   }
   const resetsKey = format === 'absolute' ? 'format.resets' : 'format.resetsIn';
   const suffix = reset ? ((display?.showResetLabel ?? true) ? ` (${t(resetsKey)} ${reset})` : ` (${reset})`) : '';
-  return critical(`⚠ ${t('status.limitReached')}${suffix}`, f.config?.colors);
+  return critical(`${glyph('warning')} ${t('status.limitReached')}${suffix}`, f.config?.colors);
 }
 
 /**

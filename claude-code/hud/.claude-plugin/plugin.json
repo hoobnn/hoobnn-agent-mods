@@ -1,7 +1,7 @@
 {
   "name": "hud",
-  "version": "0.6.0",
-  "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, plus alerts, budget, history, a task summary and a detail pane",
+  "version": "0.7.0",
+  "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, plus alerts, budget, history, a task summary, a detail pane and switchable themes",
   "author": {
     "name": "hoobnn",
     "url": "https://github.com/hoobnn"
@@ -27,6 +27,32 @@
         "below"
       ],
       "default": "above"
+    },
+    "theme": {
+      "type": "string",
+      "title": "Theme",
+      "description": "The HUD's look: palette, icons and separators (neon, rainbow, emoji, sakura, kawaii, mecha, shonen, tokyo-night, matrix; nerd and powerline need a Nerd Font). /hud theme switches it live",
+      "options": [
+        "classic",
+        "neon",
+        "rainbow",
+        "emoji",
+        "sakura",
+        "kawaii",
+        "mecha",
+        "shonen",
+        "tokyo-night",
+        "matrix",
+        "nerd",
+        "powerline"
+      ],
+      "default": "classic"
+    },
+    "showMascot": {
+      "type": "boolean",
+      "title": "Theme mascot",
+      "description": "Show the anime themes' kaomoji mascot (sakura, kawaii, mecha, shonen), whose face follows the context and quota",
+      "default": true
     },
     "extraCmd": {
       "type": "string",

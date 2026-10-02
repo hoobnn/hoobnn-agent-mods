@@ -11,6 +11,7 @@ import type { Frame, Layout } from './frame.js';
 import { custom, dim, label, model as modelColor, project as projectColor } from './colors.js';
 import { claudeCodeVersion, effort, sessionCostUsd, sessionDuration, sessionName } from './derive.js';
 import { vcsPart } from './vcs.js';
+import { glyph, iconLabel, prefix } from './theme.js';
 
 /** A first-line part; `key` lets projectLineOrder move it, null keeps its slot. */
 export interface Part {
@@ -38,7 +39,7 @@ export function modelBadge(f: Frame): string {
     const shown = display.providerName?.trim() || provider;
     text = shown ? `${shown} | ${core}` : core;
   }
-  return modelColor(`[${text}]`, f.config?.colors);
+  return modelColor(`${prefix('model')}${glyph('modelOpen')}${text}${glyph('modelClose')}`, f.config?.colors);
 }
 
 /** An untrusted cwd shown with the configured number of trailing segments, on POSIX and Windows. */
@@ -88,7 +89,7 @@ export function projectParts(f: Frame, layout: Layout): string[] {
   const colors = f.config?.colors;
   let project: string | null = null;
   if (display?.showProject !== false && f.stdin.cwd) {
-    const text = projectColor(formatProjectPath(f.stdin.cwd, f.config?.pathLevels ?? 1), colors);
+    const text = projectColor(prefix('project') + formatProjectPath(f.stdin.cwd, f.config?.pathLevels ?? 1), colors);
     project = layout === 'expanded' ? safeHyperlink(getFileHref(f.stdin.cwd), text) : text;
   }
   if (layout === 'expanded' && display?.showAddedDirs !== false && (display?.addedDirsLayout ?? 'inline') === 'inline') {
@@ -140,7 +141,7 @@ export function versionPart(f: Frame): string | null {
 
 export function durationPart(f: Frame): string | null {
   const duration = f.config?.display?.showDuration === true ? sessionDuration(f) : '';
-  return labeled(f, duration && `⏱ ${duration}`);
+  return labeled(f, duration && `${prefix('duration')}${duration}`);
 }
 
 export function extraPart(f: Frame): string | null {
@@ -152,7 +153,7 @@ export function costPart(f: Frame): string | null {
   const display = f.config?.display;
   const costUsd = display?.showCost === true ? sessionCostUsd(f) : null;
   const parts = [
-    costUsd !== null ? `${t('label.cost')} ${formatUsd(costUsd)}` : null,
+    costUsd !== null ? `${iconLabel('label.cost', t('label.cost'))} ${formatUsd(costUsd)}` : null,
     display?.showDailyCost === true && f.costTotals ? `${t('label.today')} ${formatUsd(f.costTotals.todayUsd)}` : null,
     display?.showWeeklyCost === true && f.costTotals?.weekUsd != null ? `${t('label.week')} ${formatUsd(f.costTotals.weekUsd)}` : null,
   ].filter(Boolean);

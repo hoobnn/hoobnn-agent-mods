@@ -159,6 +159,20 @@ export type ExtrasInput = {
   gitAheadWarn: number
   /** The row's width; parts that do not fit leave it, least important first. */
   columns?: number
+  /** The theme's glyphs and colors for the row; claude-hud's look when absent. */
+  style?: ExtrasStyle
+  /** The theme mascot's face, first in the row. */
+  mascot?: string | null
+}
+
+export type ExtrasStyle = {
+  summary?: string
+  warning?: string
+  summaryColor?: string
+  forecastColor?: string
+  weekColor?: string
+  warningColor?: string
+  mascotColor?: string
 }
 
 const SEPARATOR = ' │ '
@@ -169,16 +183,18 @@ const lineWidth = (spans: HudLine) => spans.reduce((sum, span) => sum + textWidt
 export function extrasLine(x: ExtrasInput): HudLine {
   // Kept in display order; `rank` is what goes last when the row is too wide.
   const parts: { spans: HudLine; rank: number }[] = []
-  if (x.summary) parts.push({ spans: [{ text: `✎ ${x.summary}`, color: 'cyan' }], rank: 3 })
+  const style = x.style ?? {}
+  if (x.mascot) parts.push({ spans: [{ text: x.mascot, color: style.mascotColor ?? style.summaryColor ?? 'cyan', bold: true }], rank: -1 })
+  if (x.summary) parts.push({ spans: [{ text: `${style.summary ?? '✎'} ${x.summary}`, color: style.summaryColor ?? 'cyan' }], rank: 3 })
   for (const { label, at } of x.exhaust) {
-    parts.push({ spans: [{ text: m('forecast', { label, time: clockTime(at) }), color: 'magenta' }], rank: 2 })
+    parts.push({ spans: [{ text: m('forecast', { label, time: clockTime(at) }), color: style.forecastColor ?? 'magenta' }], rank: 2 })
   }
   if (x.budgetUsd > 0 && x.todayUsd !== null) parts.push({ spans: budgetSpans(x.todayUsd, x.budgetUsd), rank: 1 })
   if (x.week && x.week.values.some(v => v > 0)) {
     parts.push({
       spans: [
         { text: `${m('week')} `, dimColor: true },
-        { text: sparkline(x.week.values), color: 'blue' },
+        { text: sparkline(x.week.values), color: style.weekColor ?? 'blue' },
         ...(x.week.streak > 1 ? [{ text: ` ${m('streak', { n: x.week.streak })}`, dimColor: true }] : []),
       ],
       rank: 0,
@@ -187,7 +203,7 @@ export function extrasLine(x: ExtrasInput): HudLine {
   const nags: string[] = []
   if (x.git && x.gitDirtyWarn > 0 && x.git.dirty >= x.gitDirtyWarn) nags.push(m('git.dirty', { n: x.git.dirty }))
   if (x.git && x.gitAheadWarn > 0 && x.git.ahead >= x.gitAheadWarn) nags.push(m('git.ahead', { n: x.git.ahead }))
-  if (nags.length > 0) parts.push({ spans: [{ text: `⚠ ${nags.join(' · ')}`, color: 'yellow' }], rank: 4 })
+  if (nags.length > 0) parts.push({ spans: [{ text: `${style.warning ?? '⚠'} ${nags.join(' · ')}`, color: style.warningColor ?? 'yellow' }], rank: 4 })
 
   const join = (kept: typeof parts) =>
     kept.flatMap((part, i) => (i === 0 ? part.spans : [{ text: SEPARATOR, dimColor: true }, ...part.spans]))

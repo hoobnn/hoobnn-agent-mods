@@ -1,5 +1,5 @@
 import type { On } from 'claude-code'
-import { expect, mock, test } from 'claude-code/testing'
+import { type Engine, expect, mock, test } from 'claude-code/testing'
 
 import { parseAnsi } from '../hooks/ansi'
 import {
@@ -19,6 +19,8 @@ import {
 import { setLanguage } from '../hooks/hud/i18n/index'
 import { MESSAGES, m, money } from '../hooks/i18n'
 import { cleanSummary, rcSpans } from '../hooks/register'
+import { DEFAULT_CONFIG, mergeConfig } from '../hooks/hud/config'
+import { applyPalette, applyTheme, findTheme, gradientAt, moodOf, THEMES } from '../hooks/themes'
 
 const HOME = '/home/u'
 const CWD = '/home/u/proj'
@@ -59,9 +61,10 @@ let contextPercent = 23
 // Each command's description, as the mod registered it.
 const registered: string[] = []
 
-function host(on: On, stored: Record<string, unknown> = {}) {
+function host(on: On, stored: Record<string, unknown> | null = {}) {
   const clock = mock.clock(on, { now: Date.parse('2026-10-02T06:01:00Z') })
-  mock.store(on, stored)
+  // null: the test answers the store itself.
+  if (stored) mock.store(on, stored)
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   const stat = (path: string) => {
     if (path in FILES) return { kind: 'file' as const, size: FILES[path]!.length, mtimeMs: 1, isLink: false, realPath: path }
@@ -446,7 +449,7 @@ test('the band follows claude-hud\'s language', async ($, on) => {
     registered.length = 0
     await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
     for (let i = 0; i < 30; i++) await clock.settle()
-    expect(registered[0]).toBe('claude-hud-Leiste ein- oder ausblenden; detail öffnet den Detailbereich')
+    expect(registered[0]).toBe('claude-hud-Leiste ein- oder ausblenden; detail öffnet den Detailbereich; theme wechselt das Design')
     const ui = await $.ui.mount({ plugin: 'hud', surface: 'terminal', ...BAND })
     const shown = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
     expect(/Kontext/.test(shown)).toBe(true)
@@ -469,4 +472,133 @@ test('showAgents brings claude-hud\'s subagent lines back', { options: { showAge
   const shown = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
   expect(/Map the repo/.test(shown)).toBe(true)
   await ui.unmount()
+})
+
+const COMMAND = { origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 120 }, command: 'hud' } as const
+
+async function bandText($: Engine): Promise<string> {
+  const ui = await $.ui.mount({ plugin: 'hud', surface: 'terminal', ...BAND })
+  const shown = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
+  await ui.unmount()
+  return shown
+}
+
+test('the theme option swaps glyphs and palette, and the anime mascot joins', { options: { theme: 'sakura' } }, async ($, on) => {
+  const clock = host(on)
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box key="core" />
+  })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  for (let i = 0; i < 30; i++) await clock.settle()
+  const ui = await $.ui.mount({ plugin: 'hud', surface: 'terminal', ...BAND })
+  const shown = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
+  expect(/🌸Opus 5\.5/.test(shown) || /🌸 Opus 5\.5/.test(shown)).toBe(true)
+  expect(/🍡 main\*/.test(shown)).toBe(true)
+  expect(/git:\(/.test(shown)).toBe(false)
+  expect(/💗 上下文/.test(shown)).toBe(true)
+  expect(/ ✿ /.test(shown)).toBe(true)
+  // A tool is running in the transcript: the mascot is busy.
+  expect(shown.includes('(๑•̀ㅂ•́)و✧')).toBe(true)
+  await ui.unmount()
+})
+
+test('/hud theme lists, switches, persists and resets the theme', async ($, on) => {
+  const kept: Record<string, unknown> = {}
+  on('store.get', ($, e) => ({ value: kept[e.key] }))
+  on('store.set', ($, e) => {
+    kept[e.key] = e.value
+    return { value: undefined }
+  })
+  on('store.delete', ($, e) => {
+    delete kept[e.key]
+    return { value: undefined }
+  })
+  const clock = host(on, null)
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box key="core" />
+  })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  for (let i = 0; i < 30; i++) await clock.settle()
+  expect(/proj git:\(main\*\)/.test(await bandText($))).toBe(true)
+  const listed = await $.command.run({ ...COMMAND, args: 'theme' })
+  expect(listed.text!.startsWith('HUD 主题（当前 classic）')).toBe(true)
+  expect(listed.text!.includes('powerline*')).toBe(true)
+  const unknown = await $.command.run({ ...COMMAND, args: 'theme nope' })
+  expect(unknown.text!.startsWith('没有名为 nope 的主题')).toBe(true)
+  const set = await $.command.run({ ...COMMAND, args: 'theme emoji' })
+  expect(set.text!.startsWith('HUD 主题：emoji')).toBe(true)
+  await clock.advance(1_000)
+  for (let i = 0; i < 30; i++) await clock.settle()
+  const emoji = await bandText($)
+  expect(/🤖 Opus/.test(emoji) && /📂 proj 🌿 main/.test(emoji) && /⏳ Read/.test(emoji)).toBe(true)
+  expect(kept.theme).toBe('emoji')
+  await $.command.run({ ...COMMAND, args: 'theme next' })
+  expect(kept.theme).toBe('sakura')
+  await $.command.run({ ...COMMAND, args: 'theme reset' })
+  expect('theme' in kept).toBe(false)
+  await clock.advance(1_000)
+  for (let i = 0; i < 30; i++) await clock.settle()
+  expect(/proj git:\(main\*\)/.test(await bandText($))).toBe(true)
+})
+
+test('a theme kept in the store wins over the option', { options: { theme: 'neon' } }, async ($, on) => {
+  const clock = host(on, { theme: 'mecha' })
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box key="core" />
+  })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  for (let i = 0; i < 30; i++) await clock.settle()
+  const shown = await bandText($)
+  expect(/◢UNIT·Opus 5\.5/.test(shown) || /◢ UNIT·Opus 5\.5/.test(shown)).toBe(true)
+  expect(/ ┃ /.test(shown)).toBe(true)
+})
+
+test('powerline puts segments on backgrounds joined by caps, two cells wider', async () => {
+  const theme = findTheme('powerline')!
+  const [row] = applyTheme([[{ text: 'a', color: 'cyan' }, { text: ' │ ', dimColor: true }, { text: 'bc' }]], theme)
+  expect(row!.map(s => s.text).join('')).toBe(' a \ue0b0 bc \ue0b0')
+  expect(row![0]!.backgroundColor).toBe('#313244')
+  expect(row![3]).toEqual({ text: '\ue0b0', color: '#313244', backgroundColor: '#45475a' })
+  expect(row![row!.length - 1]).toEqual({ text: '\ue0b0', color: '#45475a' })
+  // The rule between the HUD's parts stays bare.
+  expect(applyTheme([[{ text: '────', dimColor: true }]], theme)).toEqual([[{ text: '────', dimColor: true }]])
+})
+
+test('gradient bars keep warning colors; moods follow the gauges', async () => {
+  const theme = findTheme('rainbow')!
+  const [calm] = applyTheme([[{ text: 'x' }, { text: '███', color: '#38ef7d' }, { text: '░', dimColor: true }]], theme)
+  expect(calm!.slice(1, 4).map(s => s.color)).toEqual([gradientAt(theme.gradient!, 0), gradientAt(theme.gradient!, 1 / 3), gradientAt(theme.gradient!, 2 / 3)])
+  const hot = [{ text: 'x' }, { text: '███', color: '#ff0844' }]
+  expect(applyTheme([hot], theme)[0]!.slice(0, 2)).toEqual(hot)
+  expect(gradientAt(['#000000', '#ffffff'], 0.5)).toBe('#808080')
+  expect([moodOf(10, 0, false), moodOf(10, 0, true), moodOf(75, 0, false), moodOf(90, 0, true), moodOf(10, 100, false)])
+    .toEqual(['calm', 'busy', 'worried', 'panic', 'out'])
+  expect(new Set(THEMES.map(t => t.name)).size).toBe(THEMES.length)
+  // No emoji that needs U+FE0F, which the renderer misjudges.
+  expect(THEMES.some(t => JSON.stringify(t).includes('\ufe0f'))).toBe(false)
+})
+
+test('the palette fills claude-hud\'s default colors and leaves the person\'s own', async () => {
+  const neon = findTheme('neon')!
+  const themed = applyPalette(mergeConfig({}), neon)
+  expect([themed.colors.model, themed.colors.custom, themed.colors.label, themed.colors.barFilled]).toEqual(['#00e5ff', '#ff9e00', '#5c6b8a', '▰'])
+  const own = applyPalette(mergeConfig({ colors: { ...DEFAULT_CONFIG.colors, model: 'red', barFilled: '#' } }), neon)
+  expect([own.colors.model, own.colors.barFilled, own.colors.project]).toEqual(['red', '#', '#ff2bd6'])
+  expect(applyPalette(mergeConfig({}), findTheme('classic')!).colors).toEqual(mergeConfig({}).colors)
+})
+
+test('the mascot leaves a narrow extras row before the warning does', async () => {
+  setLanguage('en')
+  try {
+    const row = extrasLine({
+      summary: null, exhaust: [], todayUsd: null, budgetUsd: 0, week: null,
+      git: { dirty: 30, ahead: 0 }, gitDirtyWarn: 20, gitAheadWarn: 0, columns: 26, mascot: '(◕‿◕)♡',
+    })
+    expect(row.map(s => s.text).join('')).toBe('⚠ 30 uncommitted changes')
+  } finally {
+    setLanguage('zh-Hans')
+  }
 })

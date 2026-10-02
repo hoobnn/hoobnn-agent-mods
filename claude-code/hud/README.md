@@ -15,10 +15,12 @@ claude-hud 0.10.0 rebuilt as a Claude Code mod: the same lines, drawn below the 
   - `transcript.ts`: `Parser` is exported and `setTranscriptProvider` lets the mod answer `parseTranscript`.
   - `git-runner.ts`: git runs through `$.process.run`; the Windows worker is gone.
   - `config.ts`: the bounded config read is one `readFileSync`; O_NOFOLLOW becomes an lstat check.
+  - `render/theme.ts` (new): the glyphs claude-hud writes (`[` `]`, `git:(`, `◐ ✓ ▸`, `⚠ ▲`, `⏱`, `↑↓`, `⎇`) and a glyph before the Context, Usage, Weekly, cache and cost labels, read through `glyph()` / `iconLabel()` in `parts.ts`, `vcs.ts`, `activity.ts`, `usage.ts`, `lines.ts`, `labels.ts` and `colors.ts`. Its defaults are upstream's, so with no `setGlyphs` the output is unchanged.
   - `claude-config-dir.ts`: `getHudCacheDir` (`plugins/claude-hud-mod`), used by `speed.ts` and `daily-cost.ts`, so caches never collide with a statusline copy.
 - `hooks/shims/`: the Node APIs claude-hud imports, over `$`. Synchronous reads answer from facts fetched before the pass; a miss is fetched and the pass re-run (`host.ts`). Writes are held and written once a pass completes.
 - `hooks/ansi.ts`: SGR escapes to styled spans.
 - `hooks/i18n.ts`: the mod's own strings in every language claude-hud has, with plural forms, money and percent written as each language writes them.
+- `hooks/themes.ts`: the themes (palette, glyphs, separator, extras colors, powerline, gradient, mascot) and the span effects that apply them.
 - `hooks/extras.ts`: what the mod adds (below), as pure helpers: thresholds, the usage forecast, the spend history, the git counts, the extras row and the chime.
 
 ## Config
@@ -27,6 +29,30 @@ Language: claude-hud's own `language` (`en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `
 
 
 claude-hud's own files: `~/.claude/plugins/claude-hud/config.json` and `~/.claude/claude-hud.json`, so `/claude-hud:configure` keeps working. Mod options (`/config`, or `pluginConfigs.hud.options` in settings): `position` (`below` the prompt, or `above` it as a band), `extraCmd` (claude-hud's `--extra-cmd`), `debug` (registers `mcp__hud__hud_debug`), and the options of the additions below.
+
+## Themes
+
+`theme` (in `/config`, default `classic`: claude-hud's own look) or `/hud theme <name>` live; `/hud theme` lists them with a sample, `/hud theme next` cycles, `/hud theme reset` goes back to the `/config` one. A theme picked with `/hud theme` is kept in the mod's store and wins over the option.
+
+| Theme | Look |
+| --- | --- |
+| `classic` | claude-hud as it ships |
+| `neon` | cyberpunk: neon truecolor, `⬢ ◆ ◈ ⚡`, `▰▱` bars, ` ❯ ` separators |
+| `rainbow` | a hue per element, filled bar cells and the model name along a rainbow gradient |
+| `emoji` | `🤖 📂 🌿 🧠 ⚡ 📅 ⏳ ✅` |
+| `sakura` | pastel pink, `🌸 🎀 🍡 💗`, `✿` bars, a kaomoji mascot `(◕‿◕)♡` |
+| `kawaii` | pastel, `「Opus」`, `●○` bars, a cat mascot `ฅ^•ω•^ฅ` |
+| `mecha` | purple, green and orange, `UNIT·Opus◤`, `SYNC` / `PWR` gauges, a robot mascot `[•_•]` |
+| `shonen` | red-orange-gold, `🔥 ⭐ 🍥 💥`, gradient bars, a mascot `(ง •̀_•́)ง` |
+| `tokyo-night` | the Tokyo Night palette, quiet glyphs |
+| `matrix` | green on black, `▮▯` bars, ` ┊ ` separators |
+| `nerd` | Nerd Font symbols (needs a Nerd Font) |
+| `powerline` | Nerd Font symbols on powerline segments (needs a Nerd Font) |
+
+- Palette: the theme's colors go over claude-hud's `colors`; a color set in claude-hud's own config (off its default) stays.
+- Mascot (`showMascot`, on): the anime themes put a face first in the extras row: calm, busy while a tool runs, worried from 70% context (or 90% quota), panicking from 85%, knocked out when a limit is reached.
+- Width: glyphs are drawn by claude-hud, so its wrapping measures them; separators are no wider than ` │ `; powerline adds 2 cells to a row, taken off the columns claude-hud and the extras row fit to. Emoji are default-presentation ones only (no U+FE0F).
+- Known limit: claude-hud keeps a `[Model | Provider]` badge (Bedrock, Vertex) whole by its leading `[`; themes that drop the brackets lose that, so at a narrow width such a badge can wrap at ` | `.
 
 ## Derived rather than reported
 
@@ -43,7 +69,7 @@ Claude Code's statusline stdin carries these; the mod API does not, so the mod w
 
 - Remote Control: ` │ ⇄ 远程控制` at the end of the first line while the session's Remote Control is on, linked to the session on claude.ai, then `等待连接` or the attached clients by surface (`已连接 手机 · 网页/桌面×2`). The engine records the bridge as `bridgeSessionId` in `~/.claude/sessions/<pid>.json` (found by session id) and the mod API does not report it, so the file is read every 3 s and the HUD redrawn on a change; clients and their surfaces come from `session.attach` / `session.detach`.
 
-- An extras row: appended to claude-hud's last line when both fit the width, else a line of its own under it; parts that do not fit leave it, the 7-day sparkline first and the `⚠` git warning last. Each part shows only when it has something to say:
+- An extras row: appended to claude-hud's last line when both fit the width, else a line of its own under it; parts that do not fit leave it, a theme's mascot first, then the 7-day sparkline, and the `⚠` git warning last. Each part shows only when it has something to say:
   - `✎` the task in one line: a `$.model.fork` of the conversation (served from the prompt cache) after the first turn and every `summaryEveryTurns` turns (default 5; 0 off).
   - Usage forecast (`showForecast`): when the 5-hour or 7-day limit runs out at the rate used so far, if that comes before it resets.
   - Today's spend across sessions against `dailyBudgetUsd` (0 off), from claude-hud's daily-cost ledger; yellow from 80%, red past it.
@@ -63,4 +89,4 @@ Claude Code's statusline stdin carries these; the mod API does not, so the mod w
 
 ## Updating from upstream
 
-Copy the new `src/` over `hooks/hud/` (minus `windows-git-worker.ts`), re-point `node:*` imports at `../shims/*.js` (`node:fs/promises` at `fs_promises.js`), re-apply the changes listed above, then run `scripts/check.sh claude-code/hud` from the repo root. Compare against upstream by feeding the stdin `mcp__hud__hud_debug` reports to `node <claude-hud>/dist/index.js`.
+Copy the new `src/` over `hooks/hud/` (minus `windows-git-worker.ts`), re-point `node:*` imports at `../shims/*.js` (`node:fs/promises` at `fs_promises.js`), re-apply the changes listed above (re-route any new hardcoded glyph through `render/theme.ts`), then run `scripts/check.sh claude-code/hud` from the repo root. Compare against upstream by feeding the stdin `mcp__hud__hud_debug` reports to `node <claude-hud>/dist/index.js`.

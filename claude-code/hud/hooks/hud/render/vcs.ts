@@ -5,11 +5,12 @@ import type { Frame, Layout } from './frame.js';
 import { critical, dim, git as gitColor, gitBranch, green, red, warning, yellow } from './colors.js';
 import { getFileHref, safeHyperlink } from '../utils/hyperlinks.js';
 import { sanitizeDisplayText } from '../utils/sanitize.js';
+import { glyph } from './theme.js';
 
 function aheadCount(f: Frame, ahead: number): string {
   const config = f.config.gitStatus ?? DEFAULT_CONFIG.gitStatus;
   const colors = f.config?.colors;
-  const value = `↑${ahead}`;
+  const value = `${glyph('ahead')}${ahead}`;
   if (config.pushCriticalThreshold > 0 && ahead >= config.pushCriticalThreshold) return critical(value, colors);
   if (config.pushWarningThreshold > 0 && ahead >= config.pushWarningThreshold) return warning(value, colors);
   return gitBranch(value, colors);
@@ -34,7 +35,7 @@ export function vcsPart(f: Frame, layout: Layout): string | null {
 
   if (!isJj && git.showAheadBehind) {
     if (status.ahead > 0) inner.push(aheadCount(f, status.ahead));
-    if (status.behind > 0) inner.push(gitBranch(`↓${status.behind}`, colors));
+    if (status.behind > 0) inner.push(gitBranch(`${glyph('behind')}${status.behind}`, colors));
   }
   if (!isJj && git.showFileStats) {
     if (layout === 'expanded' && status.lineDiff) {
@@ -53,8 +54,9 @@ export function vcsPart(f: Frame, layout: Layout): string | null {
   if (isJj && jj.showConflicts && status.conflict === true) inner.push(critical('!conflict', colors));
 
   const worktreeName = !isJj && git.showWorktree ? sanitizeDisplayText(f.stdin.workspace?.git_worktree ?? '').trim() : '';
-  const worktree = worktreeName ? ` ${gitColor(`⎇ ${worktreeName}`, colors)}` : '';
-  return `${gitColor(isJj ? 'jj:(' : 'git:(', colors)}${inner.join(' ')}${gitColor(')', colors)}${worktree}`;
+  const worktree = worktreeName ? ` ${gitColor(`${glyph('worktree')} ${worktreeName}`, colors)}` : '';
+  const close = glyph('gitClose');
+  return `${gitColor(glyph(isJj ? 'jjOpen' : 'gitOpen'), colors)}${inner.join(' ')}${close ? gitColor(close, colors) : ''}${worktree}`;
 }
 
 function insideCwd(cwd: string, candidate: string): string | null {

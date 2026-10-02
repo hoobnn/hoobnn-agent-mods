@@ -4,6 +4,7 @@ import { sanitizeDisplayText } from '../utils/sanitize.js';
 import { truncateString } from '../utils/truncate.js';
 import type { Frame } from './frame.js';
 import { cyan, green, label, magenta, yellow } from './colors.js';
+import { glyph } from './theme.js';
 
 export type ActivityElement = 'tools' | 'skills' | 'mcp' | 'agents' | 'todos';
 
@@ -43,7 +44,7 @@ function toolsLine(f: Frame): string | null {
     .slice(-2)
     .map((tool) => {
       const target = tool.target ? ` ${label(shortenPath(tool.target, [f.stdin.cwd, f.stdin.workspace?.project_dir]), colors)}` : '';
-      return `${yellow('◐')} ${cyan(shortenToolName(tool.name, maxLength))}${target}`;
+      return `${yellow(glyph('running'))} ${cyan(shortenToolName(tool.name, maxLength))}${target}`;
     });
 
   const counts = new Map<string, number>();
@@ -53,7 +54,7 @@ function toolsLine(f: Frame): string | null {
   const sorted = [...counts].sort((a, b) => b[1] - a[1]);
   const visible = maxVisible === 0 ? sorted : sorted.slice(0, maxVisible);
   for (const [name, count] of visible) {
-    parts.push(`${green('✓')} ${shortenToolName(name, maxLength)} ${label(`×${count}`, colors)}`);
+    parts.push(`${green(glyph('done'))} ${shortenToolName(name, maxLength)} ${label(`×${count}`, colors)}`);
   }
   if (sorted.length > visible.length) parts.push(label(`+${sorted.length - visible.length} more`, colors));
   return parts.length > 0 ? parts.join(' | ') : null;
@@ -71,7 +72,7 @@ function namesLine(f: Frame, title: string, names: string[], maxVisible: number)
   if (safe.length === 0) return null;
   const shown = (maxVisible === 0 ? safe : safe.slice(0, maxVisible)).map((name) => cyan(name));
   if (safe.length > shown.length) shown.push(label(`+${safe.length - shown.length} more`, colors));
-  return `${green('✓')} ${title} ${label(`(${safe.length})`, colors)}: ${shown.join(', ')}`;
+  return `${green(glyph('done'))} ${title} ${label(`(${safe.length})`, colors)}: ${shown.join(', ')}`;
 }
 
 const MAX_AGENTS = 3;
@@ -119,7 +120,7 @@ function agentsLine(f: Frame): string | null {
 
   const clean = (value: unknown, max: number): string => (typeof value === 'string' ? truncateString(sanitizeDisplayText(value).trim(), max) : '');
   return shown.map((agent) => {
-    const icon = agent.status === 'running' ? yellow('◐') : green('✓');
+    const icon = agent.status === 'running' ? yellow(glyph('running')) : green(glyph('done'));
     const model = shortModel(agent.model);
     const description = clean(agent.description, 40);
     return `${icon} ${magenta(clean(agent.type, 24) || 'agent')}${model ? ` ${label(`[${model}]`, colors)}` : ''}`
@@ -135,8 +136,8 @@ function todosLine(f: Frame): string | null {
   const completed = todos.filter((todo) => todo.status === 'completed').length;
   const progress = label(`(${completed}/${todos.length})`, colors);
   const current = todos.find((todo) => todo.status === 'in_progress');
-  if (current) return `${yellow('▸')} ${truncateString(sanitizeDisplayText(current.content), 50)} ${progress}`;
-  return completed === todos.length ? `${green('✓')} ${t('status.allTodosComplete')} ${progress}` : null;
+  if (current) return `${yellow(glyph('todo'))} ${truncateString(sanitizeDisplayText(current.content), 50)} ${progress}`;
+  return completed === todos.length ? `${green(glyph('done'))} ${t('status.allTodosComplete')} ${progress}` : null;
 }
 
 export function activityLine(f: Frame, element: ActivityElement): string | null {

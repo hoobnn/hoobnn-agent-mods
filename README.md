@@ -16,7 +16,7 @@
 
 | Mod | 作用 |
 | --- | --- |
-| [`hud`](claude-code/hud) | 把 [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 改成 mod，显示模型、项目、git、上下文、用量、工具、子代理和待办，可以放在输入框上方或下方。另外加了：长任务结束提醒、上下文和额度预警、用量耗尽预测、每日预算、近 7 天花费、未提交改动提醒、一行任务摘要，以及 `/hud detail` 详情面板 |
+| [`hud`](claude-code/hud) | 把 [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 改成 mod，显示模型、项目、git、上下文、用量、工具、子代理和待办，可以放在输入框上方或下方。另外加了：长任务结束提醒、上下文和额度预警、用量耗尽预测、每日预算、近 7 天花费、未提交改动提醒、一行任务摘要，`/hud detail` 详情面板，以及 12 套可随时切换的主题（科技霓虹、彩虹渐变、emoji、樱花 / 猫咪 / 机甲 / 热血等带颜文字看板娘的动漫风、Nerd Font 与 powerline） |
 | [`ts-band`](claude-code/ts-band) | 在输入框上方显示 Tailscale 节点状态：全部直连时只占一个短标记，有节点走中继 / DERP（黄）或离线（红）时只列出这些节点；节点上线或掉线时弹提示 |
 | [`hitokoto`](claude-code/hitokoto) | 在输入框上方显示一句[一言](https://hitokoto.cn)，可以定时换、每天一句、每个会话一句或每次发消息换一句 |
 
@@ -29,7 +29,7 @@ claude plugin install ts-band@hoobnn-agent-mods
 claude plugin install hitokoto@hoobnn-agent-mods
 ```
 
-选项（`hud` 的 `position`、`dailyBudgetUsd`、`summaryEveryTurns`，`ts-band` 的 `nodes`、`hideOffline`，`hitokoto` 的 `refreshMode`、`categories` 等）都能在 `/config` 里改，也可以写在 `~/.claude/settings.json` 的 `pluginConfigs` 里。每个 mod 的完整说明见各自目录下的 README（英文）。
+选项（`hud` 的 `position`、`theme`、`dailyBudgetUsd`、`summaryEveryTurns`，`ts-band` 的 `nodes`、`hideOffline`，`hitokoto` 的 `refreshMode`、`categories` 等）都能在 `/config` 里改，也可以写在 `~/.claude/settings.json` 的 `pluginConfigs` 里。每个 mod 的完整说明见各自目录下的 README（英文）。
 
 三个 mod 都支持英语、简体中文、繁体中文、日语、韩语、西班牙语、法语、德语、巴西葡萄牙语和俄语。`hud` 跟随 claude-hud 配置里的 `language`；`ts-band` 和 `hitokoto` 有各自的 `language` 选项，默认 `auto`，依次跟随 Claude Code 的 `language` 设置、系统语言环境，都没有时用英语。
 
