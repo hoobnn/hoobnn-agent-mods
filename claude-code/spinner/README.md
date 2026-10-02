@@ -38,11 +38,12 @@ Every theme's mascot, stage and companion in one still: [assets/gallery.png](ass
 
 ## Commands
 
-`/spinner` shows the theme, the companion's level and affection and the theme list; `/spinner <theme>` or `/spinner random` switches live, `/spinner preview [theme]` plays a scene above the prompt for eight seconds, `/spinner pet` pats the companion, `/spinner off` / `on` turns everything off and on, `/spinner stage off` / `on` the scene alone, `/spinner companion off` / `on` the companion alone. What `/spinner` sets it writes to the options below (`theme`, `visible`, `stage`, `companion`), so `/config` shows it and it is kept across sessions; the change applies at once, and the mod reloads with it. A `random` theme keeps the one it drew for the session through those reloads.
+`/spinner` shows the theme, the companion's level and affection and the theme list; `/spinner <theme>` or `/spinner random` switches live, `/spinner theme` asks which in a dialog (random and three themes offered, any other typed under Other), `/spinner preview [theme]` plays a scene above the prompt for eight seconds, `/spinner pet` pats the companion, `/spinner off` / `on` turns everything off and on, `/spinner stage off` / `on` the scene alone, `/spinner companion off` / `on` the companion alone. What `/spinner` sets it writes to the options below (`theme`, `visible`, `stage`, `companion`), so `/config` shows it and it is kept across sessions; the change applies at once, and the mod reloads with it. A `random` theme keeps the one it drew for the session through those reloads.
 
 ## Options
 
-- `visible`: the animations at all (default on; `/spinner off` / `on`).
+- `visible`: the animations at all (default on; `/spinner off` / `on`, or the **Spinner** button in the prompt footer).
+- `footerButton`: that button in the prompt footer (default on).
 - `theme`: the theme (default `random`; `/spinner <theme>` sets it).
 - `stage`: the animated scene above the prompt (default on).
 - `celebrate`: the finale when a turn ends (default on).

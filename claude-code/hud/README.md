@@ -35,11 +35,11 @@ claude-hud 0.10.0 rebuilt as a Claude Code mod: the same lines, drawn below the 
 
 Language: claude-hud's own `language` (`en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`, `pt-BR`, `ru`) in its config file sets the whole HUD, what the mod adds included (alerts, the extras row, the detail pane, `/hud`, the task summary).
 
-claude-hud's own files: `~/.claude/plugins/claude-hud/config.json` and `~/.claude/claude-hud.json`, so `/claude-hud:configure` keeps working. Mod options (`/config`, or `pluginConfigs.hud.options` in settings): `visible` (`/hud` toggles it, `/hud off` / `on` set it; kept across sessions), `position` (`below` the prompt, or `above` it as a band), `extraCmd` (claude-hud's `--extra-cmd`), `debug` (registers `mcp__hud__hud_debug`), and the options of the additions below.
+claude-hud's own files: `~/.claude/plugins/claude-hud/config.json` and `~/.claude/claude-hud.json`, so `/claude-hud:configure` keeps working. Mod options (`/config`, or `pluginConfigs.hud.options` in settings): `visible` (`/hud` toggles it, `/hud off` / `on` set it, and so does the **HUD** button in the prompt footer; kept across sessions), `footerButton` (that button, on by default), `position` (`below` the prompt, or `above` it as a band), `extraCmd` (claude-hud's `--extra-cmd`), `debug` (registers `mcp__hud__hud_debug`), and the options of the additions below.
 
 ## Themes
 
-`theme` (in `/config`, default `classic`: claude-hud's own look) or `/hud theme <name>` live; `/hud theme` lists them with a sample, `/hud theme next` cycles, `/hud theme reset` goes back to `classic`. `/hud theme` writes the `theme` option, so `/config` shows it and it is kept across sessions (a theme an older version kept in the mod's store moves there once).
+`theme` (in `/config`, default `classic`: claude-hud's own look) or `/hud theme <name>` live; `/hud theme` alone asks which in a dialog (the next four offered, any other typed under Other; dismissed, or under `-p`, it lists them with a sample), `/hud theme next` cycles, `/hud theme reset` goes back to `classic`. `/hud theme` writes the `theme` option, so `/config` shows it and it is kept across sessions (a theme an older version kept in the mod's store moves there once).
 
 | Theme | Look |
 | --- | --- |

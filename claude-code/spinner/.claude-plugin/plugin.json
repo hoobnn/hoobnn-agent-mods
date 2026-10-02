@@ -24,6 +24,12 @@
       "description": "The animations at all: the mascot, the band and the companion (/spinner off and /spinner on change this too)",
       "default": true
     },
+    "footerButton": {
+      "type": "boolean",
+      "title": "Footer button",
+      "description": "A Spinner button in the prompt footer that turns the animations off and on, as /spinner off and /spinner on do",
+      "default": true
+    },
     "theme": {
       "type": "string",
       "title": "Theme",

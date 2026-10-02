@@ -689,3 +689,33 @@ test('/hud theme with no name asks, and the answer switches like /hud theme <nam
   answer = null
   expect((await $.command.run({ ...COMMAND, args: 'theme' })).text!.startsWith('HUD 主题（当前 kawaii）')).toBe(true)
 })
+
+test('the footer button hides and shows the HUD, keeping the modes beneath it', async ($, on) => {
+  const clock = host(on)
+  on('ui.render', ($, e) => {
+    const { Box, Text } = $.ui.resolve(e)
+    return e.component === 'SessionMode' ? <Text key="mode">focus</Text> : <Box key="core" />
+  })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  for (let i = 0; i < 30; i++) await clock.settle()
+  const footer = await $.ui.mount({ plugin: 'hud', surface: 'terminal', component: 'SessionMode', props: { modes: ['focus'] } })
+  expect(await footer.find({ type: 'Button', key: 'hud-toggle' })).toBeDefined()
+  expect(await footer.find({ type: 'Text', text: 'focus' })).toBeDefined()
+  await footer.press({ key: 'hud-toggle' })
+  expect(await bandText($)).not.toContain('proj')
+  await footer.press({ key: 'hud-toggle' })
+  expect(rows).toEqual([['hud.visible', false], ['hud.visible', true]])
+  await footer.unmount()
+})
+
+test('footerButton off leaves the footer to the engine', { options: { footerButton: false } }, async ($, on) => {
+  host(on)
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text key="mode">focus</Text>
+  })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  const footer = await $.ui.mount({ plugin: 'hud', surface: 'terminal', component: 'SessionMode', props: { modes: ['focus'] } })
+  expect(await footer.find({ type: 'Button', key: 'hud-toggle' })).toBeUndefined()
+  await footer.unmount()
+})

@@ -363,6 +363,21 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // A button in the prompt footer: `/spinner off` / `on`. Mode labels other plugins add stay beside it.
+  if (config.hasFooterButton) {
+    on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
+      const hidden = await read($, isHidden)
+      const below = await next(e)
+      const { Box, Button } = $.ui.resolve(e)
+      return (
+        <Box flexDirection="row" alignItems="center" gap={1}>
+          <Button key="spinner-toggle" plain dimColor={hidden} label="Spinner" onPress={() => setSwitch($, 'visible', hidden)} />
+          {below}
+        </Box>
+      )
+    })
+  }
+
   on('ui.render', { component: 'Spinner' }, async ($, e, next) => {
     // One mascot at a time: with the companion's row showing, it stays there.
     if ((await read($, isHidden)) || !(await read($, isCompanionOff))) return next(e)

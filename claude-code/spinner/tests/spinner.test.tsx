@@ -371,3 +371,21 @@ test('random keeps the theme it drew this session across a reload', async ($, on
   await clock.settle()
   expect((await $.command.run({ ...RUN, command: 'spinner', args: '' })).text?.split('\n')[0]).toBe(first)
 })
+
+test('the footer button turns the animations off and on, keeping the modes beneath it', async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  const footer = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', component: 'SessionMode', props: { modes: ['focus'] } })
+  expect(await footer.find({ type: 'Button', key: 'spinner-toggle' })).toBeDefined()
+  await footer.press({ key: 'spinner-toggle' })
+  const band = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...IDLE })
+  expect(await band.findAll({ type: 'Client' })).toHaveLength(0)
+  await band.unmount()
+  await footer.press({ key: 'spinner-toggle' })
+  expect(rows).toEqual([
+    ['spinner.visible', false],
+    ['spinner.visible', true],
+  ])
+  await footer.unmount()
+})

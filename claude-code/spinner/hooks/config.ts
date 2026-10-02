@@ -13,6 +13,8 @@ export type Config = {
   /** A theme, or `random` for a new one each session. */
   theme: Choice
   isVisible: boolean
+  /** A Spinner button in the prompt footer. */
+  hasFooterButton: boolean
   hasStage: boolean
   hasFinale: boolean
   hasCompanion: boolean
@@ -24,6 +26,7 @@ export function readConfig(options: PluginOptions): Config {
   return {
     theme: oneOf(options.theme, CHOICES, 'random'),
     isVisible: flag(options.visible, true),
+    hasFooterButton: flag(options.footerButton, true),
     hasStage: flag(options.stage, true),
     hasFinale: flag(options.celebrate, true),
     hasCompanion: flag(options.companion, true),

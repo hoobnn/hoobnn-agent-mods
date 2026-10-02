@@ -117,6 +117,15 @@ async function setTheme($: EngineInterface, picked: Theme, schedule: () => void)
   return { text: m('theme.set', { name: `${picked.name} ${picked.sample}` }) }
 }
 
+/** `/hud [off|on]`: the HUD hidden or shown (no verb toggles), its row written when it changed. */
+async function setHidden($: EngineInterface, verb: string, schedule: () => void): Promise<boolean> {
+  const was = await read($, isHidden)
+  const hidden = await update($, isHidden, v => switchArg(verb, v))
+  if (hidden !== was) await persist(prefsOf($), 'visible', !hidden)
+  schedule()
+  return hidden
+}
+
 // Before 0.8 a theme picked with `/hud theme` was kept in the store; it is the `theme` row now.
 const STORE_MOVES = { theme: (kept: unknown) => (findTheme(kept) ? (['theme', findTheme(kept)!.name] as const) : null) }
 
@@ -326,13 +335,25 @@ export const register: Register = (on, options) => {
       await $.ui.open({ id: PANE, title: m('pane.title') })
       return { text: m('pane.opened') }
     }
-    const was = await read($, isHidden)
-    const hidden = await update($, isHidden, v => switchArg(verb, v))
-    if (hidden !== was) await persist(prefsOf($), 'visible', !hidden)
-    schedule()
+    const hidden = await setHidden($, verb, schedule)
 
     return { text: m(hidden ? 'cmd.hidden' : 'cmd.shown') }
   })
+
+  // A button in the prompt footer: what `/hud` alone does. Mode labels other plugins add stay beside it.
+  if (config.hasFooterButton) {
+    on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
+      const hidden = await read($, isHidden)
+      const below = await next(e)
+      const { Box, Button } = $.ui.resolve(e)
+      return (
+        <Box flexDirection="row" alignItems="center" gap={1}>
+          <Button key="hud-toggle" plain dimColor={hidden} label="HUD" onPress={() => setHidden($, '', schedule)} />
+          {below}
+        </Box>
+      )
+    })
+  }
 
   on('session.attach', async ($, e, next) => {
     if (e.surface !== 'terminal') {

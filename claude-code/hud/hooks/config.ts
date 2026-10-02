@@ -8,6 +8,8 @@ import { findTheme, THEMES, type Theme } from './themes.js'
 
 export type Config = {
   isVisible: boolean
+  /** A HUD button in the prompt footer. */
+  hasFooterButton: boolean
   position: 'above' | 'below'
   theme: Theme
   hasMascot: boolean
@@ -33,6 +35,7 @@ export type Config = {
 export function readConfig(options: PluginOptions): Config {
   return {
     isVisible: flag(options.visible, true),
+    hasFooterButton: flag(options.footerButton, true),
     position: oneOf(options.position, ['above', 'below'], 'above'),
     theme: findTheme(options.theme) ?? THEMES[0]!,
     hasMascot: flag(options.showMascot, true),
