@@ -365,10 +365,10 @@ export const register: Register = (on, options) => {
   const isDebug = options.debug === true
   const position = options.position === 'below' ? 'below' : 'above'
   const num = (value: unknown, fallback: number) => (typeof value === 'number' && Number.isFinite(value) ? value : fallback)
-  const notifyMs = Math.max(0, num(options.notifyAfterSeconds, 60)) * 1000
+  const notifyMs = Math.max(0, num(options.notifyAfterSeconds, 0)) * 1000
   const hasChime = options.notifySound !== false
-  const contextThresholds = parseThresholds(typeof options.contextAlerts === 'string' ? options.contextAlerts : '80,90')
-  const usageThresholds = parseThresholds(typeof options.usageAlerts === 'string' ? options.usageAlerts : '80,90')
+  const contextThresholds = parseThresholds(typeof options.contextAlerts === 'string' ? options.contextAlerts : '')
+  const usageThresholds = parseThresholds(typeof options.usageAlerts === 'string' ? options.usageAlerts : '')
   const hasForecast = options.showForecast !== false
   const budgetUsd = Math.max(0, num(options.dailyBudgetUsd, 0))
   const hasHistory = options.showHistory !== false

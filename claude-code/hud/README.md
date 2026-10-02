@@ -42,8 +42,8 @@ Claude Code's statusline stdin carries these; the mod API does not, so the mod w
   - Today's spend across sessions against `dailyBudgetUsd` (0 off), from claude-hud's daily-cost ledger; yellow from 80%, red past it.
   - The last 7 days' spend as a sparkline and the streak of days in use (`showHistory`), kept in the mod's store for 60 days.
   - `⚠` uncommitted paths at or past `gitDirtyWarn` (default 20) and unpushed commits at or past `gitAheadWarn` (default 5); 0 turns either off.
-- Alerts: a toast when context use reaches each of `contextAlerts` (default `80,90`), and the 5-hour or 7-day limit each of `usageAlerts`; once per threshold, again only after the gauge drops 5 points below it (a `/compact`, a reset).
-- Turn done: a turn of the main thread that ran `notifyAfterSeconds` or longer (default 60; 0 off) ends with a toast and, with `notifySound`, a short chime (macOS).
+- Alerts (off by default): a toast when context use reaches each of `contextAlerts` (e.g. `80,90`), and the 5-hour or 7-day limit each of `usageAlerts`; once per threshold, again only after the gauge drops 5 points below it (a `/compact`, a reset).
+- Turn done: a turn of the main thread that ran `notifyAfterSeconds` or longer (default 0, off; e.g. 60) ends with a toast and, with `notifySound`, a short chime (macOS).
 - `/hud detail` opens (and closes) a pane: each tool's calls, total and average time and failures this session; subagents; todos; today's and the week's spend.
 
 ## Not carried over

@@ -1,6 +1,6 @@
 {
   "name": "hud",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, plus alerts, budget, history, a task summary and a detail pane",
   "author": {
     "name": "hoobnn",
@@ -43,8 +43,8 @@
     "notifyAfterSeconds": {
       "type": "number",
       "title": "Notify after (s)",
-      "description": "Toast (and chime) when a turn that ran at least this long ends; 0 turns it off",
-      "default": 60
+      "description": "Toast (and chime) when a turn that ran at least this long ends; 0 (the default) turns it off",
+      "default": 0
     },
     "notifySound": {
       "type": "boolean",
@@ -55,14 +55,14 @@
     "contextAlerts": {
       "type": "string",
       "title": "Context alerts (%)",
-      "description": "Toast when context use reaches each of these percents, comma separated; empty turns it off",
-      "default": "80,90"
+      "description": "Toast when context use reaches each of these percents, comma separated (e.g. 80,90); empty (the default) turns it off",
+      "default": ""
     },
     "usageAlerts": {
       "type": "string",
       "title": "Usage alerts (%)",
-      "description": "Toast when the 5-hour or 7-day limit reaches each of these percents; empty turns it off",
-      "default": "80,90"
+      "description": "Toast when the 5-hour or 7-day limit reaches each of these percents (e.g. 80,90); empty (the default) turns it off",
+      "default": ""
     },
     "showForecast": {
       "type": "boolean",

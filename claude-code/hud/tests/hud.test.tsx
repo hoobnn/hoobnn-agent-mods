@@ -261,7 +261,7 @@ test('history helpers: sparkline, streak, git counts, summary', async () => {
 
 const DONE = { answer: 'ok', durationMs: 90_000, isAborted: false, turnId: 't1', reason: 'answer' } as const
 
-test('a long turn toasts and chimes, then the summary joins the HUD', async ($, on) => {
+test('a long turn toasts and chimes, then the summary joins the HUD', { options: { notifyAfterSeconds: 60 } }, async ($, on) => {
   const clock = host(on)
   on('ui.render', ($, e) => {
     const { Box } = $.ui.resolve(e)
@@ -299,7 +299,7 @@ test('a long turn toasts and chimes, then the summary joins the HUD', async ($, 
   await ui.unmount()
 })
 
-test('context crossing a threshold toasts once', { options: { notifyAfterSeconds: 0 } }, async ($, on) => {
+test('context crossing a threshold toasts once', { options: { contextAlerts: '80,90' } }, async ($, on) => {
   contextPercent = 85
   try {
     const clock = host(on)
@@ -347,5 +347,25 @@ test('detail pane lists tool time and the spend history', async ($, on) => {
     const shown = (await pane.findAll({ type: 'Text' })).map(t => t.text).join('')
     expect(/连续 2 天/.test(shown)).toBe(true)
     await pane.unmount()
+  }
+})
+
+test('alerts and the turn-done toast are off by default', async ($, on) => {
+  contextPercent = 95
+  try {
+    const clock = host(on)
+    const toasts: string[] = []
+    on('ui.toast', ($, e) => {
+      toasts.push(e.text)
+      return { value: undefined }
+    })
+    on('turn.complete', ($, e) => ({ text: e.answer }))
+    await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+    for (let i = 0; i < 30; i++) await clock.settle()
+    await $.turn.complete({ ...DONE, durationMs: 600_000 })
+    for (let i = 0; i < 30; i++) await clock.settle()
+    expect(toasts).toEqual([])
+  } finally {
+    contextPercent = 23
   }
 })
