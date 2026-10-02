@@ -51,12 +51,24 @@ export interface GitStatusOptions {
 
 const QUIET = ['-c', 'core.quotePath=false', '--no-optional-locks'];
 
+// hud mod: the last status read, for the mod's own dirty/ahead warnings, which
+// would otherwise run the same `git status` again in the same pass.
+let lastStatus: { cwd: string; output: string } | null = null;
+
+/** The `git status --porcelain=v2 --branch -z` read since the last call, for `cwd`, once. */
+export function takeGitStatus(cwd: string): string | null {
+  const last = lastStatus;
+  lastStatus = null;
+  return last && last.cwd === cwd ? last.output : null;
+}
+
 export async function getGitStatus(cwd?: string, options: GitStatusOptions = {}): Promise<GitStatus | null> {
   if (!cwd) return null;
 
   let output: string;
   try {
     output = await runGit(cwd, [...QUIET, 'status', '--porcelain=v2', '--branch', '-z'], 1000);
+    lastStatus = { cwd, output };
   } catch (err) {
     debug('git status failed:', err instanceof Error ? err.message : err);
     return err instanceof GitTimeoutError ? getBranchOnly(cwd, options.repo) : null;

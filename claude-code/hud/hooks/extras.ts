@@ -119,17 +119,25 @@ export function pruneHistory(history: History, today: string, keepDays: number):
   return Object.fromEntries(Object.entries(history).filter(([day]) => day > oldest))
 }
 
-/** `git status --porcelain=v2 --branch` → changed paths and commits ahead of upstream. */
+/**
+ * `git status --porcelain=v2 --branch` (lines, or `-z` records) → changed paths
+ * and commits ahead of upstream.
+ */
 export function parseGitStatus(stdout: string): { dirty: number; ahead: number } {
+  const isZ = stdout.includes('\0')
+  const records = stdout.split(isZ ? '\0' : '\n')
   let dirty = 0
   let ahead = 0
-  for (const line of stdout.split('\n')) {
-    if (!line) continue
-    if (line.startsWith('#')) {
-      const ab = /^# branch\.ab \+(\d+) -\d+/.exec(line)
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i]!
+    if (!record) continue
+    if (record.startsWith('#')) {
+      const ab = /^# branch\.ab \+(\d+) -\d+/.exec(record)
       if (ab) ahead = Number(ab[1])
     } else {
       dirty++
+      // Under -z a rename or copy is followed by its original path, a record of its own.
+      if (isZ && record.startsWith('2 ')) i++
     }
   }
   return { dirty, ahead }

@@ -276,7 +276,7 @@ export const register: Register = (on, options) => {
     await loadHostFacts(io, config.extraCmd)
     // claude-hud sets its language in each pass; the command's description is read before the first.
     await runWithFacts(async () => setLanguage((await loadConfig()).language))
-    await $.command.register({ name: 'hud', description: m('cmd.description'), argumentHint: '[off|on | detail | theme [name|next|reset]]' })
+    await $.command.register({ name: 'hud', description: m('cmd.description'), argumentHint: '[off|on | detail | theme [name|next|reset]]', immediate: true })
     if (config.isDebug) {
       await $.tool.register({
         name: 'hud_debug',
@@ -386,6 +386,13 @@ export const register: Register = (on, options) => {
     await alert($, gaugesOf(e), config.contextAlerts, config.usageAlerts)
     schedule()
     return next(e)
+  })
+
+  // A compaction empties the context: the gauge drops now, not at the next tick.
+  on('session.compact', async ($, e, next) => {
+    const result = await next(e)
+    if (e.agentId === undefined) schedule()
+    return result
   })
 
   // spinner's pet came, went or changed: whether it fits is decided again.

@@ -94,6 +94,29 @@ test('band shows read error', async ($, on) => {
   }
 })
 
+test('a failed read keeps the nodes and backs off', { options: { intervalSeconds: 10 } }, async ($, on) => {
+  let isUp = true
+  let calls = 0
+  const clock = host(on, () => {
+    calls += 1
+    return isUp ? { exitCode: 0, stdout: STATUS, stderr: '' } : { exitCode: 1, stdout: '', stderr: 'not running' }
+  })
+  await $.session.start(START)
+  await clock.settle()
+  isUp = false
+  await clock.advance(10_000)
+  const ui = await $.ui.mount({ plugin: 'ts-band', surface: 'terminal', ...BAND })
+  expect(await ui.find({ type: 'Text', text: 'TS 3/4' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'not running' })).toBeDefined()
+  await ui.unmount()
+  // After a failure the next read waits two intervals, then four.
+  const failed = calls
+  await clock.advance(10_000)
+  expect(calls).toBe(failed)
+  await clock.advance(10_000)
+  expect(calls).toBe(failed + 1)
+})
+
 test('tailscalePath option names the CLI', { options: { tailscalePath: '/opt/ts/tailscale' } }, async ($, on) => {
   const seen: string[] = []
   const clock = host(on, argv => {

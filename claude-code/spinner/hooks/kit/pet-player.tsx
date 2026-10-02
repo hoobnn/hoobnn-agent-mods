@@ -5,25 +5,36 @@ import type { ClientModule } from 'claude-code'
 
 import type { DockPet } from '../../types'
 
-type State = { t: number; id: string }
+/** The frame shown, as `state`: a redraw only when it changes. */
+type State = number
+
+/** Each instance's tick and latest pet: the clock's callback outlives the props it began with. */
+const players = new WeakMap<object, { t: number; pet: DockPet }>()
+
+const frameAt = (pet: DockPet, t: number) => pet.order[t % pet.order.length] ?? 0
 
 const PetPlayer: ClientModule<DockPet, State> = (pet, surface) => {
   const { Box, Text } = surface.elements
-  if (surface.state === undefined) {
+  let player = players.get(surface)
+  if (player === undefined) {
+    player = { t: 0, pet }
+    players.set(surface, player)
+    const p = player
+    // Ticks go on all the time; most of an idle loop repeats one frame, which costs no redraw.
     surface.every(pet.ms, () => {
-      const s = surface.state ?? { t: 0, id: pet.id }
-      surface.setState({ ...s, t: s.t + 1 })
+      const was = frameAt(p.pet, p.t)
+      p.t += 1
+      const now = frameAt(p.pet, p.t)
+      if (now !== was) surface.setState(now)
     })
     surface.onPointer(event => {
       if (event.type === 'down') surface.post({ pat: true })
     })
-    surface.setState({ t: 0, id: pet.id })
   }
-  const s = surface.state ?? { t: 0, id: pet.id }
   // A new pet (another state, a pat) plays from its first frame.
-  const t = s.id === pet.id ? s.t : 0
-  if (s.id !== pet.id) surface.setState({ t: 0, id: pet.id })
-  const rows = pet.frames[pet.order[t % pet.order.length] ?? 0] ?? []
+  if (player.pet.id !== pet.id) player.t = 0
+  player.pet = pet
+  const rows = pet.frames[frameAt(pet, player.t)] ?? []
 
   return (
     <Box flexDirection="column">

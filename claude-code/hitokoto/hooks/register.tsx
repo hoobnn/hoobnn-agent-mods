@@ -17,6 +17,8 @@ const isPicking = atom({ plugin: 'hitokoto', key: 'isPicking' } as const, false)
 
 // How often daily mode looks whether the date has turned.
 const DAY_CHECK_MS = 10 * 60_000
+// A request that has not answered by then counts as failed.
+const FETCH_TIMEOUT_MS = 10_000
 
 /** The kit's hold on this mod's store and `/config` rows. */
 function prefsOf($: EngineInterface): Prefs {
@@ -27,10 +29,25 @@ function prefsOf($: EngineInterface): Prefs {
   }
 }
 
+// One request at a time: a slow API or a burst of prompts never stacks them up.
+let inFlight: Promise<string | null> | null = null
+
 // A failed fetch keeps the line already shown; the error goes back to /hitokoto.
-async function refresh($: EngineInterface, url: string): Promise<string | null> {
+function refresh($: EngineInterface, url: string): Promise<string | null> {
+  inFlight ??= request($, url).finally(() => {
+    inFlight = null
+  })
+  return inFlight
+}
+
+async function request($: EngineInterface, url: string): Promise<string | null> {
   try {
-    const { ok, status, text } = await $.http.fetch(url)
+    const timeout = $.clock.sleep(FETCH_TIMEOUT_MS).then(() => null)
+    const response = await Promise.race([$.http.fetch(url), timeout])
+    if (response === null) {
+      return `timed out after ${FETCH_TIMEOUT_MS / 1000}s`
+    }
+    const { ok, status, text } = response
     if (!ok) {
       return `HTTP ${status}`
     }
@@ -39,6 +56,7 @@ async function refresh($: EngineInterface, url: string): Promise<string | null> 
       return m('error.parse')
     }
     await update($, quote, () => fresh)
+    await $.store.set('last', fresh)
     return null
   } catch (err) {
     return String(err)
@@ -67,6 +85,17 @@ async function showDaily($: EngineInterface, url: string): Promise<void> {
   await fetchNew($, url, true)
 }
 
+// The last line any session fetched, shown while a new one is on its way (or offline).
+async function showLast($: EngineInterface): Promise<void> {
+  const kept = (await $.store.get('last')) as Quote | undefined
+  if (kept?.text && (await read($, quote)) === null) await update($, quote, () => kept)
+}
+
+// A timer's fetch, skipped while the band is hidden: no requests nobody sees.
+async function whenShown($: EngineInterface, fn: () => Promise<unknown>): Promise<void> {
+  if (!(await read($, isHidden))) await fn()
+}
+
 /** Shown or hidden; the `visible` row keeps it. */
 async function show($: EngineInterface, isShown: boolean): Promise<void> {
   if ((await read($, isHidden)) === !isShown) return
@@ -83,6 +112,8 @@ export const register: Register = (on, options) => {
   const isDaily = mode === 'daily'
 
   on('session.start', async ($, e, next) => {
+    // `-p` runs and the SDK draw no band: nothing to fetch for.
+    if (!e.isInteractive) return next(e)
     const settings = (await $.settings.read().catch(() => ({}))) as { language?: unknown }
     const locale = await Promise.all([
       $.env.get('LC_ALL').catch(() => undefined),
@@ -101,11 +132,12 @@ export const register: Register = (on, options) => {
     // Not awaited: session.start holds the first prompt until it settles.
     if (isDaily) {
       void showDaily($, url)
-      $.clock.every(DAY_CHECK_MS, () => void showDaily($, url))
+      $.clock.every(DAY_CHECK_MS, () => void whenShown($, () => showDaily($, url)))
     } else {
+      await showLast($)
       void fetchNew($, url, false)
       if (mode === 'interval') {
-        $.clock.every(config.intervalMs, () => void fetchNew($, url, false))
+        $.clock.every(config.intervalMs, () => void whenShown($, () => fetchNew($, url, false)))
       }
     }
 
@@ -116,7 +148,7 @@ export const register: Register = (on, options) => {
 
   on('prompt.submit', async ($, e, next) => {
     if (await read($, isPicking)) await update($, isPicking, () => false)
-    if (mode === 'prompt') void fetchNew($, url, false)
+    if (mode === 'prompt') void whenShown($, () => fetchNew($, url, false))
     return next(e)
   })
 
@@ -124,6 +156,8 @@ export const register: Register = (on, options) => {
     const arg = e.args.trim().toLowerCase()
     if (arg === 'off' || arg === 'on') {
       await show($, arg === 'on')
+      // Hidden, the timers skipped their fetches: back on, the line is brought up to date.
+      if (arg === 'on') void (isDaily ? showDaily($, url) : fetchNew($, url, false))
       return { text: m(arg === 'off' ? 'cmd.hidden' : 'cmd.shown') }
     }
 

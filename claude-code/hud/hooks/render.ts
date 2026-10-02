@@ -8,6 +8,7 @@ import type { HudLine } from '../types'
 import { parseAnsi } from './ansi.js'
 import { dimSeparators, parseGitStatus } from './extras.js'
 import { getCostTotals } from './hud/daily-cost.js'
+import { takeGitStatus } from './hud/git.js'
 import { main } from './hud/index.js'
 import { setRenderSink } from './hud/render/index.js'
 import type { StdinData } from './hud/types.js'
@@ -17,8 +18,13 @@ import { processShim } from './shims/globals.js'
 import { type Io, runWithFacts } from './shims/host.js'
 import { buildStdin, type SessionApi } from './stdin.js'
 
-/** Changed paths and unpushed commits, or null outside a repo. */
+/**
+ * Changed paths and unpushed commits, or null outside a repo: from the status
+ * claude-hud read in this pass when it read one, else a read of its own.
+ */
 export async function gitCounts(io: Io, cwd: string): Promise<{ dirty: number; ahead: number } | null> {
+  const read = takeGitStatus(cwd)
+  if (read !== null) return parseGitStatus(read)
   const out = await io
     .run(['git', 'status', '--porcelain=v2', '--branch'], { cwd, timeoutMs: 3_000 })
     .catch(() => null)
@@ -34,6 +40,7 @@ export async function renderHud(io: Io, session: SessionApi): Promise<Rendered> 
   live.lastStdin = stdin
   let out: string[] = []
   let todayUsd: number | null = null
+  takeGitStatus('') // A status left from an earlier pass is not this one's.
   await runWithFacts(async () => {
     out = []
     setRenderSink(line => out.push(line))

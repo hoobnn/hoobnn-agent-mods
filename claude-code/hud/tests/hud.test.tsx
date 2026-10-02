@@ -294,6 +294,8 @@ test('history helpers: sparkline, streak, git counts, summary', async () => {
   expect(lastDays(days, today, 3)).toEqual([1, 2, 0.5])
   expect(addDays('2026-03-01', -1)).toBe('2026-02-28')
   expect(parseGitStatus('# branch.oid x\n# branch.ab +3 -1\n1 .M a\n? b\n')).toEqual({ dirty: 2, ahead: 3 })
+  // -z, as claude-hud reads it: a rename's original path is a record of its own.
+  expect(parseGitStatus('# branch.ab +1 -0\0' + '2 R. N... 100644 100644 100644 a b R100 new\0old\0? c\0')).toEqual({ dirty: 2, ahead: 1 })
   expect(cleanSummary('“修复登录页的跳转 bug。”\n')).toBe('修复登录页的跳转 bug')
   expect(cleanSummary('« Corriger la redirection »')).toBe('Corriger la redirection')
   expect(cleanSummary('  \n')).toBe(null)

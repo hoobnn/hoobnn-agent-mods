@@ -12,16 +12,17 @@ export function hitokotoUrl(categories: string): string {
   return `https://v1.hitokoto.cn/?${query}`
 }
 
+// The API's text as one plain line: control characters (escapes, newlines) drawn as nothing.
+const clean = (value: unknown): string =>
+  typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ').replace(/\s+/g, ' ').trim() : ''
+
 export function parseQuote(body: string): Quote | null {
   const json = JSON.parse(body) as { hitokoto?: unknown; from?: unknown; from_who?: unknown }
-  if (typeof json.hitokoto !== 'string' || !json.hitokoto.trim()) {
+  const text = clean(json.hitokoto)
+  if (!text) {
     return null
   }
-  return {
-    text: json.hitokoto.trim(),
-    from: typeof json.from === 'string' ? json.from.trim() : '',
-    fromWho: typeof json.from_who === 'string' ? json.from_who.trim() : '',
-  }
+  return { text, from: clean(json.from), fromWho: clean(json.from_who) }
 }
 
 // "—— 鲁迅「呐喊」"; empty when the API names neither.

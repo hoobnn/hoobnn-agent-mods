@@ -73,10 +73,26 @@ async function choose($: EngineInterface, picked: Choice, isFresh = false): Prom
   return name
 }
 
+/** The pet's stats as the store keeps them, shared by every session. */
+async function keptPet($: EngineInterface): Promise<PetStats> {
+  const stats = (await $.store.get('pet')) as Partial<PetStats> | undefined
+  return { xp: Number(stats?.xp) || 0, love: Number(stats?.love) || 0 }
+}
+
+/**
+ * Adds `by` to the kept stats, read again just before: sessions running side
+ * by side all raise the one pet instead of writing back their own copy.
+ */
+async function bumpPet($: EngineInterface, by: PetStats): Promise<PetStats> {
+  const kept = await keptPet($)
+  const next = { xp: kept.xp + by.xp, love: kept.love + by.love }
+  await $.store.set('pet', next)
+  return update($, pet, () => next)
+}
+
 /** A pat: hearts in the band, one more point of affection, kept. */
 async function patPet($: EngineInterface): Promise<PetStats> {
-  const next = await update($, pet, p => ({ xp: p.xp, love: p.love + 1 }))
-  await $.store.set('pet', next)
+  const next = await bumpPet($, { xp: 0, love: 1 })
   const id = String(next.love)
   await update($, pat, () => id)
   if ((await read($, mood)) === 'sleep') await update($, mood, () => 'hello' as Mood)
@@ -186,8 +202,8 @@ export const register: Register = (on, options) => {
     await update($, isHidden, () => !rows.isVisible)
     await update($, isStageOff, () => !rows.hasStage)
     await update($, isCompanionOff, () => !rows.hasCompanion)
-    const stats = (await $.store.get('pet')) as Partial<PetStats> | undefined
-    await update($, pet, () => ({ xp: Number(stats?.xp) || 0, love: Number(stats?.love) || 0 }))
+    const stats = await keptPet($)
+    await update($, pet, () => stats)
     await publishPet($)
     const result = await next(e)
     await migrateStore(prefsOf($), STORE_MOVES)
@@ -262,10 +278,8 @@ export const register: Register = (on, options) => {
     })
 
     if (kind === 'answer') {
-      const before = await read($, pet)
-      const after = await update($, pet, p => ({ xp: p.xp + 1, love: p.love }))
-      await $.store.set('pet', after)
-      if (levelOf(after.xp) > levelOf(before.xp)) {
+      const after = await bumpPet($, { xp: 1, love: 0 })
+      if (levelOf(after.xp) > levelOf(after.xp - 1)) {
         $.ui.toast(m('pet.levelUp', { theme: await read($, theme), level: levelOf(after.xp) }))
       }
     }

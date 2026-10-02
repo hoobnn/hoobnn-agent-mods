@@ -32,6 +32,8 @@ function prefsOf($: EngineInterface): Prefs {
 
 /** Reads into the snapshot sooner than the timer would, when it is older than this. */
 const PROMPT_REFRESH_MS = 10_000
+/** After failed reads the next waits longer, doubling up to this. */
+const MAX_BACKOFF_MS = 10 * 60_000
 
 /**
  * Reads `tailscale status` on a timer into the snapshot, toasting nodes that
@@ -54,20 +56,36 @@ function startPolling($: EngineInterface, config: Config): () => void {
     throw new Error(`tailscale not found (tried ${config.tailscale.join(', ')})`)
   }
 
+  // Failed reads in a row, and when the next may run: a missing CLI or a stopped
+  // daemon is not tried again every tick.
+  let failures = 0
+  let retryAt = 0
+
   const refresh = async () => {
     const previous = await read($, snapshot)
+    const checkedAt = await $.clock.now()
     let fresh: Snapshot
     try {
       const { exitCode, stdout, stderr } = await status()
       fresh =
         exitCode === 0
-          ? { nodes: selectNodes(parseStatus(stdout), config.nodes), checkedAt: await $.clock.now(), error: null }
-          : { nodes: [], checkedAt: await $.clock.now(), error: stderr.trim() || `exit ${exitCode}` }
+          ? { nodes: selectNodes(parseStatus(stdout), config.nodes), checkedAt, error: null }
+          : { nodes: [], checkedAt, error: stderr.trim() || `exit ${exitCode}` }
     } catch (err) {
-      fresh = { nodes: [], checkedAt: await $.clock.now(), error: String(err) }
+      fresh = { nodes: [], checkedAt, error: String(err) }
     }
 
-    if (previous && !previous.error && !fresh.error) {
+    if (fresh.error) {
+      failures += 1
+      retryAt = checkedAt + Math.min(config.intervalMs * 2 ** failures, MAX_BACKOFF_MS)
+      // The nodes last read stay on the band, marked as not current.
+      fresh = { ...fresh, nodes: previous?.nodes ?? [] }
+    } else {
+      failures = 0
+      retryAt = 0
+    }
+
+    if (previous && previous.nodes.length > 0 && !fresh.error) {
       const was = new Map(previous.nodes.map(n => [n.name, n.isOnline]))
       for (const node of fresh.nodes) {
         if (was.has(node.name) && was.get(node.name) !== node.isOnline) {
@@ -80,7 +98,7 @@ function startPolling($: EngineInterface, config: Config): () => void {
 
   let isRunning = false
   const run = async () => {
-    if (isRunning) return
+    if (isRunning || (await $.clock.now()) < retryAt) return
     isRunning = true
     try {
       await refresh()
@@ -108,6 +126,8 @@ export const register: Register = (on, options) => {
   let refreshNow: () => Promise<void> | void = () => {}
 
   on('session.start', async ($, e, next) => {
+    // `-p` runs and the SDK draw no band: no tailscale to run for it.
+    if (!e.isInteractive) return next(e)
     const settings = (await $.settings.read().catch(() => ({}))) as { language?: unknown }
     const locale = await Promise.all([
       $.env.get('LC_ALL').catch(() => undefined),
@@ -153,18 +173,31 @@ export const register: Register = (on, options) => {
   })
 }
 
-/** The band's row: a short mark when every node shown is direct, else the nodes that need a look. */
+/** The band's row: the nodes, with the error when the last read failed. */
 function drawNodes(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, snap: Snapshot, config: Config): RenderElement {
   const { Box, Text } = ui
 
-  if (snap.error) {
-    return (
-      <Box>
-        <Text color="red">{m('error.read')}</Text>
-        <Text dimColor wrap="truncate-end">{snap.error}</Text>
-      </Box>
-    )
-  }
+  const error = snap.error ? (
+    <Box>
+      <Text color="red">{m('error.read')}</Text>
+      <Text dimColor wrap="truncate-end">{snap.error}</Text>
+    </Box>
+  ) : null
+  // Nothing read yet: the error alone. Nodes read before it stay, the error after them.
+  if (error && snap.nodes.length === 0) return error
+  const nodes = drawRow(ui, snap, config)
+  if (!error) return nodes
+  return (
+    <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
+      {nodes}
+      {error}
+    </Box>
+  )
+}
+
+/** The nodes' row: a short mark when every node shown is direct, else the nodes that need a look. */
+function drawRow(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, snap: Snapshot, config: Config): RenderElement {
+  const { Box, Text } = ui
 
   const online = snap.nodes.filter(n => n.isOnline).length
   const shown = config.isOfflineHidden ? snap.nodes.filter(n => n.isOnline) : snap.nodes
