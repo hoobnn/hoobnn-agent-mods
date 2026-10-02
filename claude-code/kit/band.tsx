@@ -5,6 +5,17 @@
 // in the hooks module): it yields to a survey, draws, and hands both here.
 import type { Elements, RenderElement } from 'claude-code'
 
+/**
+ * Whether the prompt's draft has a picker open: a slash command being named
+ * (`/sp`, before any space) or a file being mentioned (`@src/a`, the word at the
+ * cursor). The engine draws the picker above the band, so a band steps aside
+ * while one is open and the picker sits right on the prompt.
+ */
+export function isPickerOpen(text: string, cursor = text.length): boolean {
+  const before = text.slice(0, cursor)
+  return /^\/\S*$/.test(before) || /(^|\s)@\S*$/.test(before)
+}
+
 export function stackAbove(ui: Pick<Elements['terminal'], 'Box'>, mine: RenderElement, below: RenderElement): RenderElement {
   const { Box } = ui
   return (

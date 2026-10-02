@@ -1,8 +1,9 @@
 // Frame tables and scenes, shared by the hooks module and both surface modules
 // (sprite.tsx draws the spinner's mascot, stage.tsx the band). Pure:
 // everything here is a function of the theme, the tick and the width.
-import { blank, canvas, cells, draw, frame, hsl, mod, noise, padTo, plot, put, textWidth } from './cells'
+import { blank, frame, hsl, mod, noise, padTo, put, textWidth } from './cells'
 import type { Grid, Style } from './cells'
+import { SCENE_ROWS, bluecatScene, chompScene, clawdScene, nyanScene, sparkyScene, thunderScene } from './scenes'
 
 export * from './cells'
 
@@ -232,207 +233,9 @@ function matrixScene(t: number, w: number): Grid {
 
 // ---- the newer scenes: Claude's mascot and pixel art --------------------
 
+
 const CLAUDE = '#d77757'
-
-// Clawd as Claude Code's own welcome screen draws him, and his poses.
-const CLAWD = {
-  front: [' ▐▛███▜▌ ', '▝▜█████▛▘', '  ▘▘ ▝▝  '],
-  step: [' ▐▛███▜▌ ', '▝▜█████▛▘', '  ▝▘ ▘▝  '],
-  blink: [' ▐█████▌ ', '▝▜█████▛▘', '  ▘▘ ▝▝  '],
-  look: [' ▐▛███▛█ ', '▝▜██████▀', ' ▝▝   ▝▝ '],
-}
-
-function clawdScene(t: number, w: number, act: Act): Grid {
-  const g = blank(w, 3)
-  for (let x = 0; x < w; x++) {
-    if (noise(x * 3 + 1) < 0.06) put(g, x, mod(x, 2), mod(t + x * 7, 40) < 3 ? '✻' : '·', { c: '#5c4b45', d: true })
-  }
-  // He strolls across, stopping halfway to work; then strolls on.
-  const lap = w + 10
-  const p = mod(t, lap + 40)
-  const pause = Math.floor(lap / 2)
-  const x = p < pause ? p - 10 : p < pause + 40 ? pause - 10 : p - 50
-  const isWalking = p < pause || p >= pause + 40
-  const pose = isWalking ? (mod(t, 4) < 2 ? CLAWD.front : CLAWD.step) : mod(t, 30) === 0 ? CLAWD.blink : mod(t, 60) > 45 ? CLAWD.look : CLAWD.front
-  pose.forEach((row, y) => put(g, x, y, row, { c: CLAUDE }))
-  const side = x + 10
-  if (act === 'tool') {
-    put(g, side, 2, '▭▭', { c: '#9a8c98' })
-    put(g, side, 1, frame(['⌁ ', ' ⌁', '⁘ '], t), { c: '#f4a261', b: true })
-  } else if (act === 'ask') {
-    put(g, side, 0, mod(t, 8) < 6 ? '?' : ' ', { c: '#ffd166', b: true })
-  } else if (act === 'say') {
-    put(g, side, 1, frame(['✎ ', '✎·', '✎··'], t >> 1), { c: '#e9b49a' })
-  } else {
-    put(g, side, 0, frame(['·', '✢', '✳', '✶', '✻', '✽', '✻', '✶', '✳', '✢'], t), { c: CLAUDE, b: true })
-  }
-  return g
-}
-
-const JET = ['AA.....', 'FBBWWBC', 'AA.....']
-const FOE = [
-  ['.RR.', 'RYYR', 'R..R'],
-  ['.RR.', 'RYYR', '.RR.'],
-]
-
-function thunderScene(t: number, w: number, act: Act): Grid {
-  const cv = canvas(w, 3)
-  for (let i = 0; i < w / 3; i++) {
-    const speed = 1 + (i % 3)
-    plot(cv, mod(noise(i) * w * 4 - t * speed, w), Math.floor(noise(i + 5) * 6), speed === 3 ? '#8d99ae' : '#3d405b')
-  }
-  // Foe k flies in at tick k * GAP and is shot down where it is fated to be.
-  const GAP = act === 'tool' ? 7 : 10
-  const SPEED = 0.8
-  const travel = (w + 4) / SPEED
-  const foes: { x: number; y: number; isAlive: boolean; age: number }[] = []
-  let kills = Math.max(0, Math.floor((t - travel) / GAP))
-  for (let k = kills; k <= Math.floor(t / GAP); k++) {
-    const y = 1 + Math.floor(noise(k) * 3)
-    const killX = w * (0.35 + noise(k + 11) * 0.45)
-    const x = w + 2 - (t - k * GAP) * SPEED
-    const deadAt = k * GAP + (w + 2 - killX) / SPEED
-    if (deadAt <= t) kills++
-    if (x > killX) foes.push({ x, y, isAlive: true, age: 0 })
-    else if (t - deadAt < 5) foes.push({ x: killX, y, isAlive: false, age: t - deadAt })
-  }
-  const target = foes.filter(f => f.isAlive).sort((a, b) => a.x - b.x)[0]
-  const py = target ? target.y : 2
-  for (let f = t - mod(t, 3); f > t - w / 3; f -= 3) {
-    const bx = 8 + (t - f) * 3
-    if (target && bx >= target.x) continue
-    plot(cv, bx, py + 1, '#ffd60a')
-    plot(cv, bx + 1, py + 1, '#fff3b0')
-  }
-  draw(cv, 1, py, JET, { A: '#4cc9f0', B: '#90e0ef', W: '#ffffff', C: '#4361ee', F: mod(t, 2) ? '#ff9f1c' : '#ffd60a' })
-  for (const foe of foes) {
-    if (foe.isAlive) {
-      draw(cv, foe.x, foe.y, frame(FOE, t >> 1), { R: '#f72585', Y: '#ffd60a' })
-    } else {
-      const r = foe.age
-      const color = frame(['#ffffff', '#ffd60a', '#ff9f1c', '#e85d04', '#9d0208'], r)
-      for (let a = 0; a < 8; a++) plot(cv, foe.x + 1 + Math.cos(a * 0.785) * r * 1.4, foe.y + 1 + Math.sin(a * 0.785) * r * 0.8, color)
-    }
-  }
-  const g = cells(cv)
-  const score = `SCORE ${String(kills * 100).padStart(6, '0')}`
-  put(g, w - score.length - 1, 0, score, { c: '#fca311', b: true })
-  return g
-}
-
-const PAC = [
-  ['.YYY.', 'YYY..', 'YY...', 'YYY..', '.YYY.'],
-  ['.YYY.', 'YYYY.', 'YYY..', 'YYYY.', '.YYY.'],
-  ['.YYY.', 'YYYYY', 'YYYYY', 'YYYYY', '.YYY.'],
-  ['.YYY.', 'YYYY.', 'YYY..', 'YYYY.', '.YYY.'],
-]
-const GHOST = [
-  ['.GGG.', 'GWGWG', 'GGGGG', 'GGGGG', 'G.G.G'],
-  ['.GGG.', 'GWGWG', 'GGGGG', 'GGGGG', '.G.G.'],
-]
-
-function chompScene(t: number, w: number): Grid {
-  const cv = canvas(w, 3)
-  for (let x = 0; x < w; x++) plot(cv, x, 5, mod(x, 2) ? '#1d3557' : '#14213d')
-  const lap = w + 40
-  const px = mod(t, lap) - 6
-  const pellet = Math.floor(w * 0.55)
-  for (let x = 4; x < w; x += 4) if (x > px + 4 && Math.abs(x - pellet) > 2) plot(cv, x, 2, '#ffd6a5')
-  if (pellet > px + 4 && mod(t, 6) < 4) draw(cv, pellet - 1, 1, ['PP', 'PP'], { P: '#ffd6a5' })
-  const isScared = px >= pellet
-  const colors = ['#ff595e', '#ffafcc', '#00f5d4', '#ff9f1c']
-  colors.forEach((color, i) => {
-    const gx = px - 9 - i * 7
-    const body = isScared ? (mod(t, 8) < 6 || px < pellet + 20 ? '#3a0ca3' : '#ffffff') : color
-    draw(cv, gx, 0, frame(GHOST, (t >> 1) + i), { G: body, W: isScared ? '#ffd6a5' : '#ffffff' })
-  })
-  draw(cv, px, 0, frame(PAC, t), { Y: '#ffd60a' })
-  return cells(cv)
-}
-
-const MOUSE = [
-  ['K......K', 'YY....YY', '.YYYYYY.', 'YKYYYYKY', 'RYYKKYYR', '.YY..YY.'],
-  ['K......K', 'YY....YY', '.YYYYYY.', 'YKYYYYKY', 'RYYKKYYR', 'YY....YY'],
-]
-const TAIL = ['...YYYY', '....YY.', '...YY..', '..YYYY.', '...YY..', '..YY...']
-
-function sparkyScene(t: number, w: number, act: Act): Grid {
-  const cv = canvas(w, 3)
-  const lap = w + 8
-  const x = mod(Math.floor(t * 0.5), lap) - 8
-  draw(cv, x - 7, 0, TAIL, { Y: '#d4a017' })
-  const cheek = mod(t, 6) < 3 && act === 'tool' ? '#fff3b0' : '#e63946'
-  draw(cv, x, 0, frame(MOUSE, t >> 1), { K: '#1b1b1b', Y: '#ffd60a', R: cheek })
-  // Thunderbolts strike ahead now and then; often while a tool runs.
-  const every = act === 'tool' ? 12 : 30
-  const strike = mod(t, every)
-  if (strike < 3) {
-    const bx = Math.floor(noise(Math.floor(t / every)) * (w - 10)) + 5
-    const bolt = ['..Y', '.YY', 'YY.', '.YY', 'YY.', 'Y..']
-    draw(cv, bx, 0, bolt, { Y: strike === 0 ? '#ffffff' : '#ffd60a' })
-  }
-  const g = cells(cv)
-  if (act === 'tool' && mod(t, 4) < 2) put(g, x + 9, 0, 'ϟ', { c: '#ffd60a', b: true })
-  return g
-}
-
-const ROBOCAT = [
-  ['..PPPPP..', '.BBBBBBB.', 'BBWWBWWBB', 'BWKWRWKWB', 'BBWWWWWBB', '.BRRYRRB.'],
-  ['....P....', '.BBBBBBB.', 'BBWWBWWBB', 'BWKWRWKWB', 'BBWWWWWBB', '.BRRYRRB.'],
-]
-const GADGETS = ['#ff8fab', '#ffd60a', '#80ffdb', '#c77dff', '#f4a261']
-
-function bluecatScene(t: number, w: number, act: Act): Grid {
-  const cv = canvas(w, 3)
-  for (let i = 0; i < 4; i++) {
-    const cx = mod(Math.floor(noise(i) * w) - Math.floor(t * 0.3), w + 8) - 4
-    draw(cv, cx, 1 + (i % 3), ['.WW.', 'WWWW'], { W: '#2b2d42' })
-  }
-  const lap = w + 9
-  const x = mod(Math.floor(t * 0.4), lap) - 9
-  // Gadgets tumble out of the pocket while a tool runs.
-  if (act === 'tool') {
-    for (let i = 0; i < 4; i++) {
-      const age = mod(t + i * 5, 20)
-      plot(cv, x - 1 - age, 3 + Math.round(Math.sin(age * 0.6 + i)), frame(GADGETS, i + (Math.floor(t / 20) % 5)))
-      plot(cv, x - 3 - age, 3 + Math.round(Math.sin(age * 0.6 + i)), frame(GADGETS, i + (Math.floor(t / 20) % 5)))
-    }
-  }
-  draw(cv, x, 0, frame(ROBOCAT, t), { P: '#d4a373', B: '#0096c7', W: '#ffffff', K: '#1b1b1b', R: '#e63946', Y: '#ffd60a' })
-  return cells(cv)
-}
-
-const NYAN = ['TTTTTT.....', 'TPPSPTG..G.', 'TPSPPTGGGG.', 'TPPPSTGKGKG', 'TTTTTTGGGG.', '.L..L..L.L.']
 const RAINBOW = ['#ff0000', '#ff9900', '#ffff00', '#33ff00', '#0099ff', '#6633ff']
-
-function nyanScene(t: number, w: number): Grid {
-  const cv = canvas(w, 3)
-  const x = Math.floor(w * 0.45) + Math.round(Math.sin(t * 0.15) * 3)
-  for (let i = 0; i < 6; i++) {
-    const sx = mod(Math.floor(noise(i + 40) * w) - t * 2, w)
-    if (sx > x + 11) {
-      const twinkle = mod(t + i, 4)
-      plot(cv, sx, Math.floor(noise(i + 3) * 6), twinkle < 2 ? '#ffffff' : '#8d99ae')
-      if (twinkle === 1) {
-        plot(cv, sx - 1, Math.floor(noise(i + 3) * 6), '#8d99ae')
-        plot(cv, sx + 1, Math.floor(noise(i + 3) * 6), '#8d99ae')
-      }
-    }
-  }
-  for (let tx = 0; tx < x + 1; tx++) {
-    const wave = mod(Math.floor((tx - t) / 4), 2)
-    for (let y = 0; y < 6; y++) plot(cv, tx, y + wave - 0, RAINBOW[y]!)
-  }
-  draw(cv, x, 0, NYAN.map((row, j) => (j === 5 ? (mod(t, 2) ? row : row.replace(/L\.\.L/g, '.L.L.').slice(0, row.length)) : row)), {
-    T: '#ffcc99',
-    P: '#ff99cc',
-    S: '#ff3399',
-    G: '#999999',
-    K: '#1b1b1b',
-    L: '#999999',
-  })
-  return cells(cv)
-}
 
 // ---- themes --------------------------------------------------------------
 
@@ -591,7 +394,7 @@ export const THEMES: Record<ThemeName, Theme> = {
     scene: matrixScene,
   },  clawd: {
     name: 'clawd',
-    rows: 3,
+    rows: SCENE_ROWS,
     color: CLAUDE,
     accent: '#e9b49a',
     sprite: {
@@ -610,7 +413,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   },
   thunder: {
     name: 'thunder',
-    rows: 3,
+    rows: SCENE_ROWS,
     color: '#4cc9f0',
     accent: '#ffd60a',
     sprite: {
@@ -629,7 +432,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   },
   chomp: {
     name: 'chomp',
-    rows: 3,
+    rows: SCENE_ROWS,
     color: '#ffd60a',
     accent: '#ff595e',
     sprite: {
@@ -648,7 +451,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   },
   sparky: {
     name: 'sparky',
-    rows: 3,
+    rows: SCENE_ROWS,
     color: '#ffd60a',
     accent: '#e63946',
     sprite: {
@@ -667,7 +470,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   },
   bluecat: {
     name: 'bluecat',
-    rows: 3,
+    rows: SCENE_ROWS,
     color: '#00b4d8',
     accent: '#e63946',
     sprite: {
@@ -686,7 +489,7 @@ export const THEMES: Record<ThemeName, Theme> = {
   },
   nyan: {
     name: 'nyan',
-    rows: 3,
+    rows: SCENE_ROWS,
     color: '#ff99cc',
     accent: '#999999',
     isRainbow: true,

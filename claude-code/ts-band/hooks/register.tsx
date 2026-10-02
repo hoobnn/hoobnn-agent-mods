@@ -5,7 +5,7 @@ import type { Node, Snapshot } from '../types'
 import { readConfig } from './config'
 import type { Config } from './config'
 import { m, setLang } from './i18n'
-import { stackAbove } from './kit/band'
+import { isPickerOpen, stackAbove } from './kit/band'
 import { resolveLanguage } from './kit/lang'
 import { keptRows, migrateStore, persist, switchArg } from './kit/prefs'
 import type { Prefs } from './kit/prefs'
@@ -13,6 +13,8 @@ import { parseStatus, selectNodes } from './parse'
 
 const snapshot = atom({ plugin: 'ts-band', key: 'snapshot' } as const, null)
 const isHidden = atom({ plugin: 'ts-band', key: 'isHidden' } as const, false)
+// True while a picker is open above the band (see kit/band).
+const isPicking = atom({ plugin: 'ts-band', key: 'isPicking' } as const, false)
 
 function linkText(node: Node): string {
   if (node.link === 'derp') return node.via ? `DERP-${node.via}` : 'DERP'
@@ -104,9 +106,21 @@ export const register: Register = (on, options) => {
     return { text: m(hidden ? 'cmd.hidden' : 'cmd.shown') }
   })
 
+  // A picker (`/` commands, `@` files) opens above the band: the band steps aside meanwhile.
+  on('prompt.edit', async ($, e, next) => {
+    const box = await next(e)
+    const isOpen = isPickerOpen(box.text, box.cursor)
+    if ((await read($, isPicking)) !== isOpen) await update($, isPicking, () => isOpen)
+    return box
+  })
+  on('prompt.submit', async ($, e, next) => {
+    if (await read($, isPicking)) await update($, isPicking, () => false)
+    return next(e)
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const snap = await read($, snapshot)
-    if (e.props.hasSurvey || snap === null || (await read($, isHidden))) return next(e)
+    if (e.props.hasSurvey || snap === null || (await read($, isHidden)) || (await read($, isPicking))) return next(e)
     const ui = $.ui.resolve(e)
     return stackAbove(ui, drawNodes(ui, snap, config), await next(e))
   })

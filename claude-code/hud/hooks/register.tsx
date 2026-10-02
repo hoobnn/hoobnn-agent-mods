@@ -10,7 +10,7 @@ import './shims/globals.js'
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Fired, HudLine, Remote, StepInfo, ToolStats } from '../types'
+import type { DockPet, Fired, HudLine, Remote, StepInfo, ToolStats } from '../types'
 import { readConfig } from './config.js'
 import { drawPane, drawRows } from './draw.js'
 import { appendExtras, chimeWav, crossThresholds, exhaustAt, extrasLine, formatDuration, lastDays, localDay, pruneHistory, streak } from './extras.js'
@@ -20,6 +20,8 @@ import { setTranscriptProvider } from './hud/transcript.js'
 import type { StdinData } from './hud/types.js'
 import { FIVE_HOUR_WINDOW_MS, SEVEN_DAY_WINDOW_MS } from './hud/usage-pace.js'
 import { m, summaryPrompt } from './i18n.js'
+import { isPickerOpen } from './kit/band.js'
+import { cellWidth, dockFits, drawPet } from './kit/pet.js'
 import { keptRows, migrateStore, persist, switchArg } from './kit/prefs.js'
 import type { Prefs } from './kit/prefs.js'
 import { fitColumns, live, useTheme } from './live.js'
@@ -49,6 +51,12 @@ const turns = atom({ plugin: 'hud', key: 'turns' } as const, 0)
 const fired = atom({ plugin: 'hud', key: 'fired' } as const, { context: [], fiveHour: [], sevenDay: [] } as Fired)
 const history = atom({ plugin: 'hud', key: 'history' } as const, {} as Record<string, number>)
 const tools = atom({ plugin: 'hud', key: 'tools' } as const, {} as ToolStats)
+// spinner's pet, and whether it stands beside the HUD's rows (below the prompt only).
+const petDock = atom({ plugin: 'spinner', key: 'dock' } as const, null as DockPet | null)
+const isPetDocked = atom({ plugin: 'hud', key: 'dock' } as const, false)
+const petPats = atom({ plugin: 'hud', key: 'petPats' } as const, 0)
+// True while a picker is open above the band (see kit/band.tsx).
+const isPicking = atom({ plugin: 'hud', key: 'isPicking' } as const, false)
 
 const PANE = 'hud-detail'
 // Days of spend the store keeps; the HUD draws the last 7.
@@ -151,6 +159,7 @@ export const register: Register = (on, options) => {
       const started = Date.now()
       try {
         const { rows, stdin, todayUsd } = await renderHud(io, session)
+        const pet = config.position === 'below' ? await read($, petDock) : null
         const now = await $.clock.now()
         await alert(stdin)
         if (todayUsd !== null) await recordSpend(now, todayUsd)
@@ -174,9 +183,15 @@ export const register: Register = (on, options) => {
           gitAheadWarn: config.gitAheadWarn,
           columns: fitColumns(),
           style: live.theme.extras,
-          mascot: config.hasMascot && live.theme.mascot ? live.theme.mascot[mood(stdin)] : null,
+          // spinner's pet stands in for the theme's mascot below the prompt.
+          mascot: config.hasMascot && live.theme.mascot && !pet ? live.theme.mascot[mood(stdin)] : null,
         })
         const all = applyTheme(appendExtras(rows, extra, fitColumns()), live.theme)
+        // The pet moves in beside the rows when it fits, and out when it does not.
+        const widest = Math.max(0, ...all.map(row => row.reduce((sum, span) => sum + cellWidth(span.text), 0)))
+        const wasDocked = await read($, isPetDocked)
+        const isDocked = pet !== null && !(await read($, isHidden)) && live.columns !== undefined && dockFits(widest, live.columns, pet.width, wasDocked)
+        if (isDocked !== wasDocked) await update($, isPetDocked, () => isDocked)
         live.lastLines = all.map(row => row.map(span => span.text).join(''))
         live.lastError = null
         await update($, lines, () => all)
@@ -287,6 +302,7 @@ export const register: Register = (on, options) => {
     const was = await read($, isHidden)
     const hidden = await update($, isHidden, v => switchArg(verb, v))
     if (hidden !== was) await persist(prefsOf($), 'visible', !hidden)
+    schedule()
 
     return { text: m(hidden ? 'cmd.hidden' : 'cmd.shown') }
   })
@@ -302,11 +318,25 @@ export const register: Register = (on, options) => {
 
   // Remote Control's clients are seen by what they send.
   on('prompt.submit', async ($, e, next) => {
+    if (await read($, isPicking)) await update($, isPicking, () => false)
     if (await sawBridge($, e.origin)) schedule()
     return next(e)
   })
   on('command.run', async ($, e, next) => {
     if (await sawBridge($, e.origin)) schedule()
+    return next(e)
+  })
+
+  // spinner's pet came, went or changed: whether it fits is decided again.
+  on('state.set', { plugin: 'spinner', key: 'dock' }, async ($, e, next) => {
+    const result = await next(e)
+    schedule()
+    return result
+  })
+
+  // A click on the pet drawn here: spinner counts it as a pat.
+  on('ui.message', async ($, e, next) => {
+    if ((e.data as { pat?: unknown } | null)?.pat === true) await update($, petPats, n => n + 1)
     return next(e)
   })
 
@@ -409,11 +439,19 @@ export const register: Register = (on, options) => {
   }
 
   if (config.position === 'above') {
-    on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    // A picker (`/` commands, `@` files) opens above the band: the band steps aside meanwhile.
+  on('prompt.edit', async ($, e, next) => {
+    const box = await next(e)
+    const isOpen = isPickerOpen(box.text, box.cursor)
+    if ((await read($, isPicking)) !== isOpen) await update($, isPicking, () => isOpen)
+    return box
+  })
+
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
       // Two cells in, as the engine indents the lines under the prompt.
       trackWidth(e.props.bodyColumns - 2)
       const rows = await read($, lines)
-      if (e.props.hasSurvey || rows.length === 0 || (await read($, isHidden))) {
+      if (e.props.hasSurvey || rows.length === 0 || (await read($, isHidden)) || (await read($, isPicking))) {
         return next(e)
       }
 
@@ -427,8 +465,19 @@ export const register: Register = (on, options) => {
       if (rows.length === 0 || (await read($, isHidden))) {
         return next(e)
       }
+      const ui = $.ui.resolve(e)
+      const pet = (await read($, isPetDocked)) ? await read($, petDock) : null
+      if (!pet || !('Client' in ui)) return drawRows(ui, rows, await next(e))
 
-      return drawRows($.ui.resolve(e), rows, await next(e))
+      const { Box } = ui
+      return (
+        <Box flexDirection="row">
+          <Box flexDirection="column" flexGrow={1} flexShrink={0}>
+            {drawRows(ui, rows, await next(e))}
+          </Box>
+          {drawPet(ui, pet, 'pet')}
+        </Box>
+      )
     })
   }
 

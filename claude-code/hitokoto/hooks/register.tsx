@@ -4,7 +4,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import type { Quote } from '../types'
 import { readConfig } from './config'
 import { m, setLang } from './i18n'
-import { stackAbove } from './kit/band'
+import { isPickerOpen, stackAbove } from './kit/band'
 import { resolveLanguage } from './kit/lang'
 import { keptRows, migrateStore, persist } from './kit/prefs'
 import type { Prefs } from './kit/prefs'
@@ -12,6 +12,8 @@ import { attribution, localDate, parseQuote } from './parse'
 
 const quote = atom({ plugin: 'hitokoto', key: 'quote' } as const, null)
 const isHidden = atom({ plugin: 'hitokoto', key: 'isHidden' } as const, false)
+// True while a picker is open above the band (see kit/band).
+const isPicking = atom({ plugin: 'hitokoto', key: 'isPicking' } as const, false)
 
 // How often daily mode looks whether the date has turned.
 const DAY_CHECK_MS = 10 * 60_000
@@ -112,12 +114,11 @@ export const register: Register = (on, options) => {
     return result
   })
 
-  if (mode === 'prompt') {
-    on('prompt.submit', async ($, e, next) => {
-      void fetchNew($, url, false)
-      return next(e)
-    })
-  }
+  on('prompt.submit', async ($, e, next) => {
+    if (await read($, isPicking)) await update($, isPicking, () => false)
+    if (mode === 'prompt') void fetchNew($, url, false)
+    return next(e)
+  })
 
   on('command.run', { command: 'hitokoto' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase()
@@ -135,9 +136,17 @@ export const register: Register = (on, options) => {
     return { text: q ? `${q.text} ${attribution(q)}`.trim() : m('error.fetch', { error: m('error.parse') }) }
   })
 
+  // A picker (`/` commands, `@` files) opens above the band: the band steps aside meanwhile.
+  on('prompt.edit', async ($, e, next) => {
+    const box = await next(e)
+    const isOpen = isPickerOpen(box.text, box.cursor)
+    if ((await read($, isPicking)) !== isOpen) await update($, isPicking, () => isOpen)
+    return box
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const q = await read($, quote)
-    if (e.props.hasSurvey || q === null || (await read($, isHidden))) {
+    if (e.props.hasSurvey || q === null || (await read($, isHidden)) || (await read($, isPicking))) {
       return next(e)
     }
 

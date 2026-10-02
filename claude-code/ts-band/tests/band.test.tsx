@@ -2,6 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
 import { MESSAGES, parseLanguage, resolveLanguage } from '../hooks/i18n'
+import { isPickerOpen } from '../hooks/kit/band'
 import { parseNodeSpec, parseStatus, selectNodes } from '../hooks/parse'
 
 
@@ -170,4 +171,38 @@ test('the band speaks the language option', { options: { language: 'de' } }, asy
   await ui.unmount()
   const off = await $.command.run({ ...RUN, command: 'ts', args: 'off' })
   expect(off.text).toBe('Tailscale-Leiste ausgeblendet')
+})
+
+test('a picker open on the prompt: which drafts open one', async () => {
+  expect(isPickerOpen('/')).toBe(true)
+  expect(isPickerOpen('/spin')).toBe(true)
+  expect(isPickerOpen('/spinner neon')).toBe(false)
+  expect(isPickerOpen('看 @src/a')).toBe(true)
+  expect(isPickerOpen('看 @src/a 再说')).toBe(false)
+  expect(isPickerOpen('a/b')).toBe(false)
+  expect(isPickerOpen('/spin', 0)).toBe(false)
+})
+
+test('the band steps aside while a picker is open', async ($, on) => {
+  const clock = host(on, () => ({ exitCode: 0, stdout: STATUS, stderr: '' }))
+  on('prompt.edit', ($, e) => {
+    const text = e.text.slice(0, e.start) + e.inputText + e.text.slice(e.end)
+    return { text, cursor: e.start + e.inputText.length }
+  })
+  on('prompt.submit', ($, e) => ({ text: e.text }))
+  await $.session.start(START)
+  await clock.settle()
+  const shown = async () => {
+    const ui = await $.ui.mount({ plugin: 'ts-band', surface: 'terminal', ...BAND })
+    const text = await ui.find({ type: 'Text', text: 'TS 3/4' })
+    await ui.unmount()
+    return text !== undefined
+  }
+  // The engine raises `prompt.edit` on the person's keys; the test raises it the same way.
+  const edit = ($.prompt as unknown as { edit: (e: object) => Promise<unknown> }).edit
+  expect(await shown()).toBe(true)
+  await edit({ origin: { kind: 'composer' }, text: '', cursor: 0, start: 0, end: 0, inputText: '/t' })
+  expect(await shown()).toBe(false)
+  await edit({ origin: { kind: 'composer' }, text: '/t', cursor: 2, start: 2, end: 2, inputText: 's ' })
+  expect(await shown()).toBe(true)
 })
