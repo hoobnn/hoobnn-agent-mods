@@ -29,8 +29,27 @@ export type StepInfo = {
   lastRequestAt: number | null
 }
 
+/** Alert thresholds (percent) already toasted, per gauge. */
+export type Fired = { context: number[]; fiveHour: number[]; sevenDay: number[] }
+
+/** Each tool's calls this session: how many, their total time, how many failed. */
+export type ToolStats = Record<string, { count: number; totalMs: number; errors: number }>
+
 declare module 'claude-code' {
   interface PluginState {
-    hud: { lines: HudLine[]; isHidden: boolean; step: StepInfo; clients: string[] }
+    hud: {
+      lines: HudLine[]
+      isHidden: boolean
+      step: StepInfo
+      clients: string[]
+      /** The task in one line, from a fork of the conversation. */
+      summary: string | null
+      /** Main-thread turns completed, which sets the summary's cadence. */
+      turns: number
+      fired: Fired
+      /** Spend per day (`YYYY-MM-DD` → USD), mirrored to the store. */
+      history: Record<string, number>
+      tools: ToolStats
+    }
   }
 }

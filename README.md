@@ -14,7 +14,7 @@ Mods, extensions and plugins for coding-agent harnesses, grouped by harness.
 
 | Mod | What it does |
 | --- | --- |
-| [`hud`](claude-code/hud) | [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt |
+| [`hud`](claude-code/hud) | [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt; plus turn-done and limit alerts, a usage forecast, a daily budget, spend history, a git nag, a one-line task summary and a `/hud detail` pane |
 | [`ts-band`](claude-code/ts-band) | Tailscale nodes' state in a band above the prompt |
 | [`hitokoto`](claude-code/hitokoto) | A line from Hitokoto (一言) in a band above the prompt |
 
@@ -27,7 +27,7 @@ claude plugin install ts-band@hoobnn-agent-mods
 claude plugin install hitokoto@hoobnn-agent-mods
 ```
 
-Options (`hud`'s `position`, `ts-band`'s `tailscalePath` and `intervalSeconds`, `hitokoto`'s `categories` and `intervalMinutes`, …) are rows in `/config`, or `pluginConfigs` in `~/.claude/settings.json`.
+Options (`hud`'s `position`, `dailyBudgetUsd` and `summaryEveryTurns`, `ts-band`'s `nodes` and `hideOffline`, `hitokoto`'s `refreshMode` and `categories`, …) are rows in `/config`, or `pluginConfigs` in `~/.claude/settings.json`.
 
 ### Developing
 

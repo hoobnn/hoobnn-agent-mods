@@ -15,10 +15,11 @@ claude-hud 0.10.0 rebuilt as a Claude Code mod: the same lines, drawn below the 
   - `claude-config-dir.ts`: `getHudCacheDir` (`plugins/claude-hud-mod`), used by `speed.ts` and `daily-cost.ts`, so caches never collide with a statusline copy.
 - `hooks/shims/`: the Node APIs claude-hud imports, over `$`. Synchronous reads answer from facts fetched before the pass; a miss is fetched and the pass re-run (`host.ts`). Writes are held and written once a pass completes.
 - `hooks/ansi.ts`: SGR escapes to styled spans.
+- `hooks/extras.ts`: what the mod adds (below), as pure helpers: thresholds, the usage forecast, the spend history, the git counts, the extras row and the chime.
 
 ## Config
 
-claude-hud's own files: `~/.claude/plugins/claude-hud/config.json` and `~/.claude/claude-hud.json`, so `/claude-hud:configure` keeps working. Mod options (`/config`, or `pluginConfigs.hud.options` in settings): `position` (`below` the prompt, or `above` it as a band), `extraCmd` (claude-hud's `--extra-cmd`), `debug` (registers `mcp__hud__hud_debug`).
+claude-hud's own files: `~/.claude/plugins/claude-hud/config.json` and `~/.claude/claude-hud.json`, so `/claude-hud:configure` keeps working. Mod options (`/config`, or `pluginConfigs.hud.options` in settings): `position` (`below` the prompt, or `above` it as a band), `extraCmd` (claude-hud's `--extra-cmd`), `debug` (registers `mcp__hud__hud_debug`), and the options of the additions below.
 
 ## Derived rather than reported
 
@@ -34,6 +35,16 @@ Claude Code's statusline stdin carries these; the mod API does not, so the mod w
 ## Added
 
 - Remote Control: ` │ RC` at the end of the first line while the session's Remote Control is on, linked to the session on claude.ai, with how many remote clients are attached. The engine records the bridge as `bridgeSessionId` in `~/.claude/sessions/<pid>.json` (found by session id) and the mod API does not report it, so the file is read every 3 s and the HUD redrawn on a change; clients are counted from `session.attach` / `session.detach`.
+
+- An extras row under claude-hud's lines, each part shown only when it has something to say:
+  - `✎` the task in one line: a `$.model.fork` of the conversation (served from the prompt cache) after the first turn and every `summaryEveryTurns` turns (default 5; 0 off).
+  - Usage forecast (`showForecast`): when the 5-hour or 7-day limit runs out at the rate used so far, if that comes before it resets.
+  - Today's spend across sessions against `dailyBudgetUsd` (0 off), from claude-hud's daily-cost ledger; yellow from 80%, red past it.
+  - The last 7 days' spend as a sparkline and the streak of days in use (`showHistory`), kept in the mod's store for 60 days.
+  - `⚠` uncommitted paths at or past `gitDirtyWarn` (default 20) and unpushed commits at or past `gitAheadWarn` (default 5); 0 turns either off.
+- Alerts: a toast when context use reaches each of `contextAlerts` (default `80,90`), and the 5-hour or 7-day limit each of `usageAlerts`; once per threshold, again only after the gauge drops 5 points below it (a `/compact`, a reset).
+- Turn done: a turn of the main thread that ran `notifyAfterSeconds` or longer (default 60; 0 off) ends with a toast and, with `notifySound`, a short chime (macOS).
+- `/hud detail` opens (and closes) a pane: each tool's calls, total and average time and failures this session; subagents; todos; today's and the week's spend.
 
 ## Not carried over
 

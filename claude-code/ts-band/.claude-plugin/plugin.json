@@ -1,6 +1,6 @@
 {
   "name": "ts-band",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Tailscale nodes' state in a band above the prompt, with a toast when a node comes up or goes down",
   "author": {
     "name": "hoobnn",
@@ -28,6 +28,18 @@
       "title": "Refresh interval (s)",
       "description": "Seconds between reads of tailscale status (at least 10)",
       "default": 60
+    },
+    "nodes": {
+      "type": "string",
+      "title": "Nodes",
+      "description": "Hosts to show, comma separated, in this order; host=label renames one; empty shows every node",
+      "default": ""
+    },
+    "hideOffline": {
+      "type": "boolean",
+      "title": "Hide offline nodes",
+      "description": "Leave offline nodes out of the band (they still count in the total)",
+      "default": false
     }
   }
 }

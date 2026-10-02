@@ -1,7 +1,7 @@
 {
   "name": "hitokoto",
-  "version": "0.1.0",
-  "description": "A line from Hitokoto (一言) in a band above the prompt, refreshed on a timer or with /hitokoto",
+  "version": "0.2.0",
+  "description": "A line from Hitokoto (一言) in a band above the prompt, refreshed on a timer, per session, per prompt or once a day",
   "author": {
     "name": "hoobnn",
     "url": "https://github.com/hoobnn"
@@ -17,6 +17,18 @@
   ],
   "types": "./types/index.d.ts",
   "userConfig": {
+    "refreshMode": {
+      "type": "string",
+      "title": "Refresh mode",
+      "description": "interval: every intervalMinutes; daily: one line a day, the same in every session; session: a new line each session; prompt: a new line each prompt",
+      "options": [
+        "interval",
+        "daily",
+        "session",
+        "prompt"
+      ],
+      "default": "interval"
+    },
     "categories": {
       "type": "string",
       "title": "Categories",
@@ -26,7 +38,7 @@
     "intervalMinutes": {
       "type": "number",
       "title": "Refresh interval (min)",
-      "description": "Minutes between new lines (at least 1)",
+      "description": "Minutes between new lines in interval mode (at least 1)",
       "default": 30
     }
   }

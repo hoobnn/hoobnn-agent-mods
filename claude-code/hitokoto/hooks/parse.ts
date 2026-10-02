@@ -30,3 +30,10 @@ export function attribution(quote: Quote): string {
   const who = quote.fromWho + source
   return who ? `—— ${who}` : ''
 }
+
+// "2026-10-02" in the machine's time zone: the day daily mode keeps a line for.
+export function localDate(ms: number): string {
+  const d = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}

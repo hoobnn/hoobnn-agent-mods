@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import type { Node, Snapshot } from '../types'
-import { parseStatus } from './parse'
+import { parseStatus, selectNodes } from './parse'
 
 const snapshot = atom({ plugin: 'ts-band', key: 'snapshot' } as const, null)
 const isHidden = atom({ plugin: 'ts-band', key: 'isHidden' } as const, false)
@@ -27,9 +27,19 @@ export const register: Register = (on, options) => {
   const candidates = configuredPath ? [configuredPath] : TAILSCALE_CANDIDATES
   const intervalSeconds = typeof options.intervalSeconds === 'number' ? options.intervalSeconds : 60
   const intervalMs = Math.max(10, intervalSeconds) * 1000
+  const nodesSpec = typeof options.nodes === 'string' ? options.nodes : ''
+  const hideOffline = options.hideOffline === true
 
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'ts', description: '显示 / 隐藏 Tailscale 节点状态横条' })
+    await $.command.register({
+      name: 'ts',
+      description: '显示 / 隐藏 Tailscale 节点状态横条（跨会话保持）',
+      argumentHint: '[off|on]',
+    })
+    // Hidden or shown is kept across sessions in the mod's store.
+    if ((await $.store.get('isHidden')) === true) {
+      await update($, isHidden, () => true)
+    }
 
     // The first candidate that runs is kept for the session.
     let tailscale: string | null = null
@@ -53,7 +63,7 @@ export const register: Register = (on, options) => {
         const { exitCode, stdout, stderr } = await status()
         fresh =
           exitCode === 0
-            ? { nodes: parseStatus(stdout), checkedAt: await $.clock.now(), error: null }
+            ? { nodes: selectNodes(parseStatus(stdout), nodesSpec), checkedAt: await $.clock.now(), error: null }
             : { nodes: [], checkedAt: await $.clock.now(), error: stderr.trim() || `exit ${exitCode}` }
       } catch (err) {
         fresh = { nodes: [], checkedAt: await $.clock.now(), error: String(err) }
@@ -77,8 +87,10 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  on('command.run', { command: 'ts' }, async $ => {
-    const hidden = await update($, isHidden, v => !v)
+  on('command.run', { command: 'ts' }, async ($, e) => {
+    const arg = e.args.trim().toLowerCase()
+    const hidden = await update($, isHidden, v => (arg === 'off' ? true : arg === 'on' ? false : !v))
+    await $.store.set('isHidden', hidden)
 
     return { text: hidden ? 'Tailscale 横条已隐藏' : 'Tailscale 横条已显示' }
   })
@@ -106,12 +118,13 @@ export const register: Register = (on, options) => {
     }
 
     const online = snap.nodes.filter(n => n.isOnline).length
+    const shown = hideOffline ? snap.nodes.filter(n => n.isOnline) : snap.nodes
 
     return (
       <Box flexDirection="column">
       <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
         <Text bold>TS {online}/{snap.nodes.length}</Text>
-        {snap.nodes.map(node => (
+        {shown.map(node => (
           <Box key={node.name}>
             <Text color={node.isOnline ? (node.link === 'direct' ? 'green' : 'yellow') : 'red'}>
               {node.isOnline ? '●' : '○'}{' '}

@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
-import { attribution, hitokotoUrl, parseQuote } from '../hooks/parse'
+import { attribution, hitokotoUrl, localDate, parseQuote } from '../hooks/parse'
 
 const BODY = JSON.stringify({ hitokoto: '人生如逆旅，我亦是行人。', from: '临江仙·送钱穆父', from_who: '苏轼' })
 
@@ -11,6 +11,8 @@ const BAND = {
 } as const
 
 const START = { cwd: '/tmp', surface: 'terminal', isInteractive: true } as const
+
+const PROMPT = { origin: { kind: 'composer' }, wait: false } as const
 
 const RUN = { origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 120 } } as const
 
@@ -27,8 +29,9 @@ test('parses quote and attribution', async () => {
   expect(parseQuote('{"hitokoto":""}')).toBe(null)
 })
 
-function host(on: On, reply: () => { status: number; text: string }) {
-  const clock = mock.clock(on)
+function host(on: On, reply: () => { status: number; text: string }, stored: Record<string, unknown> = {}, now = 0) {
+  const clock = mock.clock(on, { now })
+  mock.store(on, stored)
   const urls: string[] = []
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('http.fetch', ($, e) => {
@@ -72,4 +75,42 @@ test('/hitokoto off hides, failed fetch reports', async ($, on) => {
   status = 503
   const again = await $.command.run({ ...RUN, command: 'hitokoto', args: '' })
   expect(again.text).toBe('一言获取失败：HTTP 503')
+})
+
+const OTHER = JSON.stringify({ hitokoto: '另一句。', from: '', from_who: '' })
+
+test('daily mode reuses today\'s line and fetches once the day turns', { options: { refreshMode: 'daily' } }, async ($, on) => {
+  const now = new Date(2026, 9, 2, 12).getTime()
+  const kept = { date: localDate(now), quote: { text: '今日一句。', from: '', fromWho: '' } }
+  const { clock, urls } = host(on, () => ({ status: 200, text: OTHER }), { daily: kept }, now)
+  await $.session.start(START)
+  await clock.settle()
+  expect(urls.length).toBe(0)
+  const ui = await $.ui.mount({ plugin: 'hitokoto', surface: 'terminal', ...BAND })
+  expect(await ui.find({ type: 'Text', text: '『今日一句。』' })).toBeDefined()
+
+  await clock.advance(24 * 3600_000)
+  expect(urls.length).toBe(1)
+  expect(await ui.find({ type: 'Text', text: '『另一句。』' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('prompt mode fetches on each prompt, not on a timer', { options: { refreshMode: 'prompt' } }, async ($, on) => {
+  const { clock, urls } = host(on, () => ({ status: 200, text: BODY }))
+  on('prompt.submit', ($, e) => ({ text: e.text }))
+  await $.session.start(START)
+  await clock.settle()
+  expect(urls.length).toBe(1)
+  await clock.advance(3 * 3600_000)
+  expect(urls.length).toBe(1)
+  await $.prompt.submit({ ...PROMPT, text: 'hi' })
+  await clock.settle()
+  expect(urls.length).toBe(2)
+})
+
+test('session mode fetches once per session', { options: { refreshMode: 'session' } }, async ($, on) => {
+  const { clock, urls } = host(on, () => ({ status: 200, text: BODY }))
+  await $.session.start(START)
+  await clock.advance(3 * 3600_000)
+  expect(urls.length).toBe(1)
 })

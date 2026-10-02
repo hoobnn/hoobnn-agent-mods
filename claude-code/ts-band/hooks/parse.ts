@@ -28,3 +28,23 @@ export function parseStatus(json: string): Node[] {
 
   return nodes.sort((a, b) => a.name.localeCompare(b.name))
 }
+
+// `nodes` option ("nas=家里, dev-box") to the nodes shown, in its order and
+// renamed; empty keeps every node. Host names match case-insensitively.
+export function selectNodes(nodes: Node[], spec: string): Node[] {
+  const picks = spec
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map(item => {
+      const [host = '', label = ''] = item.split('=').map(s => s.trim())
+      return { host: host.toLowerCase(), label: label || host }
+    })
+  if (picks.length === 0) {
+    return nodes
+  }
+  return picks.flatMap(({ host, label }) => {
+    const node = nodes.find(n => n.name.toLowerCase() === host)
+    return node ? [{ ...node, name: label }] : []
+  })
+}

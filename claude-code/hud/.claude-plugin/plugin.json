@@ -1,7 +1,7 @@
 {
   "name": "hud",
-  "version": "0.3.0",
-  "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt",
+  "version": "0.4.0",
+  "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, plus alerts, budget, history, a task summary and a detail pane",
   "author": {
     "name": "hoobnn",
     "url": "https://github.com/hoobnn"
@@ -39,6 +39,66 @@
       "title": "Debug tool",
       "description": "Register mcp__hud__hud_debug, which reports the stdin the mod built, the rendered lines and the last error",
       "default": false
+    },
+    "notifyAfterSeconds": {
+      "type": "number",
+      "title": "Notify after (s)",
+      "description": "Toast (and chime) when a turn that ran at least this long ends; 0 turns it off",
+      "default": 60
+    },
+    "notifySound": {
+      "type": "boolean",
+      "title": "Notify with a chime",
+      "description": "Play a short chime with the turn-done toast (macOS)",
+      "default": true
+    },
+    "contextAlerts": {
+      "type": "string",
+      "title": "Context alerts (%)",
+      "description": "Toast when context use reaches each of these percents, comma separated; empty turns it off",
+      "default": "80,90"
+    },
+    "usageAlerts": {
+      "type": "string",
+      "title": "Usage alerts (%)",
+      "description": "Toast when the 5-hour or 7-day limit reaches each of these percents; empty turns it off",
+      "default": "80,90"
+    },
+    "showForecast": {
+      "type": "boolean",
+      "title": "Usage forecast",
+      "description": "Show when a usage limit runs out at the current rate, if that is before it resets",
+      "default": true
+    },
+    "dailyBudgetUsd": {
+      "type": "number",
+      "title": "Daily budget (USD)",
+      "description": "Show today's spend across sessions against this budget; 0 turns it off",
+      "default": 0
+    },
+    "showHistory": {
+      "type": "boolean",
+      "title": "Spend history",
+      "description": "Show the last 7 days' spend as a sparkline, with the streak of days in use",
+      "default": true
+    },
+    "summaryEveryTurns": {
+      "type": "number",
+      "title": "Task summary every N turns",
+      "description": "Summarize the task in one line after the first turn and every N turns (a fork of the conversation, served from the prompt cache); 0 turns it off",
+      "default": 5
+    },
+    "gitDirtyWarn": {
+      "type": "number",
+      "title": "Uncommitted changes warning",
+      "description": "Warn when this many paths are changed and uncommitted; 0 turns it off",
+      "default": 20
+    },
+    "gitAheadWarn": {
+      "type": "number",
+      "title": "Unpushed commits warning",
+      "description": "Warn when this many commits are not pushed; 0 turns it off",
+      "default": 5
     }
   }
 }

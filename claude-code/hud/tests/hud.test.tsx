@@ -2,7 +2,19 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
 import { parseAnsi } from '../hooks/ansi'
-import { rcSpans } from '../hooks/register'
+import {
+  addDays,
+  chimeWav,
+  crossThresholds,
+  exhaustAt,
+  extrasLine,
+  lastDays,
+  parseGitStatus,
+  parseThresholds,
+  sparkline,
+  streak,
+} from '../hooks/extras'
+import { cleanSummary, rcSpans } from '../hooks/register'
 
 const HOME = '/home/u'
 const CWD = '/home/u/proj'
@@ -36,8 +48,11 @@ const FILES: Record<string, string> = {
 }
 const DIRS = new Set([HOME, `${HOME}/.claude`, `${HOME}/.claude/sessions`, CWD])
 
-function host(on: On) {
+let contextPercent = 23
+
+function host(on: On, stored: Record<string, unknown> = {}) {
   const clock = mock.clock(on, { now: Date.parse('2026-10-02T06:01:00Z') })
+  mock.store(on, stored)
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   const stat = (path: string) => {
     if (path in FILES) return { kind: 'file' as const, size: FILES[path]!.length, mtimeMs: 1, isLink: false, realPath: path }
@@ -82,7 +97,7 @@ function host(on: On) {
   on('session.usage', () => ({
     value: {
       startedAt: Date.parse('2026-10-02T06:00:00Z'),
-      context: { tokens: 45_000, window: 200_000, percent: 23 },
+      context: { tokens: 45_000, window: 200_000, percent: contextPercent },
       rateLimits: [{ kind: 'five_hour', percentUsed: 25, resetsAt: '2026-10-02T09:00:00Z' }],
       cost: { usd: 1.23 },
     },
@@ -193,5 +208,144 @@ test('rc state follows this session\'s entry in sessions/', async ($, on) => {
     expect(await shown()).toBe('https://claude.ai/code/session_abc')
   } finally {
     FILES[SESSION_FILE] = sessionEntry(null)
+  }
+})
+
+test('thresholds fire once and re-arm after a drop', async () => {
+  const t = parseThresholds('90, 80,abc,120')
+  expect(t).toEqual([80, 90])
+  const a = crossThresholds(85, t, [])
+  expect(a).toEqual({ alert: 80, fired: [80] })
+  expect(crossThresholds(86, t, a.fired).alert).toBe(null)
+  expect(crossThresholds(95, t, a.fired)).toEqual({ alert: 90, fired: [80, 90] })
+  // After /compact the percent falls well below: both re-arm.
+  expect(crossThresholds(30, t, [80, 90]).fired).toEqual([])
+})
+
+test('forecast names the time a window runs out before its reset', async () => {
+  const now = Date.parse('2026-10-02T06:00:00Z')
+  const hour = 3600_000
+  // 5h window, 2h in, 60% used: 100% at 3h20m in, before the reset at 5h.
+  const resets = (now + 3 * hour) / 1000
+  expect(exhaustAt(60, resets, 5 * hour, now)).toBe(now + (40 / 60) * 2 * hour)
+  // 20% after 2h lasts to the reset.
+  expect(exhaustAt(20, resets, 5 * hour, now)).toBe(null)
+  expect(exhaustAt(5, resets, 5 * hour, now)).toBe(null)
+})
+
+test('history helpers: sparkline, streak, git counts, summary', async () => {
+  expect(sparkline([0, 1, 2, 4])).toBe('▁▃▅█')
+  const today = '2026-10-02'
+  const days = { [addDays(today, -2)]: 1, [addDays(today, -1)]: 2, [today]: 0.5, [addDays(today, -4)]: 3 }
+  expect(streak(days, today)).toBe(3)
+  expect(streak({ [addDays(today, -1)]: 1 }, today)).toBe(1)
+  expect(lastDays(days, today, 3)).toEqual([1, 2, 0.5])
+  expect(addDays('2026-03-01', -1)).toBe('2026-02-28')
+  expect(parseGitStatus('# branch.oid x\n# branch.ab +3 -1\n1 .M a\n? b\n')).toEqual({ dirty: 2, ahead: 3 })
+  expect(cleanSummary('“修复登录页的跳转 bug。”\n')).toBe('修复登录页的跳转 bug')
+  expect(cleanSummary('  \n')).toBe(null)
+  expect(chimeWav().startsWith('UklGR')).toBe(true)
+  const line = extrasLine({
+    summary: null,
+    exhaust: [],
+    todayUsd: 12,
+    budgetUsd: 10,
+    week: null,
+    git: { dirty: 25, ahead: 1 },
+    gitDirtyWarn: 20,
+    gitAheadWarn: 5,
+  })
+  expect(line.map(s => s.text).join('')).toBe('今日 $12.00/$10.00 ▓▓▓▓▓▓▓▓ │ ⚠ 25 个改动未提交')
+  expect(line.find(s => s.text.startsWith('▓'))?.color).toBe('red')
+})
+
+const DONE = { answer: 'ok', durationMs: 90_000, isAborted: false, turnId: 't1', reason: 'answer' } as const
+
+test('a long turn toasts and chimes, then the summary joins the HUD', async ($, on) => {
+  const clock = host(on)
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box key="core" />
+  })
+  const toasts: string[] = []
+  let chimes = 0
+  on('ui.toast', ($, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
+  on('audio.play', () => {
+    chimes++
+    return { value: undefined }
+  })
+  on('model.fork', () => ({
+    value: { isAnswered: true, text: '给 HUD 加提醒与摘要', usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } },
+  }))
+  on('turn.complete', ($, e) => ({ text: e.answer }))
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  for (let i = 0; i < 30; i++) await clock.settle()
+
+  await $.turn.complete({ ...DONE, durationMs: 5_000 })
+  expect(toasts.length).toBe(0)
+  await $.turn.complete(DONE)
+  for (let i = 0; i < 30; i++) await clock.settle()
+  expect(toasts).toEqual(['✓ 本轮完成，用时 1m30s'])
+  expect(chimes).toBe(1)
+  // The summary lands, then the debounced refresh draws it.
+  await clock.advance(1_000)
+  for (let i = 0; i < 30; i++) await clock.settle()
+
+  const ui = await $.ui.mount({ plugin: 'hud', surface: 'terminal', ...BAND })
+  expect(await ui.find({ type: 'Text', text: '✎ 给 HUD 加提醒与摘要' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('context crossing a threshold toasts once', { options: { notifyAfterSeconds: 0 } }, async ($, on) => {
+  contextPercent = 85
+  try {
+    const clock = host(on)
+    const toasts: string[] = []
+    on('ui.toast', ($, e) => {
+      toasts.push(e.text)
+      return { value: undefined }
+    })
+    await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+    for (let i = 0; i < 30; i++) await clock.settle()
+    await clock.advance(15_000)
+    for (let i = 0; i < 30; i++) await clock.settle()
+    expect(toasts).toEqual(['上下文已用 80%，可以考虑 /compact'])
+  } finally {
+    contextPercent = 23
+  }
+})
+
+test('detail pane lists tool time and the spend history', async ($, on) => {
+  const today = new Date(Date.parse('2026-10-02T06:01:00Z'))
+  const day = (n: number) => addDays(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`, n)
+  const clock = host(on, { history: { [day(-1)]: 2, [day(-2)]: 1 } })
+  on('tool.call', () => ({ result: 'ok', text: 'ok' }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.panes', () => ({ value: [] }))
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  for (let i = 0; i < 30; i++) await clock.settle()
+  await $.tool.call({ tool: 'Bash', input: { command: 'ls' }, tool_use_id: 'u1' } as never)
+  const opened = await $.command.run({
+    origin: { kind: 'composer' },
+    presentation: { isFullscreen: false, columns: 120 },
+    command: 'hud',
+    args: 'detail',
+  })
+  expect(opened.text).toBe('HUD 详情面板已打开（/hud detail 关闭）')
+  for (const surface of SURFACES) {
+    const pane = await $.ui.mount({
+      plugin: 'hud',
+      surface,
+      component: 'Pane',
+      requestId: 'hud-detail',
+      props: { title: 'HUD 详情', isFocused: false, bodyColumns: 80, placement: 'dock', scroll: { offset: 0, bodyRows: 30 }, view: {} },
+    })
+    expect(await pane.find({ type: 'Text', text: 'Bash' })).toBeDefined()
+    const shown = (await pane.findAll({ type: 'Text' })).map(t => t.text).join('')
+    expect(/连续 2 天/.test(shown)).toBe(true)
+    await pane.unmount()
   }
 })

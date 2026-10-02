@@ -7,13 +7,29 @@ import './shims/globals.js'
 import { atom, read, update } from 'claude-code'
 import type { Elements, Register, RenderElement, SessionRepo, SessionUsage, SessionVersion } from 'claude-code'
 
-import type { HudLine, StepInfo } from '../types'
+import type { Fired, HudLine, StepInfo, ToolStats } from '../types'
 import { parseAnsi } from './ansi.js'
+import {
+  chimeWav,
+  crossThresholds,
+  exhaustAt,
+  extrasLine,
+  formatDuration,
+  lastDays,
+  localDay,
+  parseGitStatus,
+  parseThresholds,
+  pruneHistory,
+  sparkline,
+  streak,
+} from './extras.js'
+import { getCostTotals } from './hud/daily-cost.js'
 import type { GitRepoIdentity } from './hud/git.js'
 import { main } from './hud/index.js'
 import { setRenderSink } from './hud/render/index.js'
 import { setTranscriptProvider } from './hud/transcript.js'
 import type { StdinData } from './hud/types.js'
+import { FIVE_HOUR_WINDOW_MS, SEVEN_DAY_WINDOW_MS } from './hud/usage-pace.js'
 import { processShim } from './shims/globals.js'
 import { factsSummary, type Io, markStable, runWithFacts, setIo } from './shims/host.js'
 import { sysinfo } from './shims/os.js'
@@ -32,6 +48,17 @@ const steps = atom({ plugin: 'hud', key: 'step' } as const, {
 } as StepInfo)
 // Remote clients attached to the session (a phone, the web), by client id.
 const clients = atom({ plugin: 'hud', key: 'clients' } as const, [] as string[])
+const summary = atom({ plugin: 'hud', key: 'summary' } as const, null as string | null)
+const turns = atom({ plugin: 'hud', key: 'turns' } as const, 0)
+const fired = atom({ plugin: 'hud', key: 'fired' } as const, { context: [], fiveHour: [], sevenDay: [] } as Fired)
+const history = atom({ plugin: 'hud', key: 'history' } as const, {} as Record<string, number>)
+const tools = atom({ plugin: 'hud', key: 'tools' } as const, {} as ToolStats)
+
+const PANE = 'hud-detail'
+// Days of spend the store keeps; the HUD draws the last 7.
+const HISTORY_DAYS = 60
+const SUMMARY_PROMPT =
+  '用一句不超过 25 个字的中文概括这个会话眼下正在做的任务，只输出这句话本身，不加引号、前缀或句末标点。'
 
 setTranscriptProvider(async path => transcriptData(path))
 
@@ -288,15 +315,40 @@ async function loadHostFacts(io: Io, extraCmd: string): Promise<void> {
   setCwdProvider(() => processShim.cwdPath)
 }
 
-async function renderHud(io: Io, session: SessionApi): Promise<HudLine[]> {
+/** Changed paths and unpushed commits, or null outside a repo. */
+async function gitCounts(io: Io, cwd: string): Promise<{ dirty: number; ahead: number } | null> {
+  const out = await io
+    .run(['git', 'status', '--porcelain=v2', '--branch'], { cwd, timeoutMs: 3_000 })
+    .catch(() => null)
+  return out && out.exitCode === 0 ? parseGitStatus(out.stdout) : null
+}
+
+/** One reply line of the summary fork, trimmed to fit the row. */
+export function cleanSummary(text: string): string | null {
+  const line = text.split('\n').map(l => l.trim()).find(Boolean) ?? ''
+  const bare = line.replace(/^["'“”「『]+|["'“”」』。.]+$/g, '').trim()
+  if (!bare) return null
+  return [...bare].length > 40 ? `${[...bare].slice(0, 39).join('')}…` : bare
+}
+
+type Rendered = { rows: HudLine[]; stdin: StdinData; todayUsd: number | null }
+
+async function renderHud(io: Io, session: SessionApi, wantsCost: boolean): Promise<Rendered> {
   if (live.columns) processShim.env.COLUMNS = String(live.columns)
   const stdin = await buildStdin(io, session)
   live.lastStdin = stdin
   let out: string[] = []
+  let todayUsd: number | null = null
   await runWithFacts(async () => {
     out = []
     setRenderSink(line => out.push(line))
     await main(async () => stdin)
+    // Today's spend across sessions, from claude-hud's own ledger (kept current here
+    // even when its daily-cost element is off).
+    if (wantsCost) {
+      const resetsAt = stdin.rate_limits?.seven_day?.resets_at
+      todayUsd = getCostTotals(stdin, { sevenDayResetAt: resetsAt ? new Date(resetsAt * 1000) : null })?.todayUsd ?? null
+    }
   })
   const rendered = out.map(parseAnsi)
   live.bridgeSessionId = await remoteControl(io, stdin.session_id ?? '')
@@ -305,14 +357,26 @@ async function renderHud(io: Io, session: SessionApi): Promise<HudLine[]> {
     if (rendered.length > 0) rendered[0] = [...rendered[0]!, ...rc]
     else rendered.push(rc.slice(1))
   }
-  live.lastLines = rendered.map(row => row.map(span => span.text).join(''))
-  return rendered
+  return { rows: rendered, stdin, todayUsd }
 }
 
 export const register: Register = (on, options) => {
   const extraCmd = typeof options.extraCmd === 'string' ? options.extraCmd : ''
   const isDebug = options.debug === true
   const position = options.position === 'below' ? 'below' : 'above'
+  const num = (value: unknown, fallback: number) => (typeof value === 'number' && Number.isFinite(value) ? value : fallback)
+  const notifyMs = Math.max(0, num(options.notifyAfterSeconds, 60)) * 1000
+  const hasChime = options.notifySound !== false
+  const contextThresholds = parseThresholds(typeof options.contextAlerts === 'string' ? options.contextAlerts : '80,90')
+  const usageThresholds = parseThresholds(typeof options.usageAlerts === 'string' ? options.usageAlerts : '80,90')
+  const hasForecast = options.showForecast !== false
+  const budgetUsd = Math.max(0, num(options.dailyBudgetUsd, 0))
+  const hasHistory = options.showHistory !== false
+  const summaryEvery = Math.max(0, Math.floor(num(options.summaryEveryTurns, 5)))
+  const gitDirtyWarn = Math.max(0, num(options.gitDirtyWarn, 20))
+  const gitAheadWarn = Math.max(0, num(options.gitAheadWarn, 5))
+  const wantsCost = budgetUsd > 0 || hasHistory
+  let isSummarizing = false
   // Set in session.start: everything that outlives one dispatch calls the
   // engine through these closures.
   let refresh: () => Promise<void> = async () => {}
@@ -370,9 +434,33 @@ export const register: Register = (on, options) => {
       isRunning = true
       const started = Date.now()
       try {
-        const rendered = await renderHud(io, session)
+        const { rows, stdin, todayUsd } = await renderHud(io, session, wantsCost)
+        const now = await $.clock.now()
+        await alert(stdin)
+        if (todayUsd !== null) await recordSpend(now, todayUsd)
+        const days = await read($, history)
+        const today = localDay(now)
+        const limits = stdin.rate_limits
+        const exhaust = hasForecast
+          ? [
+              { label: '5h 额度', at: exhaustAt(limits?.five_hour?.used_percentage, limits?.five_hour?.resets_at, FIVE_HOUR_WINDOW_MS, now) },
+              { label: '7d 额度', at: exhaustAt(limits?.seven_day?.used_percentage, limits?.seven_day?.resets_at, SEVEN_DAY_WINDOW_MS, now) },
+            ].flatMap(({ label, at }) => (at === null ? [] : [{ label, at }]))
+          : []
+        const extra = extrasLine({
+          summary: await read($, summary),
+          exhaust,
+          todayUsd,
+          budgetUsd,
+          week: hasHistory ? { values: lastDays(days, today, 7), streak: streak(days, today) } : null,
+          git: gitDirtyWarn > 0 || gitAheadWarn > 0 ? await gitCounts(io, stdin.cwd ?? '') : null,
+          gitDirtyWarn,
+          gitAheadWarn,
+        })
+        const all = extra.length > 0 ? [...rows, extra] : rows
+        live.lastLines = all.map(row => row.map(span => span.text).join(''))
         live.lastError = null
-        await update($, lines, () => rendered)
+        await update($, lines, () => all)
       } catch (err) {
         live.lastError = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err)
       } finally {
@@ -385,8 +473,38 @@ export const register: Register = (on, options) => {
       }
     }
 
+    // Toasts once per threshold a gauge crosses; re-armed once it drops back.
+    const alert = async (stdin: StdinData) => {
+      const was = await read($, fired)
+      const limits = stdin.rate_limits
+      const context = crossThresholds(stdin.context_window?.used_percentage, contextThresholds, was.context)
+      const fiveHour = crossThresholds(limits?.five_hour?.used_percentage, usageThresholds, was.fiveHour)
+      const sevenDay = crossThresholds(limits?.seven_day?.used_percentage, usageThresholds, was.sevenDay)
+      if (context.alert !== null) $.ui.toast(`上下文已用 ${context.alert}%，可以考虑 /compact`)
+      if (fiveHour.alert !== null) $.ui.toast(`5 小时额度已用 ${fiveHour.alert}%`)
+      if (sevenDay.alert !== null) $.ui.toast(`7 天额度已用 ${sevenDay.alert}%`)
+      const now = { context: context.fired, fiveHour: fiveHour.fired, sevenDay: sevenDay.fired }
+      if (JSON.stringify(now) !== JSON.stringify(was)) await update($, fired, () => now)
+    }
+    // Today's spend into the history, and the store, which other sessions share.
+    const recordSpend = async (now: number, todayUsd: number) => {
+      const today = localDay(now)
+      const usd = Math.round(todayUsd * 100) / 100
+      if ((await read($, history))[today] === usd) return
+      const stored = ((await $.store.get('history')) ?? {}) as Record<string, number>
+      const merged = pruneHistory({ ...stored, [today]: usd }, today, HISTORY_DAYS)
+      await $.store.set('history', merged)
+      await update($, history, () => merged)
+    }
+
+    const kept = await $.store.get('history')
+    if (kept && typeof kept === 'object') {
+      const today = localDay(await $.clock.now())
+      await update($, history, () => pruneHistory(kept as Record<string, number>, today, HISTORY_DAYS))
+    }
+
     await loadHostFacts(io, extraCmd)
-    await $.command.register({ name: 'hud', description: '显示 / 隐藏 claude-hud 横条' })
+    await $.command.register({ name: 'hud', description: '显示 / 隐藏 claude-hud 横条；detail 打开详情面板', argumentHint: '[detail]' })
     if (isDebug) {
       await $.tool.register({
           name: 'hud_debug',
@@ -406,7 +524,15 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  on('command.run', { command: 'hud' }, async $ => {
+  on('command.run', { command: 'hud' }, async ($, e) => {
+    if (e.args.trim().toLowerCase() === 'detail') {
+      if ((await $.ui.panes()).some(p => p.id === PANE)) {
+        await $.ui.close({ id: PANE })
+        return { text: 'HUD 详情面板已关闭' }
+      }
+      await $.ui.open({ id: PANE, title: 'HUD 详情' })
+      return { text: 'HUD 详情面板已打开（/hud detail 关闭）' }
+    }
     const hidden = await update($, isHidden, v => !v)
 
     return { text: hidden ? 'claude-hud 横条已隐藏' : 'claude-hud 横条已显示' }
@@ -438,7 +564,14 @@ export const register: Register = (on, options) => {
 
   on('tool.call', async ($, e, next) => {
     schedule()
+    const started = Date.now()
     const ran = await next(e)
+    const ms = Date.now() - started
+    const failed = 'deny' in ran ? ran.deny !== undefined : ran.isError === true
+    await update($, tools, all => {
+      const was = all[e.tool] ?? { count: 0, totalMs: 0, errors: 0 }
+      return { ...all, [e.tool]: { count: was.count + 1, totalMs: was.totalMs + ms, errors: was.errors + (failed ? 1 : 0) } }
+    })
     schedule()
 
     return ran
@@ -475,6 +608,30 @@ export const register: Register = (on, options) => {
 
   on('turn.complete', async ($, e, next) => {
     schedule()
+    if (e.agentId !== undefined || e.isAborted) return next(e)
+
+    if (notifyMs > 0 && e.durationMs >= notifyMs && e.reason === 'answer') {
+      $.ui.toast(`✓ 本轮完成，用时 ${formatDuration(e.durationMs)}`)
+      if (hasChime) void $.audio.play({ base64: chimeWav(), mime: 'audio/wav' }).catch(() => {})
+    }
+    const count = await update($, turns, n => n + 1)
+    if (summaryEvery > 0 && !isSummarizing && (count === 1 || count % summaryEvery === 0)) {
+      isSummarizing = true
+      // Not awaited: the fork reads the conversation from the prompt cache while the person reads the answer.
+      void $.model
+        .fork({ prompt: SUMMARY_PROMPT })
+        .then(async reply => {
+          const line = reply.isAnswered ? cleanSummary(reply.text) : null
+          if (line) {
+            await update($, summary, () => line)
+            schedule()
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          isSummarizing = false
+        })
+    }
 
     return next(e)
   })
@@ -487,7 +644,8 @@ export const register: Register = (on, options) => {
       <Box flexDirection="column">
         {rows.map((row, i) => (
           // A row of sibling Texts, not nested ones: a nested Text drops dimColor.
-          <Box key={`l${i}`} flexDirection="row">
+          // claude-hud fits its own rows; the extras row wraps when it runs long.
+          <Box key={`l${i}`} flexDirection="row" flexWrap="wrap">
             {row.map((span, j) => {
               const text = (
               <Text
@@ -548,5 +706,59 @@ export const register: Register = (on, options) => {
     }
 
     return drawRows($.ui.resolve(e), rows, await next(e))
+  })
+
+  on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
+    const { Box, Text } = $.ui.resolve(e)
+    // Read so the pane redraws with the HUD: the transcript's agents and todos change with it.
+    await read($, lines)
+    const stats = Object.entries(await read($, tools)).sort((a, b) => b[1].totalMs - a[1].totalMs)
+    const transcript = live.transcriptPath ? transcriptData(live.transcriptPath) : null
+    const agents = (transcript?.agents ?? []).slice(-8)
+    const todos = transcript?.todos ?? []
+    const days = await read($, history)
+    const today = localDay(await $.clock.now())
+    const week = lastDays(days, today, 7)
+    const heading = (text: string) => <Text bold color="cyan">{text}</Text>
+
+    return (
+      <Box flexDirection="column">
+        {heading('工具耗时')}
+        {stats.length === 0 && <Text dimColor>本会话还没有工具调用</Text>}
+        {stats.slice(0, 12).map(([name, s]) => (
+          <Box key={`t-${name}`} flexDirection="row" columnGap={1}>
+            <Text>{name}</Text>
+            <Text dimColor>×{s.count} 共 {formatDuration(s.totalMs)} 均 {formatDuration(s.totalMs / s.count)}</Text>
+            {s.errors > 0 ? <Text color="red">失败 {s.errors}</Text> : null}
+          </Box>
+        ))}
+        <Text> </Text>
+        {heading('子 Agent')}
+        {agents.length === 0 && <Text dimColor>无</Text>}
+        {agents.map(a => (
+          <Box key={`a-${a.id}`} flexDirection="row" columnGap={1}>
+            <Text color={a.status === 'running' ? 'yellow' : 'green'}>{a.status === 'running' ? '◐' : '✓'}</Text>
+            <Text>{a.type}</Text>
+            <Text dimColor wrap="truncate-end">
+              {a.description ?? ''} {formatDuration((a.endTime?.getTime() ?? Date.now()) - a.startTime.getTime())}
+            </Text>
+          </Box>
+        ))}
+        <Text> </Text>
+        {heading('Todo')}
+        {todos.length === 0 && <Text dimColor>无</Text>}
+        {todos.map((t, i) => (
+          <Text key={`d-${i}`} dimColor={t.status === 'completed'} color={t.status === 'in_progress' ? 'yellow' : undefined}>
+            {t.status === 'completed' ? '☑' : t.status === 'in_progress' ? '◐' : '☐'} {t.content}
+          </Text>
+        ))}
+        <Text> </Text>
+        {heading('花费')}
+        <Text>
+          今日 ${(days[today] ?? 0).toFixed(2)}{budgetUsd > 0 ? ` / $${budgetUsd.toFixed(2)}` : ''} · 7 天 $
+          {week.reduce((a, b) => a + b, 0).toFixed(2)} {sparkline(week)} · 连续 {streak(days, today)} 天
+        </Text>
+      </Box>
+    )
   })
 }
