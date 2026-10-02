@@ -30,6 +30,8 @@ const steps = atom({ plugin: 'hud', key: 'step' } as const, {
   currentUsage: null,
   lastRequestAt: null,
 } as StepInfo)
+// Remote clients attached to the session (a phone, the web), by client id.
+const clients = atom({ plugin: 'hud', key: 'clients' } as const, [] as string[])
 
 setTranscriptProvider(async path => transcriptData(path))
 
@@ -37,6 +39,7 @@ setTranscriptProvider(async path => transcriptData(path))
 // tick only keeps minute-grained clocks (duration, resets, cache) current.
 const TICK_MS = 15_000
 const DEBOUNCE_MS = 250
+const RC_POLL_MS = 3_000
 
 type CurrentUsage = NonNullable<NonNullable<StdinData['context_window']>['current_usage']>
 
@@ -50,6 +53,9 @@ const live = {
   lastError: null as string | null,
   lastLines: [] as string[],
   refreshMs: 0,
+  // This process's `sessions/<pid>.json`, found by session id.
+  sessionFile: undefined as string | undefined,
+  bridgeSessionId: null as string | null,
 }
 
 /** The session reads the stdin is built from, closed over `$` in session.start. */
@@ -65,6 +71,7 @@ type SessionApi = {
     step: StepInfo
     repo: SessionRepo | null
   }>
+  clients: () => Promise<string[]>
   exists: (path: string) => Promise<boolean>
 }
 
@@ -91,8 +98,12 @@ function projectSlug(dir: string): string {
   return dir.replace(/[^a-zA-Z0-9]/g, '-')
 }
 
+function claudeConfigDir(): string {
+  return processShim.env.CLAUDE_CONFIG_DIR?.trim() || `${sysinfo.home}/.claude`
+}
+
 async function findTranscript(io: Io, session: SessionApi, id: string, dirs: string[]): Promise<string | undefined> {
-  const configDir = processShim.env.CLAUDE_CONFIG_DIR?.trim() || `${sysinfo.home}/.claude`
+  const configDir = claudeConfigDir()
   for (const dir of dirs) {
     const candidate = `${configDir}/projects/${projectSlug(dir)}/${id}.jsonl`
     if (await session.exists(candidate)) return candidate
@@ -101,6 +112,43 @@ async function findTranscript(io: Io, session: SessionApi, id: string, dirs: str
     .run(['/usr/bin/find', `${configDir}/projects`, '-maxdepth', '2', '-name', `${id}.jsonl`])
     .catch(() => null)
   return found?.stdout.split('\n').find(Boolean)
+}
+
+type SessionEntry = { sessionId?: unknown; bridgeSessionId?: unknown }
+
+/**
+ * Remote Control's session id, or null when it is off. The engine records it
+ * as `bridgeSessionId` in `sessions/<pid>.json`; the mod API does not report it.
+ */
+async function remoteControl(io: Io, id: string): Promise<string | null> {
+  const readEntry = (path: string) =>
+    io.read(path).then(text => JSON.parse(text) as SessionEntry, () => null)
+  const bridgeOf = (entry: SessionEntry) => (typeof entry.bridgeSessionId === 'string' ? entry.bridgeSessionId : null)
+  if (live.sessionFile) {
+    const entry = await readEntry(live.sessionFile)
+    if (entry?.sessionId === id) return bridgeOf(entry)
+    live.sessionFile = undefined
+  }
+  const dir = `${claudeConfigDir()}/sessions`
+  for (const file of await io.list(dir).catch(() => [])) {
+    if (file.kind !== 'file' || !/^\d+\.json$/.test(file.name)) continue
+    const entry = await readEntry(`${dir}/${file.name}`)
+    if (entry?.sessionId !== id) continue
+    live.sessionFile = `${dir}/${file.name}`
+    return bridgeOf(entry)
+  }
+  return null
+}
+
+/** ` │ RC` (linked to the session on claude.ai) and how many remote clients are attached. */
+export function rcSpans(bridgeSessionId: string | null, clientCount: number): HudLine {
+  if (!bridgeSessionId) return []
+  const spans: HudLine = [
+    { text: ' │ ' },
+    { text: 'RC', color: 'green', href: `https://claude.ai/code/${bridgeSessionId}` },
+  ]
+  if (clientCount > 0) spans.push({ text: ` ${clientCount} 已连接`, dimColor: true })
+  return spans
 }
 
 async function gitWorktree(io: Io, cwd: string): Promise<string | undefined> {
@@ -251,6 +299,12 @@ async function renderHud(io: Io, session: SessionApi): Promise<HudLine[]> {
     await main(async () => stdin)
   })
   const rendered = out.map(parseAnsi)
+  live.bridgeSessionId = await remoteControl(io, stdin.session_id ?? '')
+  const rc = rcSpans(live.bridgeSessionId, (await session.clients()).length)
+  if (rc.length > 0) {
+    if (rendered.length > 0) rendered[0] = [...rendered[0]!, ...rc]
+    else rendered.push(rc.slice(1))
+  }
   live.lastLines = rendered.map(row => row.map(span => span.text).join(''))
   return rendered
 }
@@ -266,9 +320,12 @@ export const register: Register = (on, options) => {
   let isRunning = false
   let isQueued = false
   let isScheduled = false
+  let isStarted = false
 
   const schedule = () => {
-    if (isScheduled) return
+    // A draw can come before session.start: nothing to schedule on yet, and
+    // session.start refreshes anyway.
+    if (isScheduled || !isStarted) return
     isScheduled = true
     after(DEBOUNCE_MS, () => {
       isScheduled = false
@@ -299,10 +356,12 @@ export const register: Register = (on, options) => {
         ])
         return { id, cwd, root, model, usage, version, settings: settings as Record<string, unknown>, step, repo }
       },
+      clients: () => read($, clients),
       exists: path => $.fs.exists(path),
     }
     setIo(io)
     after = (ms, fn) => void $.clock.after(ms, fn)
+    isStarted = true
     refresh = async () => {
       if (isRunning) {
         isQueued = true
@@ -337,6 +396,12 @@ export const register: Register = (on, options) => {
     }
     $.clock.every(TICK_MS, () => void refresh())
     void refresh()
+    // Remote Control turns on and off outside the turn's events (`/remote-control`,
+    // `--remote-control` connecting): a cheap read of the session file, a redraw on a change.
+    $.clock.every(RC_POLL_MS, async () => {
+      const bridge = await remoteControl(io, await $.session.id()).catch(() => live.bridgeSessionId)
+      if (bridge !== live.bridgeSessionId) schedule()
+    })
 
     return next(e)
   })
@@ -347,9 +412,23 @@ export const register: Register = (on, options) => {
     return { text: hidden ? 'claude-hud 横条已隐藏' : 'claude-hud 横条已显示' }
   })
 
+  on('session.attach', async ($, e, next) => {
+    if (e.surface !== 'terminal') await update($, clients, ids => (ids.includes(e.clientId) ? ids : [...ids, e.clientId]))
+    schedule()
+
+    return next(e)
+  })
+
+  on('session.detach', async ($, e, next) => {
+    await update($, clients, ids => ids.filter(id => id !== e.clientId))
+    schedule()
+
+    return next(e)
+  })
+
   on('tool.call', { tool: /^mcp__hud__hud_debug$/ }, async () => {
     const text = JSON.stringify(
-      { lines: live.lastLines, stdin: live.lastStdin, error: live.lastError, refreshMs: live.refreshMs, columns: live.columns, facts: factsSummary() },
+      { lines: live.lastLines, stdin: live.lastStdin, bridgeSessionId: live.bridgeSessionId, sessionFile: live.sessionFile, error: live.lastError, refreshMs: live.refreshMs, columns: live.columns, facts: factsSummary() },
       null,
       2,
     )

@@ -31,6 +31,6 @@ export type StepInfo = {
 
 declare module 'claude-code' {
   interface PluginState {
-    hud: { lines: HudLine[]; isHidden: boolean; step: StepInfo }
+    hud: { lines: HudLine[]; isHidden: boolean; step: StepInfo; clients: string[] }
   }
 }

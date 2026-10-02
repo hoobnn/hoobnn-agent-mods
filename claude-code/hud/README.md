@@ -31,6 +31,10 @@ Claude Code's statusline stdin carries these; the mod API does not, so the mod w
 - Before the session's first model request, `current_usage` is the engine's context total, uncached, and the effort is `effortLevel` from settings; both arrive with the first `turn.step` and are kept in session state across reloads.
 - `total_api_duration_ms` counts the requests seen since the mod was enabled in the session.
 
+## Added
+
+- Remote Control: ` │ RC` at the end of the first line while the session's Remote Control is on, linked to the session on claude.ai, with how many remote clients are attached. The engine records the bridge as `bridgeSessionId` in `~/.claude/sessions/<pid>.json` (found by session id) and the mod API does not report it, so the file is read every 3 s and the HUD redrawn on a change; clients are counted from `session.attach` / `session.detach`.
+
 ## Not carried over
 
 - OSC 8 `file://` links (the project path): a `Link` takes https only, so the text is kept and the link dropped. https links (a GitHub branch) stay clickable.

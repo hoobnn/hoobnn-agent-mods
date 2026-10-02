@@ -2,6 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
 import { parseAnsi } from '../hooks/ansi'
+import { rcSpans } from '../hooks/register'
 
 const HOME = '/home/u'
 const CWD = '/home/u/proj'
@@ -25,11 +26,15 @@ const LINES = [
   },
 ].map(l => JSON.stringify(l)).join('\n') + '\n'
 
+const SESSION_FILE = `${HOME}/.claude/sessions/4242.json`
+const sessionEntry = (bridgeSessionId: string | null) => JSON.stringify({ pid: 4242, sessionId: 'sess-1', bridgeSessionId })
 const FILES: Record<string, string> = {
   [`${HOME}/.claude/plugins/claude-hud/config.json`]: CONFIG,
   [TRANSCRIPT]: LINES,
+  [`${HOME}/.claude/sessions/4141.json`]: JSON.stringify({ pid: 4141, sessionId: 'other', bridgeSessionId: 'session_other' }),
+  [SESSION_FILE]: sessionEntry(null),
 }
-const DIRS = new Set([HOME, `${HOME}/.claude`, CWD])
+const DIRS = new Set([HOME, `${HOME}/.claude`, `${HOME}/.claude/sessions`, CWD])
 
 function host(on: On) {
   const clock = mock.clock(on, { now: Date.parse('2026-10-02T06:01:00Z') })
@@ -45,7 +50,11 @@ function host(on: On) {
   })
   on('fs.exists', ($, e) => ({ value: stat(e.path) !== null }))
   on('fs.read', ($, e) => (e.path in FILES ? { value: FILES[e.path]! } : { deny: 'ENOENT' }))
-  on('fs.list', () => ({ value: [] }))
+  on('fs.list', ($, e) => ({
+    value: Object.keys(FILES)
+      .filter(path => path.startsWith(`${e.path}/`) && !path.slice(e.path.length + 1).includes('/'))
+      .map(path => ({ name: path.slice(e.path.length + 1), kind: 'file' as const, size: FILES[path]!.length, mtimeMs: 1, isLink: false })),
+  }))
   on('fs.write', () => ({ value: undefined }))
   on('process.run', ($, e) => {
     const argv = e.argv.join(' ')
@@ -152,3 +161,37 @@ test('position below draws under the prompt and leaves the band alone', { option
   }
 })
 
+
+test('rc label links the bridge session and counts attached clients', async () => {
+  expect(rcSpans(null, 2)).toEqual([])
+  expect(rcSpans('session_x', 0)).toEqual([
+    { text: ' │ ' },
+    { text: 'RC', color: 'green', href: 'https://claude.ai/code/session_x' },
+  ])
+  expect(rcSpans('session_x', 2).at(-1)).toEqual({ text: ' 2 已连接', dimColor: true })
+})
+
+test('rc state follows this session\'s entry in sessions/', async ($, on) => {
+  const clock = host(on)
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box key="core" />
+  })
+  const shown = async () => {
+    const ui = await $.ui.mount({ plugin: 'hud', surface: 'terminal', ...BAND })
+    const links = await ui.findAll({ type: 'Link' })
+    await ui.unmount()
+    return links.map(l => l.props.href).find(href => /^https:\/\/claude\.ai\/code\//.test(String(href)))
+  }
+  try {
+    await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+    for (let i = 0; i < 30; i++) await clock.settle()
+    expect(await shown()).toBeUndefined()
+    FILES[SESSION_FILE] = sessionEntry('session_abc')
+    await clock.advance(15_000)
+    for (let i = 0; i < 30; i++) await clock.settle()
+    expect(await shown()).toBe('https://claude.ai/code/session_abc')
+  } finally {
+    FILES[SESSION_FILE] = sessionEntry(null)
+  }
+})
