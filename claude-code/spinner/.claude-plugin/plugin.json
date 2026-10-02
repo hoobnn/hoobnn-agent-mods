@@ -1,7 +1,7 @@
 {
   "name": "spinner",
-  "version": "0.1.0",
-  "description": "Animations while the model works: a mascot beside the spinner, a scene in a band above the prompt and a finale when the turn ends, in eight switchable themes",
+  "version": "0.2.0",
+  "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt (a shoot-em-up, Clawd, pixel homages and more), a finale and a pet that levels up, in fourteen themes",
   "author": {
     "name": "hoobnn",
     "url": "https://github.com/hoobnn"
@@ -12,7 +12,8 @@
   "keywords": [
     "spinner",
     "animation",
-    "kaomoji",
+    "pet",
+    "pixel-art",
     "mod"
   ],
   "types": "./types/index.d.ts",
@@ -20,9 +21,15 @@
     "theme": {
       "type": "string",
       "title": "Theme",
-      "description": "The animations' look: cat, bunny, sakura, mecha, neon, dino, ocean, matrix, or random for a new one each session. /spinner <theme> switches it live",
+      "description": "The animations' look: clawd (Claude's mascot), thunder (a shoot-em-up), chomp, sparky, bluecat, nyan (pixel homages), cat, bunny, sakura, mecha, neon, dino, ocean, matrix, or random for a new one each session. /spinner <theme> switches it live",
       "options": [
         "random",
+        "clawd",
+        "thunder",
+        "chomp",
+        "sparky",
+        "bluecat",
+        "nyan",
         "cat",
         "bunny",
         "sakura",
@@ -44,6 +51,12 @@
       "type": "boolean",
       "title": "Finale",
       "description": "A short finale in the band when a turn ends: confetti and the time it took, or a sad face when interrupted",
+      "default": true
+    },
+    "companion": {
+      "type": "boolean",
+      "title": "Companion",
+      "description": "A pet in a row above the prompt: it shows what the model is doing (the tool running, a permission waiting), stays between turns, levels up as turns finish, and a click or /spinner pet pats it (/spinner companion off|on overrides it)",
       "default": true
     },
     "language": {

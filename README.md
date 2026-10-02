@@ -19,7 +19,7 @@
 | [`hud`](claude-code/hud) | 把 [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 改成 mod，显示模型、项目、git、上下文、用量、工具、子代理和待办，可以放在输入框上方或下方。另外加了：长任务结束提醒、上下文和额度预警、用量耗尽预测、每日预算、近 7 天花费、未提交改动提醒、一行任务摘要，`/hud detail` 详情面板，以及 12 套可随时切换的主题（科技霓虹、彩虹渐变、emoji、樱花 / 猫咪 / 机甲 / 热血等带颜文字看板娘的动漫风、Nerd Font 与 powerline） |
 | [`ts-band`](claude-code/ts-band) | 在输入框上方显示 Tailscale 节点状态：全部直连时只占一个短标记，有节点走中继 / DERP（黄）或离线（红）时只列出这些节点；节点上线或掉线时弹提示 |
 | [`hitokoto`](claude-code/hitokoto) | 在输入框上方显示一句[一言](https://hitokoto.cn)，可以定时换、每天一句、每个会话一句或每次发消息换一句 |
-| [`spinner`](claude-code/spinner) | AI 运行时的动画：Spinner 行前面加一个会按思考 / 调工具 / 输出切换动作的小角色，输入框上方放两行动画小剧场（猫追毛线球、兔子跳胡萝卜、樱花飘落、机甲打靶、霓虹频谱、自动跳仙人掌的小恐龙、小鱼吐泡泡、黑客帝国字符雨），一轮结束时放 3 秒彩带并显示用时；8 套主题，`/spinner` 随时切换和预览 |
+| [`spinner`](claude-code/spinner) | AI 运行时的动画和宠物伴侣：Spinner 行前加一个会按思考 / 调工具 / 输出切换动作的小角色；输入框上方放动画小剧场，有像素风的雷霆战机横版射击、Claude 的 Clawd、吃豆人、电气鼠、蓝色机器猫、彩虹猫，以及猫、兔子、樱花、机甲、霓虹、小恐龙、小鱼、字符雨；宠物伴侣参考 Codex Pets，气泡里显示正在跑的工具、等你确认时提醒，空闲时留在输入框上方，跑完一轮涨经验升级，点它或 `/spinner pet` 摸摸会冒爱心；一轮结束放 3 秒彩带并显示用时；14 套主题，`/spinner` 随时切换和预览 |
 
 从本仓库的插件市场安装：
 
@@ -31,13 +31,13 @@ claude plugin install hitokoto@hoobnn-agent-mods
 claude plugin install spinner@hoobnn-agent-mods
 ```
 
-选项（`hud` 的 `position`、`theme`、`dailyBudgetUsd`、`summaryEveryTurns`，`ts-band` 的 `nodes`、`hideOffline`，`hitokoto` 的 `refreshMode`、`categories`，`spinner` 的 `theme`、`stage`、`celebrate` 等）都能在 `/config` 里改，也可以写在 `~/.claude/settings.json` 的 `pluginConfigs` 里。每个 mod 的完整说明见各自目录下的 README（英文）。
+选项（`hud` 的 `position`、`theme`、`dailyBudgetUsd`、`summaryEveryTurns`，`ts-band` 的 `nodes`、`hideOffline`，`hitokoto` 的 `refreshMode`、`categories`，`spinner` 的 `theme`、`stage`、`celebrate`、`companion` 等）都能在 `/config` 里改，也可以写在 `~/.claude/settings.json` 的 `pluginConfigs` 里。每个 mod 的完整说明见各自目录下的 README（英文）。
 
-`spinner` 的效果（`cat` 主题跑完一轮再放庆祝动画；8 套主题的动图见 [`claude-code/spinner`](claude-code/spinner)）：
+`spinner` 的效果（`clawd` 主题跑完一轮，宠物伴侣的气泡跟着工具变化，最后放庆祝动画；14 套主题的动图见 [`claude-code/spinner`](claude-code/spinner)）：
 
-![spinner cat 主题](claude-code/spinner/assets/cat.gif)
+![spinner clawd 主题](claude-code/spinner/assets/clawd.gif)
 
-![spinner 8 套主题一览](claude-code/spinner/assets/gallery.png)
+![spinner 雷霆战机主题](claude-code/spinner/assets/thunder.gif)
 
 四个 mod 都支持英语、简体中文、繁体中文、日语、韩语、西班牙语、法语、德语、巴西葡萄牙语和俄语。`hud` 跟随 claude-hud 配置里的 `language`；`ts-band`、`hitokoto` 和 `spinner` 有各自的 `language` 选项，默认 `auto`，依次跟随 Claude Code 的 `language` 设置、系统语言环境，都没有时用英语。
 

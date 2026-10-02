@@ -48,12 +48,13 @@
     {
       "name": "spinner",
       "source": "./claude-code/spinner",
-      "description": "Animations while the model works: a mascot beside the spinner, a scene in a band above the prompt and a finale when the turn ends, in eight switchable themes",
-      "version": "0.1.0",
+      "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt (a shoot-em-up, Clawd, pixel homages and more), a finale and a pet that levels up, in fourteen themes",
+      "version": "0.2.0",
       "category": "productivity",
       "tags": [
         "spinner",
         "animation",
+        "pet",
         "mod"
       ]
     }
