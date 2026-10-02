@@ -38,14 +38,25 @@ Every theme's mascot, stage and companion in one still: [assets/gallery.png](ass
 
 ## Commands
 
-`/spinner` shows the theme, the companion's level and affection and the theme list; `/spinner <theme>` or `/spinner random` switches live, `/spinner preview [theme]` plays a scene above the prompt for eight seconds, `/spinner pet` pats the companion, `/spinner off` / `on` turns everything off and on, `/spinner stage off` / `on` the scene alone, `/spinner companion off` / `on` the companion alone. What `/spinner` sets is kept across sessions.
+`/spinner` shows the theme, the companion's level and affection and the theme list; `/spinner <theme>` or `/spinner random` switches live, `/spinner preview [theme]` plays a scene above the prompt for eight seconds, `/spinner pet` pats the companion, `/spinner off` / `on` turns everything off and on, `/spinner stage off` / `on` the scene alone, `/spinner companion off` / `on` the companion alone. What `/spinner` sets it writes to the options below (`theme`, `visible`, `stage`, `companion`), so `/config` shows it and it is kept across sessions; the change applies at once, and the mod reloads with it. A `random` theme keeps the one it drew for the session through those reloads.
 
 ## Options
 
-- `theme`: the starting theme (default `random`); a theme picked with `/spinner` wins over it.
+- `visible`: the animations at all (default on; `/spinner off` / `on`).
+- `theme`: the theme (default `random`; `/spinner <theme>` sets it).
 - `stage`: the animated scene above the prompt (default on).
 - `celebrate`: the finale when a turn ends (default on).
 - `companion`: the companion's row (default on).
 - `language`: the language of `/spinner`'s replies, the companion's bubbles and the finale's label (`auto`, `en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`, `pt-BR`, `ru`); `auto` follows Claude Code's `language` setting, then the system locale, then English.
 
 The band takes the theme's rows plus one for the companion while a turn runs, and one row between turns; when the band has less room, the scene steps aside and the companion stays. The mascot, the stage and the companion draw on the terminal and the desktop app (the surfaces that run a `Client`); elsewhere Claude Code's own spinner shows unchanged. The pixel scenes want a terminal with true color (Ghostty, iTerm2, WezTerm, kitty).
+
+## Layout
+
+- `hooks/register.tsx`: the hooks: the session's start, the turn's events (activity, finale, pet), `/spinner`, the mascot on the spinner line and the band.
+- `hooks/config.ts`: the options, read once into a typed `Config`.
+- `hooks/command.ts`: `/spinner`'s arguments to what they ask for.
+- `hooks/pet.ts`: the companion's level and bubble, tool labels, durations.
+- `hooks/themes.ts`, `hooks/cells.ts`: the themes and the cell grid they draw on; `hooks/stage.tsx`, `hooks/sprite.tsx`: the `Client` modules that animate them.
+- `hooks/i18n.ts`: the messages.
+- `hooks/kit/`: copies of `claude-code/kit`; edit the source and run `scripts/sync-kit.sh`.

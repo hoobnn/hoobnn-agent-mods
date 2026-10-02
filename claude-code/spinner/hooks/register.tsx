@@ -2,12 +2,23 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Activity, FinaleState, PetStats, Preview } from '../types'
-import { m, resolveLanguage, setLang } from './i18n'
-import { FINALE_MS, THEMES, THEME_NAMES, isThemeName, noise, textWidth } from './themes'
-import type { Act, Finale, Mood, PetView, ThemeName } from './themes'
+import { USAGE, parseCommand } from './command'
+import { readConfig } from './config'
+import type { Choice } from './config'
+import { m, setLang } from './i18n'
+import { stackAbove } from './kit/band'
+import { resolveLanguage } from './kit/lang'
+import { keptRows, migrateStore, persist } from './kit/prefs'
+import type { Prefs } from './kit/prefs'
+import { bubbleOf, finaleOf, formatDuration, levelOf, toolLabel } from './pet'
+import { FINALE_MS, THEMES, THEME_NAMES, isThemeName, pickRandom, textWidth } from './themes'
+import type { Act, Mood, PetView, ThemeName } from './themes'
 
-const theme = atom({ plugin: 'spinner', key: 'theme' } as const, 'clawd')
+// The theme drawn this session ('' until session.start picks one).
+const theme = atom({ plugin: 'spinner', key: 'theme' } as const, '')
+// The `theme` row: a theme, or `random`.
 const choice = atom({ plugin: 'spinner', key: 'choice' } as const, 'random')
+// Session mirrors of the `visible`, `stage` and `companion` rows, so a command shows at once.
 const isHidden = atom({ plugin: 'spinner', key: 'isHidden' } as const, false)
 const isStageOff = atom({ plugin: 'spinner', key: 'isStageOff' } as const, false)
 const isCompanionOff = atom({ plugin: 'spinner', key: 'isCompanionOff' } as const, false)
@@ -22,46 +33,30 @@ const PREVIEW_MS = 8000
 /** Quiet this long after a turn, the companion dozes off. */
 const SLEEP_MS = 5 * 60_000
 
-export function pickRandom(seed: number): ThemeName {
-  return THEME_NAMES[Math.floor(noise(seed) * THEME_NAMES.length)]!
-}
-
-/** `12s`, `3m 05s`, `1h 02m`. */
-export function formatDuration(ms: number): string {
-  const s = Math.max(0, Math.round(ms / 1000))
-  if (s < 60) return `${s}s`
-  if (s < 3600) return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`
-  return `${Math.floor(s / 3600)}h ${String(Math.floor(s / 60) % 60).padStart(2, '0')}m`
-}
-
-/** Lv.1 at 0 xp, Lv.2 at 2, Lv.3 at 8, Lv.4 at 18: one xp a finished turn. */
-export function levelOf(xp: number): number {
-  return Math.floor(Math.sqrt(Math.max(0, xp) / 2)) + 1
-}
-
-/** What a tool call is about, short: `Bash: npm test`, `Edit: themes.ts`, `WebSearch`. */
-export function toolLabel(e: { tool: string } & Record<string, unknown>): string {
-  const clip = (s: string) => (textWidth(s) > 32 ? `${Array.from(s).slice(0, 31).join('')}…` : s)
-  if (typeof e.command === 'string') return clip(`${e.tool}: ${e.command.split('\n')[0]!.trim()}`)
-  const path = [e.file_path, e.notebook_path, e.path].find(p => typeof p === 'string') as string | undefined
-  if (path) return clip(`${e.tool}: ${path.split('/').pop()}`)
-  if (typeof e.pattern === 'string') return clip(`${e.tool}: ${e.pattern}`)
-  return clip(e.tool.replace(/^mcp__[^_]+__/, ''))
-}
-
 /** Client props are plain data: a key left undefined is refused, so it goes. */
 function plain<T extends Record<string, unknown>>(props: T): T {
   return Object.fromEntries(Object.entries(props).filter(([, v]) => v !== undefined)) as T
 }
 
-function finaleOf(reason: string): Finale {
-  return reason === 'answer' ? 'answer' : reason === 'aborted' ? 'aborted' : 'error'
+/** The kit's hold on this mod's store and `/config` rows. */
+function prefsOf($: EngineInterface): Prefs {
+  return {
+    kept: key => $.store.get(key),
+    forget: key => $.store.delete(key),
+    write: (field, value) => $.config.set({ key: `spinner.${field}`, value }),
+  }
 }
 
-/** Picks the theme a choice names, a fresh random one for `random`. */
-async function choose($: EngineInterface, picked: string): Promise<ThemeName> {
-  const name = isThemeName(picked) ? picked : pickRandom(await $.clock.now())
-  await update($, choice, () => (isThemeName(picked) ? picked : 'random'))
+/**
+ * The theme a choice names. `random` keeps the one this session already drew
+ * at random (a reload brought by another row's change), unless `isFresh`.
+ */
+async function choose($: EngineInterface, picked: Choice, isFresh = false): Promise<ThemeName> {
+  const current = await read($, theme)
+  const wasRandom = (await read($, choice)) === 'random'
+  const name =
+    picked !== 'random' ? picked : !isFresh && wasRandom && isThemeName(current) ? current : pickRandom(await $.clock.now())
+  await update($, choice, () => picked)
   await update($, theme, () => name)
   return name
 }
@@ -81,18 +76,47 @@ async function settle($: EngineInterface, running: Map<string, string>): Promise
   await update($, activity, () => (last ? { act: 'tool' as Act, tool: last } : { act: 'think' as Act }))
 }
 
-/** The bubble says what the engine's spinner line does not: the tool, a prompt waiting, how the turn ended. */
-function bubbleOf(state: Act | Mood, tool: string | undefined): string {
-  if (state === 'tool') return tool ?? ''
-  if (state === 'think' || state === 'say' || state === 'wait') return ''
-  return m(`pet.${state}`)
+/** Sets a switch's session mirror and, when it changed, its row. */
+async function setSwitch($: EngineInterface, field: 'visible' | 'stage' | 'companion', isOn: boolean): Promise<void> {
+  // Each mirror spelled out: the engine reads which state a hook touches from the source.
+  const wasOff =
+    field === 'visible'
+      ? await read($, isHidden)
+      : field === 'stage'
+        ? await read($, isStageOff)
+        : await read($, isCompanionOff)
+  if (wasOff === !isOn) return
+  if (field === 'visible') await update($, isHidden, () => !isOn)
+  else if (field === 'stage') await update($, isStageOff, () => !isOn)
+  else await update($, isCompanionOff, () => !isOn)
+  await persist(prefsOf($), field, isOn)
+}
+
+/** `/spinner` with no arguments: the theme, the pet, what is off, the themes and the usage. */
+async function status($: EngineInterface): Promise<string> {
+  const current = await read($, theme)
+  const stats = await read($, pet)
+  const lines = [
+    m('cmd.status', { theme: `${current}${(await read($, choice)) === 'random' ? m('cmd.randomNote') : ''}` }),
+    m('cmd.petStats', { theme: current, level: levelOf(stats.xp), xp: stats.xp, love: stats.love }),
+  ]
+  if (await read($, isHidden)) lines.push(m('cmd.hidden'))
+  if (await read($, isStageOff)) lines.push(m('cmd.stageOff'))
+  if (await read($, isCompanionOff)) lines.push(m('cmd.companionOff'))
+  lines.push(m('cmd.themes', { list: THEME_NAMES.map(n => `${n} ${THEMES[n].happy}`).join(' · ') }), m('cmd.usage'))
+  return lines.join('\n')
+}
+
+// What versions before 0.3 kept in the store, as `/config` rows.
+const STORE_MOVES = {
+  theme: (kept: unknown) => (kept === 'random' || isThemeName(kept) ? (['theme', kept] as const) : null),
+  isHidden: (kept: unknown) => ['visible', kept !== true] as const,
+  isStageOff: (kept: unknown) => ['stage', kept !== true] as const,
+  isCompanionOff: (kept: unknown) => ['companion', kept !== true] as const,
 }
 
 export const register: Register = (on, options) => {
-  const optionTheme = typeof options.theme === 'string' ? options.theme : 'random'
-  const hasStage = options.stage !== false
-  const hasFinale = options.celebrate !== false
-  const hasCompanion = options.companion !== false
+  const config = readConfig(options)
   // Tool calls running now: a pet stays busy until the last of parallel calls ends.
   const running = new Map<string, string>()
   let sleepTimer: { cancel: () => void } | undefined
@@ -104,24 +128,19 @@ export const register: Register = (on, options) => {
       $.env.get('LC_MESSAGES').catch(() => undefined),
       $.env.get('LANG').catch(() => undefined),
     ])
-    setLang(resolveLanguage(options.language, settings.language, locale))
-    await $.command.register({
-      name: 'spinner',
-      description: m('cmd.description'),
-      argumentHint: '[theme|random|pet|preview|off|on|stage off|companion off]',
-    })
+    setLang(resolveLanguage(config.language, settings.language, locale))
+    await $.command.register({ name: 'spinner', description: m('cmd.description'), argumentHint: USAGE })
 
-    // What /spinner chose wins over the option until the option is changed back to it.
-    const kept = await $.store.get('theme')
-    await choose($, typeof kept === 'string' ? kept : optionTheme)
-    if ((await $.store.get('isHidden')) === true) await update($, isHidden, () => true)
-    const keptStage = await $.store.get('isStageOff')
-    await update($, isStageOff, () => (typeof keptStage === 'boolean' ? keptStage : !hasStage))
-    const keptCompanion = await $.store.get('isCompanionOff')
-    await update($, isCompanionOff, () => (typeof keptCompanion === 'boolean' ? keptCompanion : !hasCompanion))
+    const rows = readConfig({ ...options, ...(await keptRows(prefsOf($), STORE_MOVES)) })
+    await choose($, rows.theme)
+    await update($, isHidden, () => !rows.isVisible)
+    await update($, isStageOff, () => !rows.hasStage)
+    await update($, isCompanionOff, () => !rows.hasCompanion)
     const stats = (await $.store.get('pet')) as Partial<PetStats> | undefined
     await update($, pet, () => ({ xp: Number(stats?.xp) || 0, love: Number(stats?.love) || 0 }))
-    return next(e)
+    const result = await next(e)
+    await migrateStore(prefsOf($), STORE_MOVES)
+    return result
   })
 
   on('turn.start', async ($, e, next) => {
@@ -171,7 +190,7 @@ export const register: Register = (on, options) => {
       }
     }
 
-    if (hasFinale) {
+    if (config.hasFinale) {
       const label =
         kind === 'answer' ? m('finale.done', { time: formatDuration(e.durationMs) }) : m(kind === 'aborted' ? 'finale.aborted' : 'finale.error')
       const id = e.turnId
@@ -188,55 +207,40 @@ export const register: Register = (on, options) => {
   })
 
   on('command.run', { command: 'spinner' }, async ($, e) => {
-    const [verb = '', arg = ''] = e.args.trim().toLowerCase().split(/\s+/)
+    const command = parseCommand(e.args)
     const list = THEME_NAMES.join(' · ')
-    const current = await read($, theme)
-
-    if (verb === '') {
-      const stats = await read($, pet)
-      const lines = [
-        m('cmd.status', { theme: `${current}${(await read($, choice)) === 'random' ? m('cmd.randomNote') : ''}` }),
-        m('cmd.petStats', { theme: current, level: levelOf(stats.xp), xp: stats.xp, love: stats.love }),
-      ]
-      if (await read($, isHidden)) lines.push(m('cmd.hidden'))
-      if (await read($, isStageOff)) lines.push(m('cmd.stageOff'))
-      if (await read($, isCompanionOff)) lines.push(m('cmd.companionOff'))
-      lines.push(m('cmd.themes', { list: THEME_NAMES.map(n => `${n} ${THEMES[n].happy}`).join(' · ') }), m('cmd.usage'))
-      return { text: lines.join('\n') }
+    switch (command.kind) {
+      case 'status':
+        return { text: await status($) }
+      case 'visible':
+        await setSwitch($, 'visible', command.isOn)
+        return { text: m(command.isOn ? 'cmd.shown' : 'cmd.hidden') }
+      case 'stage':
+        await setSwitch($, 'stage', command.isOn)
+        return { text: m(command.isOn ? 'cmd.stageOn' : 'cmd.stageOff') }
+      case 'companion':
+        await setSwitch($, 'companion', command.isOn)
+        return { text: m(command.isOn ? 'cmd.companionOn' : 'cmd.companionOff') }
+      case 'pat': {
+        const stats = await patPet($)
+        return { text: m('cmd.pat', { theme: await read($, theme), love: stats.love }) }
+      }
+      case 'preview': {
+        const current = await read($, theme)
+        const name: ThemeName = command.theme ?? (isThemeName(current) ? current : 'clawd')
+        const id = String(await $.clock.now())
+        await update($, preview, () => ({ theme: name, id }))
+        $.clock.after(PREVIEW_MS, () => void update($, preview, p => (p?.id === id ? null : p)))
+        return { text: m('cmd.preview', { theme: name }) }
+      }
+      case 'theme': {
+        const name = await choose($, command.theme, true)
+        await persist(prefsOf($), 'theme', command.theme)
+        return { text: command.theme === 'random' ? m('cmd.random', { theme: name }) : m('cmd.switched', { theme: name }) }
+      }
+      case 'unknown':
+        return { text: m('cmd.unknown', { name: command.name, list }) }
     }
-    if (verb === 'off' || verb === 'on') {
-      await update($, isHidden, () => verb === 'off')
-      await $.store.set('isHidden', verb === 'off')
-      return { text: m(verb === 'off' ? 'cmd.hidden' : 'cmd.shown') }
-    }
-    if (verb === 'stage' && (arg === 'off' || arg === 'on')) {
-      await update($, isStageOff, () => arg === 'off')
-      await $.store.set('isStageOff', arg === 'off')
-      return { text: m(arg === 'off' ? 'cmd.stageOff' : 'cmd.stageOn') }
-    }
-    if (verb === 'companion' && (arg === 'off' || arg === 'on')) {
-      await update($, isCompanionOff, () => arg === 'off')
-      await $.store.set('isCompanionOff', arg === 'off')
-      return { text: m(arg === 'off' ? 'cmd.companionOff' : 'cmd.companionOn') }
-    }
-    if (verb === 'pet') {
-      const stats = await patPet($)
-      return { text: m('cmd.pat', { theme: current, love: stats.love }) }
-    }
-    if (verb === 'preview') {
-      if (arg && !isThemeName(arg)) return { text: m('cmd.unknown', { name: arg, list }) }
-      const name = isThemeName(arg) ? arg : current
-      const id = String(await $.clock.now())
-      await update($, preview, () => ({ theme: name, id }))
-      $.clock.after(PREVIEW_MS, () => void update($, preview, p => (p?.id === id ? null : p)))
-      return { text: m('cmd.preview', { theme: name }) }
-    }
-    if (verb === 'random' || isThemeName(verb)) {
-      const name = await choose($, verb)
-      await $.store.set('theme', verb)
-      return { text: verb === 'random' ? m('cmd.random', { theme: name }) : m('cmd.switched', { theme: name }) }
-    }
-    return { text: m('cmd.unknown', { name: verb, list }) }
   })
 
   // The mascot rides in front of the engine's own line, which keeps its word,
@@ -267,7 +271,7 @@ export const register: Register = (on, options) => {
     if (e.props.hasSurvey) return next(e)
     const ui = $.ui.resolve(e)
     if (!('Client' in ui)) return next(e)
-    const { Box, Client } = ui
+    const { Client } = ui
 
     const shown: Preview | null = await read($, preview)
     const hidden = await read($, isHidden)
@@ -305,16 +309,7 @@ export const register: Register = (on, options) => {
       }
     }
     if (!stage) return next(e)
-
-    // Other bands (another mod's) draw beneath this one rather than being replaced.
-    const below = await next(e)
-    return (
-      <Box flexDirection="column">
-        {/* Two cells in, as the engine indents the lines under the prompt. */}
-        <Box paddingLeft={2}>{stage}</Box>
-        {below}
-      </Box>
-    )
+    return stackAbove(ui, stage, await next(e))
   })
 }
 

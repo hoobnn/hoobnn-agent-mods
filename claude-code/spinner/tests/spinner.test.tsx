@@ -1,8 +1,9 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
-import { formatDuration, levelOf, pickRandom, toolLabel } from '../hooks/register'
-import { FINALE_MS, SPRITE_MS, STAGE_MS, THEMES, THEME_NAMES, finaleScene, petRow, segments, textWidth } from '../hooks/themes'
+import { parseCommand } from '../hooks/command'
+import { formatDuration, levelOf, toolLabel } from '../hooks/pet'
+import { FINALE_MS, SPRITE_MS, STAGE_MS, THEMES, THEME_NAMES, finaleScene, petRow, pickRandom, segments, textWidth } from '../hooks/themes'
 import type { Act } from '../hooks/themes'
 
 const START = { cwd: '/tmp', surface: 'terminal', isInteractive: true } as const
@@ -28,11 +29,19 @@ async function drawn(ui: { drawn: (scope?: { in?: string }) => Promise<unknown> 
   return JSON.stringify(await ui.drawn({ in: key }))
 }
 
-function host(on: On) {
+// The /config rows the plugin wrote, as `[key, value]`.
+let rows: [string, unknown][] = []
+
+function host(on: On, stored: Record<string, unknown> = {}) {
+  rows = []
   const clock = mock.clock(on, { now: 1_000_000 })
-  mock.store(on, {})
+  mock.store(on, stored)
   mock.env(on, { LANG: 'zh_CN.UTF-8' })
   on('command.register', ($, e) => ({ value: { command: e.name } }))
+  on('config.set', ($, e) => {
+    rows.push([e.key, e.value])
+    return { value: e.value }
+  })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('turn.start', ($, e) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: 'ok' }))
@@ -205,4 +214,62 @@ test('/spinner switches, hides and reports', async ($, on) => {
   const band = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...IDLE })
   expect(await band.findAll({ type: 'Client' })).toHaveLength(0)
   await band.unmount()
+})
+
+test('/spinner arguments', async () => {
+  expect(parseCommand('')).toEqual({ kind: 'status' })
+  expect(parseCommand(' OFF ')).toEqual({ kind: 'visible', isOn: false })
+  expect(parseCommand('stage on')).toEqual({ kind: 'stage', isOn: true })
+  expect(parseCommand('stage')).toEqual({ kind: 'unknown', name: 'stage' })
+  expect(parseCommand('companion off')).toEqual({ kind: 'companion', isOn: false })
+  expect(parseCommand('preview')).toEqual({ kind: 'preview', theme: null })
+  expect(parseCommand('preview neon')).toEqual({ kind: 'preview', theme: 'neon' })
+  expect(parseCommand('preview x')).toEqual({ kind: 'unknown', name: 'x' })
+  expect(parseCommand('Random')).toEqual({ kind: 'theme', theme: 'random' })
+  expect(parseCommand('cat')).toEqual({ kind: 'theme', theme: 'cat' })
+})
+
+test('/spinner writes its /config rows, once per change', { options: { theme: 'dino' } }, async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.command.run({ ...RUN, command: 'spinner', args: 'neon' })
+  await $.command.run({ ...RUN, command: 'spinner', args: 'stage off' })
+  await $.command.run({ ...RUN, command: 'spinner', args: 'stage off' })
+  await $.command.run({ ...RUN, command: 'spinner', args: 'companion off' })
+  await $.command.run({ ...RUN, command: 'spinner', args: 'off' })
+  expect(rows).toEqual([
+    ['spinner.theme', 'neon'],
+    ['spinner.stage', false],
+    ['spinner.companion', false],
+    ['spinner.visible', false],
+  ])
+})
+
+test('settings older versions kept in the store move to /config rows', async ($, on) => {
+  const clock = host(on, { theme: 'cat', isStageOff: true, isCompanionOff: false, isHidden: false })
+  await $.session.start(START)
+  await clock.settle()
+  expect(rows).toEqual([
+    ['spinner.theme', 'cat'],
+    ['spinner.visible', true],
+    ['spinner.stage', false],
+    ['spinner.companion', true],
+  ])
+  expect((await $.command.run({ ...RUN, command: 'spinner', args: '' })).text).toContain('当前主题：cat')
+  // A reload (a row changed) keeps the session's theme; the store holds nothing to move again.
+  await $.session.start(START)
+  await clock.settle()
+  expect(rows).toHaveLength(4)
+})
+
+test('random keeps the theme it drew this session across a reload', async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  const first = (await $.command.run({ ...RUN, command: 'spinner', args: '' })).text?.split('\n')[0]
+  await clock.advance(12_345)
+  await $.session.start(START)
+  await clock.settle()
+  expect((await $.command.run({ ...RUN, command: 'spinner', args: '' })).text?.split('\n')[0]).toBe(first)
 })

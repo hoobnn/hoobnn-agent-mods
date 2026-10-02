@@ -18,7 +18,8 @@ import {
 } from '../hooks/extras'
 import { setLanguage } from '../hooks/hud/i18n/index'
 import { MESSAGES, m, money } from '../hooks/i18n'
-import { cleanSummary, rcSpans } from '../hooks/register'
+import { rcSpans } from '../hooks/remote'
+import { cleanSummary } from '../hooks/summary'
 import { DEFAULT_CONFIG, mergeConfig } from '../hooks/hud/config'
 import { applyPalette, applyTheme, findTheme, gradientAt, moodOf, THEMES } from '../hooks/themes'
 
@@ -60,8 +61,15 @@ const DIRS = new Set([HOME, `${HOME}/.claude`, `${HOME}/.claude/sessions`, CWD])
 let contextPercent = 23
 // Each command's description, as the mod registered it.
 const registered: string[] = []
+// The /config rows the plugin wrote, as `[key, value]`.
+let rows: [string, unknown][] = []
 
 function host(on: On, stored: Record<string, unknown> | null = {}) {
+  rows = []
+  on('config.set', ($, e) => {
+    rows.push([e.key, e.value])
+    return { value: e.value }
+  })
   const clock = mock.clock(on, { now: Date.parse('2026-10-02T06:01:00Z') })
   // null: the test answers the store itself.
   if (stored) mock.store(on, stored)
@@ -506,18 +514,8 @@ test('the theme option swaps glyphs and palette, and the anime mascot joins', { 
   await ui.unmount()
 })
 
-test('/hud theme lists, switches, persists and resets the theme', async ($, on) => {
-  const kept: Record<string, unknown> = {}
-  on('store.get', ($, e) => ({ value: kept[e.key] }))
-  on('store.set', ($, e) => {
-    kept[e.key] = e.value
-    return { value: undefined }
-  })
-  on('store.delete', ($, e) => {
-    delete kept[e.key]
-    return { value: undefined }
-  })
-  const clock = host(on, null)
+test('/hud theme lists, switches, and writes the theme row', async ($, on) => {
+  const clock = host(on)
   on('ui.render', ($, e) => {
     const { Box } = $.ui.resolve(e)
     return <Box key="core" />
@@ -536,17 +534,15 @@ test('/hud theme lists, switches, persists and resets the theme', async ($, on) 
   for (let i = 0; i < 30; i++) await clock.settle()
   const emoji = await bandText($)
   expect(/🤖 Opus/.test(emoji) && /📂 proj 🌿 main/.test(emoji) && /⏳ Read/.test(emoji)).toBe(true)
-  expect(kept.theme).toBe('emoji')
   await $.command.run({ ...COMMAND, args: 'theme next' })
-  expect(kept.theme).toBe('sakura')
   await $.command.run({ ...COMMAND, args: 'theme reset' })
-  expect('theme' in kept).toBe(false)
+  expect(rows).toEqual([['hud.theme', 'emoji'], ['hud.theme', 'sakura'], ['hud.theme', 'classic']])
   await clock.advance(1_000)
   for (let i = 0; i < 30; i++) await clock.settle()
   expect(/proj git:\(main\*\)/.test(await bandText($))).toBe(true)
 })
 
-test('a theme kept in the store wins over the option', { options: { theme: 'neon' } }, async ($, on) => {
+test('a theme an older version kept in the store moves to the theme row', { options: { theme: 'neon' } }, async ($, on) => {
   const clock = host(on, { theme: 'mecha' })
   on('ui.render', ($, e) => {
     const { Box } = $.ui.resolve(e)
@@ -554,9 +550,25 @@ test('a theme kept in the store wins over the option', { options: { theme: 'neon
   })
   await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
   for (let i = 0; i < 30; i++) await clock.settle()
+  expect(rows).toEqual([['hud.theme', 'mecha']])
   const shown = await bandText($)
   expect(/◢UNIT·Opus 5\.5/.test(shown) || /◢ UNIT·Opus 5\.5/.test(shown)).toBe(true)
   expect(/ ┃ /.test(shown)).toBe(true)
+})
+
+test('/hud off and on write the visible row', async ($, on) => {
+  const clock = host(on)
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box key="core" />
+  })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  for (let i = 0; i < 30; i++) await clock.settle()
+  expect((await $.command.run({ ...COMMAND, args: 'off' })).text).toBe(m('cmd.hidden'))
+  expect(await bandText($)).not.toContain('proj')
+  await $.command.run({ ...COMMAND, args: 'off' })
+  await $.command.run({ ...COMMAND, args: '' })
+  expect(rows).toEqual([['hud.visible', false], ['hud.visible', true]])
 })
 
 test('powerline puts segments on backgrounds joined by caps, two cells wider', async () => {

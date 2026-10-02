@@ -2,17 +2,28 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Quote } from '../types'
-import { m, resolveLanguage, setLang } from './i18n'
-import { attribution, hitokotoUrl, localDate, parseQuote } from './parse'
+import { readConfig } from './config'
+import { m, setLang } from './i18n'
+import { stackAbove } from './kit/band'
+import { resolveLanguage } from './kit/lang'
+import { keptRows, migrateStore, persist } from './kit/prefs'
+import type { Prefs } from './kit/prefs'
+import { attribution, localDate, parseQuote } from './parse'
 
 const quote = atom({ plugin: 'hitokoto', key: 'quote' } as const, null)
 const isHidden = atom({ plugin: 'hitokoto', key: 'isHidden' } as const, false)
 
-const MODES = ['interval', 'daily', 'session', 'prompt'] as const
-type Mode = (typeof MODES)[number]
-
 // How often daily mode looks whether the date has turned.
 const DAY_CHECK_MS = 10 * 60_000
+
+/** The kit's hold on this mod's store and `/config` rows. */
+function prefsOf($: EngineInterface): Prefs {
+  return {
+    kept: key => $.store.get(key),
+    forget: key => $.store.delete(key),
+    write: (field, value) => $.config.set({ key: `hitokoto.${field}`, value }),
+  }
+}
 
 // A failed fetch keeps the line already shown; the error goes back to /hitokoto.
 async function refresh($: EngineInterface, url: string): Promise<string | null> {
@@ -54,11 +65,19 @@ async function showDaily($: EngineInterface, url: string): Promise<void> {
   await fetchNew($, url, true)
 }
 
+/** Shown or hidden; the `visible` row keeps it. */
+async function show($: EngineInterface, isShown: boolean): Promise<void> {
+  if ((await read($, isHidden)) === !isShown) return
+  await update($, isHidden, () => !isShown)
+  await persist(prefsOf($), 'visible', isShown)
+}
+
+// Before 0.4 `/hitokoto off` was kept in the store; it is the `visible` row now.
+const STORE_MOVES = { isHidden: (kept: unknown) => ['visible', kept !== true] as const }
+
 export const register: Register = (on, options) => {
-  const url = hitokotoUrl(typeof options.categories === 'string' ? options.categories : '')
-  const intervalMinutes = typeof options.intervalMinutes === 'number' ? options.intervalMinutes : 30
-  const intervalMs = Math.max(1, intervalMinutes) * 60_000
-  const mode: Mode = MODES.find(mode => mode === options.refreshMode) ?? 'interval'
+  const config = readConfig(options)
+  const { url, mode } = config
   const isDaily = mode === 'daily'
 
   on('session.start', async ($, e, next) => {
@@ -68,15 +87,14 @@ export const register: Register = (on, options) => {
       $.env.get('LC_MESSAGES').catch(() => undefined),
       $.env.get('LANG').catch(() => undefined),
     ])
-    setLang(resolveLanguage(options.language, settings.language, locale))
+    setLang(resolveLanguage(config.language, settings.language, locale))
     await $.command.register({
       name: 'hitokoto',
       description: m('cmd.description'),
       argumentHint: '[off|on]',
     })
-    if ((await $.store.get('isHidden')) === true) {
-      await update($, isHidden, () => true)
-    }
+    const kept = await keptRows(prefsOf($), STORE_MOVES)
+    await update($, isHidden, () => !(kept.visible ?? config.isVisible))
 
     // Not awaited: session.start holds the first prompt until it settles.
     if (isDaily) {
@@ -85,11 +103,13 @@ export const register: Register = (on, options) => {
     } else {
       void fetchNew($, url, false)
       if (mode === 'interval') {
-        $.clock.every(intervalMs, () => void fetchNew($, url, false))
+        $.clock.every(config.intervalMs, () => void fetchNew($, url, false))
       }
     }
 
-    return next(e)
+    const result = await next(e)
+    await migrateStore(prefsOf($), STORE_MOVES)
+    return result
   })
 
   if (mode === 'prompt') {
@@ -102,14 +122,12 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'hitokoto' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase()
     if (arg === 'off' || arg === 'on') {
-      await update($, isHidden, () => arg === 'off')
-      await $.store.set('isHidden', arg === 'off')
+      await show($, arg === 'on')
       return { text: m(arg === 'off' ? 'cmd.hidden' : 'cmd.shown') }
     }
 
-    await update($, isHidden, () => false)
-    await $.store.set('isHidden', false)
     const error = await fetchNew($, url, isDaily)
+    await show($, true)
     if (error) {
       return { text: m('error.fetch', { error }) }
     }
@@ -123,20 +141,15 @@ export const register: Register = (on, options) => {
       return next(e)
     }
 
-    const { Box, Text } = $.ui.resolve(e)
-    // Other bands (another mod's) draw beneath this one rather than being replaced.
-    const below = await next(e)
+    const ui = $.ui.resolve(e)
+    const { Box, Text } = ui
     const by = attribution(q)
-
-    return (
-      <Box flexDirection="column">
-        {/* Two cells in, as the engine indents the lines under the prompt. */}
-        <Box flexDirection="row" flexWrap="wrap" columnGap={1} paddingLeft={2}>
-          <Text dimColor italic>『{q.text}』</Text>
-          {by ? <Text dimColor>{by}</Text> : null}
-        </Box>
-        {below}
+    const line = (
+      <Box flexDirection="row" flexWrap="wrap" columnGap={1}>
+        <Text dimColor italic>『{q.text}』</Text>
+        {by ? <Text dimColor>{by}</Text> : null}
       </Box>
     )
+    return stackAbove(ui, line, await next(e))
   })
 }

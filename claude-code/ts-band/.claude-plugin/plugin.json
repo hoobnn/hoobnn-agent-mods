@@ -1,6 +1,6 @@
 {
   "name": "ts-band",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Tailscale nodes' state in a band above the prompt, with a toast when a node comes up or goes down",
   "author": {
     "name": "hoobnn",
@@ -17,6 +17,12 @@
   ],
   "types": "./types/index.d.ts",
   "userConfig": {
+    "visible": {
+      "type": "boolean",
+      "title": "Show the band",
+      "description": "Show the band; /ts off and /ts on set this too",
+      "default": true
+    },
     "tailscalePath": {
       "type": "string",
       "title": "tailscale CLI",

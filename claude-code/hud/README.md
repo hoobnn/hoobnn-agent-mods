@@ -4,7 +4,15 @@ claude-hud 0.10.0 rebuilt as a Claude Code mod: the same lines, drawn below the 
 
 ## Layout
 
-- `hooks/register.tsx`: the mod. Builds the statusline stdin claude-hud expects from `$` (session, usage, settings, repo, turn steps) and the transcript, runs claude-hud, and draws its lines.
+- `hooks/register.tsx`: the hooks, and everything that calls `$` (the engine follows `$` only within this file): the session's start, the turn's events, `/hud`, the refresh loop, alerts, spend and summary, and the render hooks. The other modules get closures over `$` (`Io`, `SessionApi`).
+- `hooks/config.ts`: the mod's options, read once into a typed `Config`.
+- `hooks/stdin.ts`: builds the statusline stdin claude-hud expects from the session (usage, settings, repo, turn steps) and the transcript; the host facts claude-hud reads (env, platform, memory).
+- `hooks/render.ts`: one pass: claude-hud's lines, the Remote Control label, today's spend; the git counts for the warning.
+- `hooks/remote.ts`: Remote Control's bridge (from `sessions/<pid>.json`) and its label.
+- `hooks/summary.ts`: the task summary's reply, cleaned to one line.
+- `hooks/draw.tsx`: the rows (above or below the prompt) and the `/hud detail` pane, over the elements a render hook resolved.
+- `hooks/live.ts`: what the module keeps between passes outside `$.state` (caches a reload finds again, the band's width, the debug tool's last pass) and the theme in use.
+- `hooks/kit/`: copies of `claude-code/kit` (option readers, `/config` writes); edit the source and run `scripts/sync-kit.sh`.
 - `hooks/transcript-feed.ts`: reads the transcript once and incrementally (only appended lines, gated on its size) for the whole mod. claude-hud's own `Parser` gets every line, and so does a small reader for the stdin fields `$` does not answer: `session_name` and `prompt_cache`.
 - `hooks/hud/`: claude-hud's `src/` (MIT, see `LICENSE.claude-hud`), kept close to upstream. Local changes:
   - `index.ts`: `main(source)` takes the stdin from the mod; errors and setup notes go to the render sink; the run-as-script block is gone.
@@ -27,12 +35,11 @@ claude-hud 0.10.0 rebuilt as a Claude Code mod: the same lines, drawn below the 
 
 Language: claude-hud's own `language` (`en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`, `pt-BR`, `ru`) in its config file sets the whole HUD, what the mod adds included (alerts, the extras row, the detail pane, `/hud`, the task summary).
 
-
-claude-hud's own files: `~/.claude/plugins/claude-hud/config.json` and `~/.claude/claude-hud.json`, so `/claude-hud:configure` keeps working. Mod options (`/config`, or `pluginConfigs.hud.options` in settings): `position` (`below` the prompt, or `above` it as a band), `extraCmd` (claude-hud's `--extra-cmd`), `debug` (registers `mcp__hud__hud_debug`), and the options of the additions below.
+claude-hud's own files: `~/.claude/plugins/claude-hud/config.json` and `~/.claude/claude-hud.json`, so `/claude-hud:configure` keeps working. Mod options (`/config`, or `pluginConfigs.hud.options` in settings): `visible` (`/hud` toggles it, `/hud off` / `on` set it; kept across sessions), `position` (`below` the prompt, or `above` it as a band), `extraCmd` (claude-hud's `--extra-cmd`), `debug` (registers `mcp__hud__hud_debug`), and the options of the additions below.
 
 ## Themes
 
-`theme` (in `/config`, default `classic`: claude-hud's own look) or `/hud theme <name>` live; `/hud theme` lists them with a sample, `/hud theme next` cycles, `/hud theme reset` goes back to the `/config` one. A theme picked with `/hud theme` is kept in the mod's store and wins over the option.
+`theme` (in `/config`, default `classic`: claude-hud's own look) or `/hud theme <name>` live; `/hud theme` lists them with a sample, `/hud theme next` cycles, `/hud theme reset` goes back to `classic`. `/hud theme` writes the `theme` option, so `/config` shows it and it is kept across sessions (a theme an older version kept in the mod's store moves there once).
 
 | Theme | Look |
 | --- | --- |

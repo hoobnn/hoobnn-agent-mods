@@ -1,6 +1,6 @@
 {
   "name": "hud",
-  "version": "0.7.3",
+  "version": "0.8.0",
   "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, plus alerts, budget, history, a task summary, a detail pane and switchable themes",
   "author": {
     "name": "hoobnn",
@@ -18,6 +18,12 @@
   ],
   "types": "./types/index.d.ts",
   "userConfig": {
+    "visible": {
+      "type": "boolean",
+      "title": "Show the HUD",
+      "description": "Draw the HUD; /hud, /hud off and /hud on change this too",
+      "default": true
+    },
     "position": {
       "type": "string",
       "title": "Position",

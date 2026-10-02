@@ -29,12 +29,20 @@ test('parses quote and attribution', async () => {
   expect(parseQuote('{"hitokoto":""}')).toBe(null)
 })
 
+// The /config rows the plugin wrote, as `[key, value]`.
+let rows: [string, unknown][] = []
+
 function host(on: On, reply: () => { status: number; text: string }, stored: Record<string, unknown> = {}, now = 0) {
   const clock = mock.clock(on, { now })
   mock.store(on, stored)
   mock.env(on, { LANG: 'zh_CN.UTF-8' })
   const urls: string[] = []
+  rows = []
   on('command.register', ($, e) => ({ value: { command: e.name } }))
+  on('config.set', ($, e) => {
+    rows.push([e.key, e.value])
+    return { value: e.value }
+  })
   on('http.fetch', ($, e) => {
     urls.push(e.url)
     const { status, text } = reply()
@@ -76,6 +84,20 @@ test('/hitokoto off hides, failed fetch reports', async ($, on) => {
   status = 503
   const again = await $.command.run({ ...RUN, command: 'hitokoto', args: '' })
   expect(again.text).toBe('一言获取失败：HTTP 503')
+})
+
+test('an older /hitokoto off moves to the visible row; /hitokoto on writes it back', async ($, on) => {
+  const { clock } = host(on, () => ({ status: 200, text: BODY }), { isHidden: true })
+  await $.session.start(START)
+  await clock.settle()
+  expect(rows).toEqual([['hitokoto.visible', false]])
+  const ui = await $.ui.mount({ plugin: 'hitokoto', surface: 'terminal', ...BAND })
+  expect(await ui.find({ type: 'Text', text: '『人生如逆旅，我亦是行人。』' })).toBeUndefined()
+  await ui.unmount()
+
+  await $.command.run({ ...RUN, command: 'hitokoto', args: 'on' })
+  await $.command.run({ ...RUN, command: 'hitokoto', args: 'on' })
+  expect(rows).toEqual([['hitokoto.visible', false], ['hitokoto.visible', true]])
 })
 
 const OTHER = JSON.stringify({ hitokoto: '另一句。', from: '', from_who: '' })

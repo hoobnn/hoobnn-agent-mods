@@ -29,10 +29,11 @@ export function parseStatus(json: string): Node[] {
   return nodes.sort((a, b) => a.name.localeCompare(b.name))
 }
 
-// `nodes` option ("nas=家里, dev-box") to the nodes shown, in its order and
-// renamed; empty keeps every node. Host names match case-insensitively.
-export function selectNodes(nodes: Node[], spec: string): Node[] {
-  const picks = spec
+export type NodePick = { host: string; label: string }
+
+/** The `nodes` option ("nas=家里, dev-box"): hosts to show, in order, each with its label. */
+export function parseNodeSpec(spec: string): NodePick[] {
+  return spec
     .split(',')
     .map(item => item.trim())
     .filter(Boolean)
@@ -40,6 +41,10 @@ export function selectNodes(nodes: Node[], spec: string): Node[] {
       const [host = '', label = ''] = item.split('=').map(s => s.trim())
       return { host: host.toLowerCase(), label: label || host }
     })
+}
+
+/** The nodes picked, in the picks' order and renamed; no picks keeps every node. Host names match case-insensitively. */
+export function selectNodes(nodes: Node[], picks: readonly NodePick[]): Node[] {
   if (picks.length === 0) {
     return nodes
   }

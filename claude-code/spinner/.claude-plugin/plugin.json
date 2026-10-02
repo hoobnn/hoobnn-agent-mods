@@ -1,6 +1,6 @@
 {
   "name": "spinner",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt (a shoot-em-up, Clawd, pixel homages and more), a finale and a pet that levels up, in fourteen themes",
   "author": {
     "name": "hoobnn",
@@ -18,6 +18,12 @@
   ],
   "types": "./types/index.d.ts",
   "userConfig": {
+    "visible": {
+      "type": "boolean",
+      "title": "Show the animations",
+      "description": "The animations at all: the mascot, the band and the companion (/spinner off and /spinner on change this too)",
+      "default": true
+    },
     "theme": {
       "type": "string",
       "title": "Theme",

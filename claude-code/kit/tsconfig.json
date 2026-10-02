@@ -1,0 +1,4 @@
+{
+  "extends": "../ts-band/.claude-plugin/types/tsconfig.json",
+  "include": ["."]
+}

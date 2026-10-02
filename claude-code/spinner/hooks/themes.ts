@@ -72,6 +72,11 @@ export function isThemeName(name: unknown): name is ThemeName {
   return typeof name === 'string' && (THEME_NAMES as readonly string[]).includes(name)
 }
 
+/** A theme drawn from `seed`, for the `random` choice. */
+export function pickRandom(seed: number): ThemeName {
+  return THEME_NAMES[Math.floor(noise(seed) * THEME_NAMES.length)]!
+}
+
 // ---- scenes --------------------------------------------------------------
 
 function catScene(t: number, w: number): Grid {
