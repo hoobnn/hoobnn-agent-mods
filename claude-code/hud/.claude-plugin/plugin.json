@@ -1,6 +1,6 @@
 {
   "name": "hud",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, plus alerts, budget, history, a task summary and a detail pane",
   "author": {
     "name": "hoobnn",
@@ -79,8 +79,8 @@
     "showHistory": {
       "type": "boolean",
       "title": "Spend history",
-      "description": "Show the last 7 days' spend as a sparkline, with the streak of days in use",
-      "default": true
+      "description": "Show the last 7 days' spend as a sparkline, with the streak of days in use (off by default; /hud detail shows the spend either way)",
+      "default": false
     },
     "summaryEveryTurns": {
       "type": "number",

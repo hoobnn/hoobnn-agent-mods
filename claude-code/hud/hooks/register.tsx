@@ -333,7 +333,7 @@ export function cleanSummary(text: string): string | null {
 
 type Rendered = { rows: HudLine[]; stdin: StdinData; todayUsd: number | null }
 
-async function renderHud(io: Io, session: SessionApi, wantsCost: boolean): Promise<Rendered> {
+async function renderHud(io: Io, session: SessionApi): Promise<Rendered> {
   if (live.columns) processShim.env.COLUMNS = String(live.columns)
   const stdin = await buildStdin(io, session)
   live.lastStdin = stdin
@@ -344,11 +344,9 @@ async function renderHud(io: Io, session: SessionApi, wantsCost: boolean): Promi
     setRenderSink(line => out.push(line))
     await main(async () => stdin)
     // Today's spend across sessions, from claude-hud's own ledger (kept current here
-    // even when its daily-cost element is off).
-    if (wantsCost) {
-      const resetsAt = stdin.rate_limits?.seven_day?.resets_at
-      todayUsd = getCostTotals(stdin, { sevenDayResetAt: resetsAt ? new Date(resetsAt * 1000) : null })?.todayUsd ?? null
-    }
+    // even when its daily-cost element is off), so the history and /hud detail have every day.
+    const resetsAt = stdin.rate_limits?.seven_day?.resets_at
+    todayUsd = getCostTotals(stdin, { sevenDayResetAt: resetsAt ? new Date(resetsAt * 1000) : null })?.todayUsd ?? null
   })
   const rendered = out.map(parseAnsi)
   live.bridgeSessionId = await remoteControl(io, stdin.session_id ?? '')
@@ -371,11 +369,10 @@ export const register: Register = (on, options) => {
   const usageThresholds = parseThresholds(typeof options.usageAlerts === 'string' ? options.usageAlerts : '')
   const hasForecast = options.showForecast !== false
   const budgetUsd = Math.max(0, num(options.dailyBudgetUsd, 0))
-  const hasHistory = options.showHistory !== false
+  const hasHistory = options.showHistory === true
   const summaryEvery = Math.max(0, Math.floor(num(options.summaryEveryTurns, 5)))
   const gitDirtyWarn = Math.max(0, num(options.gitDirtyWarn, 20))
   const gitAheadWarn = Math.max(0, num(options.gitAheadWarn, 5))
-  const wantsCost = budgetUsd > 0 || hasHistory
   let isSummarizing = false
   // Set in session.start: everything that outlives one dispatch calls the
   // engine through these closures.
@@ -434,7 +431,7 @@ export const register: Register = (on, options) => {
       isRunning = true
       const started = Date.now()
       try {
-        const { rows, stdin, todayUsd } = await renderHud(io, session, wantsCost)
+        const { rows, stdin, todayUsd } = await renderHud(io, session)
         const now = await $.clock.now()
         await alert(stdin)
         if (todayUsd !== null) await recordSpend(now, todayUsd)
