@@ -1,6 +1,6 @@
 {
   "name": "hud",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, plus alerts, budget, history, a task summary and a detail pane",
   "author": {
     "name": "hoobnn",
@@ -99,6 +99,12 @@
       "title": "Unpushed commits warning",
       "description": "Warn when this many commits are not pushed; 0 turns it off",
       "default": 5
+    },
+    "showAgents": {
+      "type": "boolean",
+      "title": "Subagent lines",
+      "description": "Show claude-hud's subagent lines; off by default, as Claude Code lists running subagents itself with their time and tokens",
+      "default": false
     }
   }
 }

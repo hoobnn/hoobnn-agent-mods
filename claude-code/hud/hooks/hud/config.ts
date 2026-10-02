@@ -531,8 +531,15 @@ function readConfigFile(configPath: string): Record<string, unknown> | null {
   }
 }
 
+// The mod's own options laid over the loaded config (the mod, not upstream).
+let configPatch: (config: HudConfig) => HudConfig = (config) => config;
+
+export function setConfigPatch(patch: (config: HudConfig) => HudConfig): void {
+  configPatch = patch;
+}
+
 export async function loadConfig(): Promise<HudConfig> {
   const base = readConfigFile(getConfigPath()) ?? {};
   const override = readConfigFile(getConfigOverridePath());
-  return mergeConfig((override ? mergeOverrides(base, override) : base) as Partial<HudConfig>);
+  return configPatch(mergeConfig((override ? mergeOverrides(base, override) : base) as Partial<HudConfig>));
 }

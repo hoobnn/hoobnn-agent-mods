@@ -23,7 +23,7 @@ import {
   sparkline,
   streak,
 } from './extras.js'
-import { loadConfig } from './hud/config.js'
+import { loadConfig, setConfigPatch } from './hud/config.js'
 import { getCostTotals } from './hud/daily-cost.js'
 import { setLanguage } from './hud/i18n/index.js'
 import type { GitRepoIdentity } from './hud/git.js'
@@ -408,6 +408,10 @@ export const register: Register = (on, options) => {
   const gitDirtyWarn = Math.max(0, num(options.gitDirtyWarn, 20))
   const gitAheadWarn = Math.max(0, num(options.gitAheadWarn, 5))
   let isSummarizing = false
+  // Claude Code lists running subagents itself, with their time and tokens; claude-hud's
+  // agent lines would repeat them, so they show only when asked for.
+  const showAgents = options.showAgents === true
+  setConfigPatch(config => (showAgents ? config : { ...config, display: { ...config.display, showAgents: false } }))
   // Set in session.start: everything that outlives one dispatch calls the
   // engine through these closures.
   let refresh: () => Promise<void> = async () => {}

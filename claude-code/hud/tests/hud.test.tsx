@@ -23,7 +23,7 @@ const CWD = '/home/u/proj'
 const CONFIG = JSON.stringify({
   language: 'zh-Hans',
   lineLayout: 'expanded',
-  display: { showTools: true, showTodos: true, contextValue: 'tokens', modelFormat: 'short' },
+  display: { showTools: true, showAgents: true, showTodos: true, contextValue: 'tokens', modelFormat: 'short' },
 })
 const TRANSCRIPT = `${HOME}/.claude/projects/-home-u-proj/sess-1.jsonl`
 const LINES = [
@@ -35,7 +35,10 @@ const LINES = [
       id: 'm1',
       model: 'claude-opus-5-5',
       usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 100 },
-      content: [{ type: 'tool_use', id: 't1', name: 'Read', input: { file_path: `${CWD}/a.ts` } }],
+      content: [
+        { type: 'tool_use', id: 't1', name: 'Read', input: { file_path: `${CWD}/a.ts` } },
+        { type: 'tool_use', id: 't2', name: 'Agent', input: { subagent_type: 'Explore', description: 'Map the repo' } },
+      ],
     },
   },
 ].map(l => JSON.stringify(l)).join('\n') + '\n'
@@ -159,6 +162,8 @@ test('band renders claude-hud lines from the session on every surface', async ($
     expect(/45k\/200k/.test(shown)).toBe(true)
     expect(/25%/.test(shown)).toBe(true)
     expect(/◐ Read/.test(shown)).toBe(true)
+    // Claude Code lists subagents itself: claude-hud's agent line stays off.
+    expect(/Map the repo/.test(shown)).toBe(false)
     await ui.unmount()
   }
 })
@@ -428,4 +433,18 @@ test('the band follows claude-hud\'s language', async ($, on) => {
     FILES[`${HOME}/.claude/plugins/claude-hud/config.json`] = config
     setLanguage('zh-Hans')
   }
+})
+
+test('showAgents brings claude-hud\'s subagent lines back', { options: { showAgents: true } }, async ($, on) => {
+  const clock = host(on)
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box key="core" />
+  })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  for (let i = 0; i < 30; i++) await clock.settle()
+  const ui = await $.ui.mount({ plugin: 'hud', surface: 'terminal', ...BAND })
+  const shown = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
+  expect(/Map the repo/.test(shown)).toBe(true)
+  await ui.unmount()
 })
