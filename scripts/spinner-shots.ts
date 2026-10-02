@@ -8,8 +8,8 @@ import { join } from 'node:path'
 
 import { chromium } from 'playwright-core'
 
-import { SPRITE_MS, STAGE_MS, THEMES, THEME_NAMES, blank, finaleScene, frame, hsl, padTo, petRow, poseOf, put, segments, textWidth } from '../claude-code/spinner/hooks/themes'
-import type { Act, Cell, Mode, Style, Theme } from '../claude-code/spinner/hooks/themes'
+import { STAGE_MS, THEMES, THEME_NAMES, blank, finaleScene, frame, petRow, put, segments, textWidth } from '../claude-code/spinner/hooks/themes'
+import type { Act, Cell, Style, Theme } from '../claude-code/spinner/hooks/themes'
 
 const COLS = 92
 const WORK_FRAMES = 42
@@ -42,20 +42,11 @@ function line(parts: [string, Style?][]): Row {
   return g[0]!
 }
 
-function sprite(theme: Theme, mode: Mode, t: number): [string, Style][] {
-  const frames = theme.sprite[poseOf(mode)]
-  const width = Math.max(...Object.values(theme.sprite).flat().map(textWidth))
-  const text = padTo(frame(frames, t), width)
-  if (!theme.isRainbow) return [[text, { c: theme.color, b: true }]]
-  return Array.from(text).map((ch, i) => [ch, { c: hsl((i * 40 + t * 24) % 360, 0.95, 0.62), b: true }])
-}
-
 /** The terminal's rows at frame `f`: a turn running, then its finale. */
 function screen(theme: Theme, f: number): Row[] {
   const rows: Row[] = []
   const text = (parts: [string, Style?][]) => Object.assign(line(parts), { isText: true })
   const isDone = f >= WORK_FRAMES
-  const mode: Mode = f < 14 ? 'thinking' : f < 28 ? 'tool-use' : 'responding'
   const act: Act = f < 14 ? 'think' : f < 28 ? 'tool' : 'say'
   rows.push(text([['> ', { c: DIM }], ['给 spinner 再加几套主题，然后跑一遍测试', { c: WHITE }]]))
   rows.push(line([]))
@@ -68,9 +59,8 @@ function screen(theme: Theme, f: number): Row[] {
   } else {
     const glyph = frame(['·', '✢', '✳', '✶', '✻', '✽', '✻', '✶', '✳', '✢'], f)
     const secs = 3 + Math.floor(f / 5)
+    // With the companion's row showing, the engine's line stays its own.
     rows.push(line([
-      ...sprite(theme, mode, Math.floor((f * STAGE_MS) / SPRITE_MS)),
-      [' '],
       [`${glyph} `, { c: ENGINE }],
       ['Choreographing…', { c: ENGINE, b: true }],
       [` (${secs}s · ↓ ${(0.4 + f * 0.05).toFixed(1)}k tokens)`, { c: DIM }],
@@ -80,7 +70,7 @@ function screen(theme: Theme, f: number): Row[] {
   rows.push(line([]))
   const w = COLS - 3
   const stage = isDone ? finaleScene(theme, 'answer', '完成 · 12s', f - WORK_FRAMES, w) : theme.scene(f, w, act)
-  const bubble = act === 'think' ? '想一想…' : act === 'tool' ? 'Bash: claude plugin test' : '正在写回复'
+  const bubble = act === 'tool' ? 'Bash: claude plugin test' : ''
   const pet = petRow(theme, { state: isDone ? 'ready' : act, bubble: isDone ? '做完啦，快看看！' : bubble, stats: 'Lv.7 ♥42' }, f, w, isDone && f - WORK_FRAMES > 8 && f - WORK_FRAMES < 20 ? f - WORK_FRAMES - 8 : 0)
   for (const row of [...stage, ...(isDone ? [] : pet)]) rows.push([...row, ...line([]).slice(0, 3)])
   if (isDone) for (const row of pet) rows.push([...row, ...line([]).slice(0, 3)])
@@ -186,7 +176,7 @@ async function main() {
   const gallery = THEME_NAMES.map(name => {
     const theme = THEMES[name]
     const rows = [
-      line([...sprite(theme, 'tool-use', 1), [' '], ['✻ ', { c: ENGINE }], ['Choreographing…', { c: ENGINE, b: true }]]),
+      line([['✻ ', { c: ENGINE }], ['Choreographing…', { c: ENGINE, b: true }]]),
       line([]),
       ...theme.scene(36, COLS, 'tool'),
       ...petRow(theme, { state: 'tool', bubble: 'Bash: npm test', stats: 'Lv.7 ♥42' }, 1, COLS, 0),

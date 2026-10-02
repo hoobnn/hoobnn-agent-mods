@@ -64,7 +64,7 @@ test('every scene, finale and companion row fills exactly its width, every frame
           ...scene,
           ...finaleScene(theme, 'answer', '完成 · 12s', t, w),
           ...finaleScene(theme, 'error', 'x', t, w),
-          ...petRow(theme, { state: acts[t % 4]!, bubble: 'Bash: npm test', stats: 'Lv.3 ♥12' }, t, w, t % 3),
+          ...petRow(theme, { state: acts[t % 4]!, bubble: t % 2 ? 'Bash: npm test' : '', stats: 'Lv.3 ♥12' }, t, w, t % 3),
           ...petRow(theme, { state: 'sleep', bubble: 'Zzz…', stats: 'Lv.1 ♥0' }, t, w, 0),
         ]
         for (const row of rows) {
@@ -87,11 +87,16 @@ test('helpers', async () => {
   expect(toolLabel({ tool: 'mcp__github__create_issue' })).toBe('create_issue')
 })
 
-test('mascot rides in front of the engine line and animates', async ($, on) => {
+test('one mascot: in the companion row, or in front of the engine line without it', async ($, on) => {
   const clock = host(on)
   await $.session.start(START)
   await clock.settle()
   await $.command.run({ ...RUN, command: 'spinner', args: 'cat' })
+  const plain = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...SPINNER })
+  expect(await plain.findAll({ type: 'Client' })).toHaveLength(0)
+  await plain.unmount()
+
+  await $.command.run({ ...RUN, command: 'spinner', args: 'companion off' })
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ plugin: 'spinner', surface, ...SPINNER })
     expect(await ui.find({ type: 'Text', text: 'Sauteing…' })).toBeDefined()
@@ -113,8 +118,9 @@ test('band plays the scene and the companion while working, keeps other bands', 
     const ui = await $.ui.mount({ plugin: 'spinner', surface, ...BAND })
     expect(await ui.find({ type: 'Text', text: 'Sauteing…' })).toBeDefined()
     expect(await drawn(ui, 'work')).toContain('HI 00000')
-    expect(await drawn(ui, 'work')).toContain('想一想…')
     expect(await drawn(ui, 'work')).toContain('Lv.1 ♥0')
+    // Thinking is the engine's line to say; the bubble stays quiet.
+    expect(await drawn(ui, 'work')).not.toContain(' · ')
     await ui.advance(STAGE_MS * 5)
     expect(await drawn(ui, 'work')).toContain('HI 00005')
     await ui.unmount()
@@ -123,7 +129,7 @@ test('band plays the scene and the companion while working, keeps other bands', 
   await $.command.run({ ...RUN, command: 'spinner', args: 'stage off' })
   const off = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
   expect(await drawn(off, 'work')).not.toContain('HI 0')
-  expect(await drawn(off, 'work')).toContain('想一想…')
+  expect(await drawn(off, 'work')).toContain('Lv.1 ♥0')
   await off.unmount()
 })
 
@@ -147,7 +153,8 @@ test('the companion follows tool calls and permission prompts', async ($, on) =>
   await clock.advance(1000)
   await call
   ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
-  expect(await drawn(ui, 'work')).toContain('想一想…')
+  expect(await drawn(ui, 'work')).not.toContain('Bash: npm test')
+  expect(await drawn(ui, 'work')).not.toContain('等你确认')
   await ui.unmount()
 })
 

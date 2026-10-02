@@ -4,9 +4,9 @@ Animations and a companion pet while the model works.
 
 ![spinner: Clawd through a turn, the companion's bubble and the finale](assets/clawd.gif)
 
-- **Mascot**: a little character in front of Claude Code's own spinner line (`[◉_◉]⊃━━ ✢ Choreographing… (4s · ↓ 14 tokens)`), with frames for thinking, using tools, responding and waiting. The engine's word, elapsed time and tokens stay as they are.
 - **Stage**: an animated scene in the band above the prompt while a turn runs. Other mods' bands (hud, ts-band, hitokoto) stay beneath it.
-- **Companion**: a pet in a row under the stage, in the spirit of Codex's pets. It shows what the model is doing (`Bash: npm test`, `Edit: themes.ts`, waiting on a permission prompt), stays between turns (done, interrupted, failed; dozing after five quiet minutes), gains a level as turns finish (`Lv.4`), and a click on the band or `/spinner pet` pats it (`♥12`, hearts float up). Its level and affection are kept across sessions.
+- **Companion**: a pet in a row under the stage, in the spirit of Codex's pets, with poses for thinking, using tools, responding and waiting. Its bubble says only what Claude Code's own spinner line doesn't: the tool running (`Bash: npm test`, `Edit: themes.ts`) or a permission prompt waiting on you; while the model thinks it just looks busy. It stays between turns (done, interrupted, failed; dozing after five quiet minutes), gains a level as turns finish (`Lv.4`), and a click on the band or `/spinner pet` pats it (`♥12`, hearts float up). Its level and affection are kept across sessions.
+- **Mascot on the spinner line**: with the companion turned off, the mascot moves in front of Claude Code's own spinner line instead (`[◉_◉]⊃━━ ✢ Choreographing… (4s · ↓ 14 tokens)`), whose word, elapsed time and tokens stay as they are. One mascot shows at a time.
 - **Finale**: for three seconds after a turn ends, confetti bursts around the mascot with the time the turn took (`(=^▽^=)ﾉ  Done · 12s`); an interrupted turn gets a sad face, a failed one a glitch.
 
 ## Themes

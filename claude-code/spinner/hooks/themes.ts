@@ -80,8 +80,8 @@ function catScene(t: number, w: number): Grid {
     const n = noise(x + 1000 * Math.floor((x + t) / w))
     if (mod(x + t, 7) === 0) put(g, x, 1, n < 0.5 ? '˙' : ',', { c: '#7fb069', d: true })
   }
-  const lap = w + 16
-  const cx = mod(Math.floor(t * 0.6), lap) - 12
+  const lap = w + 8
+  const cx = mod(Math.floor(t * 0.6), lap) - 6
   put(g, cx, 1, 'ᓚᘏᗢ', { c: frame(['#ffb3c6', '#ffc8dd'], t >> 1), b: true })
   put(g, cx + 5, 1, frame(['◐', '◓', '◑', '◒'], t), { c: '#ffd166' })
   // Hearts float up behind the cat and fade.
@@ -98,8 +98,8 @@ function bunnyScene(t: number, w: number): Grid {
   for (let x = 0; x < w; x++) {
     if (mod(x * 7 + 3, 11) === 0) put(g, x, 1, '"', { c: '#80b918', d: true })
   }
-  const lap = w + 14
-  const bx = mod(Math.floor(t * 0.5), lap) - 10
+  const lap = w + 11
+  const bx = mod(Math.floor(t * 0.5), lap) - 11
   // Carrots ahead of the bunny; the ones it has passed are eaten.
   for (let x = 6; x < w; x += 13) {
     if (x > bx + 9 || bx < -6) put(g, x, 1, 'ɣ', { c: '#ff9f1c', b: true })
@@ -243,7 +243,7 @@ function clawdScene(t: number, w: number, act: Act): Grid {
     if (noise(x * 3 + 1) < 0.06) put(g, x, mod(x, 2), mod(t + x * 7, 40) < 3 ? '✻' : '·', { c: '#5c4b45', d: true })
   }
   // He strolls across, stopping halfway to work; then strolls on.
-  const lap = w + 30
+  const lap = w + 10
   const p = mod(t, lap + 40)
   const pause = Math.floor(lap / 2)
   const x = p < pause ? p - 10 : p < pause + 40 ? pause - 10 : p - 50
@@ -353,7 +353,7 @@ const TAIL = ['...YYYY', '....YY.', '...YY..', '..YYYY.', '...YY..', '..YY...']
 
 function sparkyScene(t: number, w: number, act: Act): Grid {
   const cv = canvas(w, 3)
-  const lap = w + 20
+  const lap = w + 8
   const x = mod(Math.floor(t * 0.5), lap) - 8
   draw(cv, x - 7, 0, TAIL, { Y: '#d4a017' })
   const cheek = mod(t, 6) < 3 && act === 'tool' ? '#fff3b0' : '#e63946'
@@ -383,7 +383,7 @@ function bluecatScene(t: number, w: number, act: Act): Grid {
     const cx = mod(Math.floor(noise(i) * w) - Math.floor(t * 0.3), w + 8) - 4
     draw(cv, cx, 1 + (i % 3), ['.WW.', 'WWWW'], { W: '#2b2d42' })
   }
-  const lap = w + 18
+  const lap = w + 9
   const x = mod(Math.floor(t * 0.4), lap) - 9
   // Gadgets tumble out of the pocket while a tool runs.
   if (act === 'tool') {
@@ -783,7 +783,7 @@ export function petRow(theme: Theme, pet: PetView, t: number, w: number, hearts:
     put(g, x, 0, frame(['♡', '♥', '♡ ♥', '♥ ♡'], hearts), { c: '#ff8fab', b: true })
     x += 4
   }
-  put(g, x, 0, `${s === 'ask' ? '❯ ' : '· '}${pet.bubble}`, BUBBLE[s] ?? { c: '#b8b8be' })
+  if (pet.bubble) put(g, x, 0, `${s === 'ask' ? '❯ ' : '· '}${pet.bubble}`, BUBBLE[s] ?? { c: '#b8b8be' })
   put(g, w - textWidth(pet.stats) - 1, 0, pet.stats, { c: '#6c757d' })
   return g
 }

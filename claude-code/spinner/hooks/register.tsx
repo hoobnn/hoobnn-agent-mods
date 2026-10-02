@@ -81,8 +81,10 @@ async function settle($: EngineInterface, running: Map<string, string>): Promise
   await update($, activity, () => (last ? { act: 'tool' as Act, tool: last } : { act: 'think' as Act }))
 }
 
+/** The bubble says what the engine's spinner line does not: the tool, a prompt waiting, how the turn ended. */
 function bubbleOf(state: Act | Mood, tool: string | undefined): string {
-  if (state === 'tool') return tool ? m('pet.tool', { tool }) : m('pet.think')
+  if (state === 'tool') return tool ?? ''
+  if (state === 'think' || state === 'say' || state === 'wait') return ''
   return m(`pet.${state}`)
 }
 
@@ -240,7 +242,8 @@ export const register: Register = (on, options) => {
   // The mascot rides in front of the engine's own line, which keeps its word,
   // elapsed time and tokens.
   on('ui.render', { component: 'Spinner' }, async ($, e, next) => {
-    if (await read($, isHidden)) return next(e)
+    // One mascot at a time: with the companion's row showing, it stays there.
+    if ((await read($, isHidden)) || !(await read($, isCompanionOff))) return next(e)
     const ui = $.ui.resolve(e)
     if (!('Client' in ui)) return next(e)
     const { Box, Client } = ui
