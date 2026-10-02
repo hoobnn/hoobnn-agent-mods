@@ -5,7 +5,7 @@
     "url": "https://github.com/hoobnn"
   },
   "metadata": {
-    "description": "Mods for Claude Code: a claude-hud port, a Tailscale band and a Hitokoto band",
+    "description": "Mods for Claude Code: a claude-hud port, a Tailscale band, a Hitokoto band and spinner animations",
     "version": "0.2.0"
   },
   "plugins": [
@@ -42,6 +42,18 @@
       "tags": [
         "hitokoto",
         "quote",
+        "mod"
+      ]
+    },
+    {
+      "name": "spinner",
+      "source": "./claude-code/spinner",
+      "description": "Animations while the model works: a mascot beside the spinner, a scene in a band above the prompt and a finale when the turn ends, in eight switchable themes",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": [
+        "spinner",
+        "animation",
         "mod"
       ]
     }

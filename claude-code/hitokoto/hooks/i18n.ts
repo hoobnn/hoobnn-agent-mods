@@ -1,6 +1,6 @@
 // The mod's language: the `language` option, or with `auto` Claude Code's own
 // `language` setting (free text: "简体中文", "Japanese", "pt-BR"), then the locale
-// (LC_ALL, LC_MESSAGES, LANG), then English. Kept alike in ts-band and hitokoto:
+// (LC_ALL, LC_MESSAGES, LANG), then English. Kept alike in ts-band, hitokoto and spinner:
 // an installed mod reaches no file outside its own folder.
 
 export type Lang = 'en' | 'zh-Hans' | 'zh-Hant' | 'ja' | 'ko' | 'es' | 'fr' | 'de' | 'pt-BR' | 'ru'

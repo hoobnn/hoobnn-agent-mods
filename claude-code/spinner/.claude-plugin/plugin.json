@@ -1,0 +1,69 @@
+{
+  "name": "spinner",
+  "version": "0.1.0",
+  "description": "Animations while the model works: a mascot beside the spinner, a scene in a band above the prompt and a finale when the turn ends, in eight switchable themes",
+  "author": {
+    "name": "hoobnn",
+    "url": "https://github.com/hoobnn"
+  },
+  "homepage": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "repository": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "license": "MIT",
+  "keywords": [
+    "spinner",
+    "animation",
+    "kaomoji",
+    "mod"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "theme": {
+      "type": "string",
+      "title": "Theme",
+      "description": "The animations' look: cat, bunny, sakura, mecha, neon, dino, ocean, matrix, or random for a new one each session. /spinner <theme> switches it live",
+      "options": [
+        "random",
+        "cat",
+        "bunny",
+        "sakura",
+        "mecha",
+        "neon",
+        "dino",
+        "ocean",
+        "matrix"
+      ],
+      "default": "random"
+    },
+    "stage": {
+      "type": "boolean",
+      "title": "Animation band",
+      "description": "A two-row animated scene above the prompt while the model works (/spinner stage off|on overrides it)",
+      "default": true
+    },
+    "celebrate": {
+      "type": "boolean",
+      "title": "Finale",
+      "description": "A short finale in the band when a turn ends: confetti and the time it took, or a sad face when interrupted",
+      "default": true
+    },
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "Language of /spinner's replies and the finale's label; auto follows Claude Code's language setting, then the system locale",
+      "options": [
+        "auto",
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "es",
+        "fr",
+        "de",
+        "pt-BR",
+        "ru"
+      ],
+      "default": "auto"
+    }
+  }
+}
