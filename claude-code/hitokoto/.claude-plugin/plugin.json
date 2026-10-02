@@ -1,0 +1,33 @@
+{
+  "name": "hitokoto",
+  "version": "0.1.0",
+  "description": "A line from Hitokoto (一言) in a band above the prompt, refreshed on a timer or with /hitokoto",
+  "author": {
+    "name": "hoobnn",
+    "url": "https://github.com/hoobnn"
+  },
+  "homepage": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "repository": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "license": "MIT",
+  "keywords": [
+    "hitokoto",
+    "quote",
+    "band",
+    "mod"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "categories": {
+      "type": "string",
+      "title": "Categories",
+      "description": "Hitokoto category letters, comma separated (a 动画, b 漫画, c 游戏, d 文学, e 原创, f 网络, g 其他, h 影视, i 诗词, j 网易云, k 哲学, l 抖机灵); empty takes any",
+      "default": ""
+    },
+    "intervalMinutes": {
+      "type": "number",
+      "title": "Refresh interval (min)",
+      "description": "Minutes between new lines (at least 1)",
+      "default": 30
+    }
+  }
+}

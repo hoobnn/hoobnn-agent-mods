@@ -5,7 +5,7 @@
     "url": "https://github.com/hoobnn"
   },
   "metadata": {
-    "description": "Mods for Claude Code: a claude-hud port and a Tailscale band",
+    "description": "Mods for Claude Code: a claude-hud port, a Tailscale band and a Hitokoto band",
     "version": "0.2.0"
   },
   "plugins": [
@@ -30,6 +30,18 @@
       "tags": [
         "tailscale",
         "network",
+        "mod"
+      ]
+    },
+    {
+      "name": "hitokoto",
+      "source": "./claude-code/hitokoto",
+      "description": "A line from Hitokoto (一言) in a band above the prompt, refreshed on a timer or with /hitokoto",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": [
+        "hitokoto",
+        "quote",
         "mod"
       ]
     }
