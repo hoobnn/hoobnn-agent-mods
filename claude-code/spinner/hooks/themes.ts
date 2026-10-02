@@ -773,7 +773,7 @@ export function petRow(theme: Theme, pet: PetView, t: number, w: number, hearts:
   }
   const faceStyle = (i: number): Style =>
     theme.isRainbow ? { c: hsl((i * 40 + t * 24) % 360, 0.95, 0.62), b: true } : { c: theme.color, b: true }
-  let x = 1
+  let x = 0
   Array.from(face).forEach((ch, i) => {
     put(g, x, 0, ch, faceStyle(i))
     x += textWidth(ch)
