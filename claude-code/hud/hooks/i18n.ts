@@ -26,6 +26,7 @@ type Key =
   | 'theme.set'
   | 'theme.list'
   | 'theme.unknown'
+  | 'theme.ask'
   | 'cmd.hidden'
   | 'cmd.shown'
   | 'pane.title'
@@ -69,6 +70,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'theme.set': 'HUD theme: {name}',
     'theme.list': 'HUD themes (now {name}): {list}. /hud theme <name>, next or reset; * needs a Nerd Font',
     'theme.unknown': 'No theme named {name}. Themes: {list}',
+    'theme.ask': 'Which HUD theme? (now {name}; Other: type any of {list})',
     'cmd.hidden': 'claude-hud band hidden',
     'cmd.shown': 'claude-hud band shown',
     'pane.title': 'HUD details',
@@ -107,6 +109,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'theme.set': 'HUD 主题：{name}',
     'theme.list': 'HUD 主题（当前 {name}）：{list}。/hud theme <名称>、next 或 reset；带 * 的需要 Nerd Font',
     'theme.unknown': '没有名为 {name} 的主题。可选：{list}',
+    'theme.ask': '换哪套 HUD 主题？（当前 {name}；也可在 Other 里输入：{list}）',
     'cmd.hidden': 'claude-hud 横条已隐藏',
     'cmd.shown': 'claude-hud 横条已显示',
     'pane.title': 'HUD 详情',
@@ -145,6 +148,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'theme.set': 'HUD 主題：{name}',
     'theme.list': 'HUD 主題（目前 {name}）：{list}。/hud theme <名稱>、next 或 reset；帶 * 的需要 Nerd Font',
     'theme.unknown': '沒有名為 {name} 的主題。可選：{list}',
+    'theme.ask': '換哪套 HUD 主題？（目前 {name}；也可在 Other 輸入：{list}）',
     'cmd.hidden': 'claude-hud 橫條已隱藏',
     'cmd.shown': 'claude-hud 橫條已顯示',
     'pane.title': 'HUD 詳細資訊',
@@ -183,6 +187,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'theme.set': 'HUD テーマ：{name}',
     'theme.list': 'HUD テーマ（現在 {name}）：{list}。/hud theme <名前>、next、reset。* は Nerd Font が必要',
     'theme.unknown': '{name} というテーマはありません。テーマ：{list}',
+    'theme.ask': 'どの HUD テーマにしますか？（現在 {name}。Other に入力も可：{list}）',
     'cmd.hidden': 'claude-hud を非表示にしました',
     'cmd.shown': 'claude-hud を表示しました',
     'pane.title': 'HUD 詳細',
@@ -221,6 +226,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'theme.set': 'HUD 테마: {name}',
     'theme.list': 'HUD 테마 (현재 {name}): {list}. /hud theme <이름>, next, reset. *는 Nerd Font 필요',
     'theme.unknown': '{name} 테마가 없습니다. 테마: {list}',
+    'theme.ask': '어떤 HUD 테마로 바꿀까요? (현재 {name}, Other에 입력 가능: {list})',
     'cmd.hidden': 'claude-hud를 숨겼습니다',
     'cmd.shown': 'claude-hud를 표시했습니다',
     'pane.title': 'HUD 상세',
@@ -259,6 +265,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'theme.set': 'Tema del HUD: {name}',
     'theme.list': 'Temas del HUD (ahora {name}): {list}. /hud theme <nombre>, next o reset; * requiere una Nerd Font',
     'theme.unknown': 'No hay ningún tema llamado {name}. Temas: {list}',
+    'theme.ask': '¿Qué tema de HUD? (ahora {name}; en Other puedes escribir: {list})',
     'cmd.hidden': 'Barra de claude-hud oculta',
     'cmd.shown': 'Barra de claude-hud visible',
     'pane.title': 'Detalles del HUD',
@@ -297,6 +304,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'theme.set': `Thème du HUD${NB}: {name}`,
     'theme.list': `Thèmes du HUD (actuel${NB}: {name})${NB}: {list}. /hud theme <nom>, next ou reset${NB}; * demande une Nerd Font`,
     'theme.unknown': `Aucun thème nommé {name}. Thèmes${NB}: {list}`,
+    'theme.ask': `Quel thème pour le HUD${NB}? (actuel${NB}: {name}${NB}; dans Other, tapez${NB}: {list})`,
     'cmd.hidden': 'Barre claude-hud masquée',
     'cmd.shown': 'Barre claude-hud affichée',
     'pane.title': 'Détails du HUD',
@@ -335,6 +343,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'theme.set': 'HUD-Design: {name}',
     'theme.list': 'HUD-Designs (aktiv: {name}): {list}. /hud theme <Name>, next oder reset; * braucht eine Nerd Font',
     'theme.unknown': 'Kein Design namens {name}. Designs: {list}',
+    'theme.ask': 'Welches HUD-Design? (aktuell {name}; unter Other eintippen: {list})',
     'cmd.hidden': 'claude-hud-Leiste ausgeblendet',
     'cmd.shown': 'claude-hud-Leiste eingeblendet',
     'pane.title': 'HUD-Details',
@@ -373,6 +382,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'theme.set': 'Tema do HUD: {name}',
     'theme.list': 'Temas do HUD (atual: {name}): {list}. /hud theme <nome>, next ou reset; * precisa de uma Nerd Font',
     'theme.unknown': 'Nenhum tema chamado {name}. Temas: {list}',
+    'theme.ask': 'Qual tema do HUD? (agora {name}; em Other digite: {list})',
     'cmd.hidden': 'Barra do claude-hud oculta',
     'cmd.shown': 'Barra do claude-hud visível',
     'pane.title': 'Detalhes do HUD',
@@ -421,6 +431,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'theme.set': 'Тема HUD: {name}',
     'theme.list': 'Темы HUD (сейчас {name}): {list}. /hud theme <имя>, next или reset; * нужен Nerd Font',
     'theme.unknown': 'Темы {name} нет. Темы: {list}',
+    'theme.ask': 'Какую тему HUD выбрать? (сейчас {name}; в Other можно ввести: {list})',
     'cmd.hidden': 'Панель claude-hud скрыта',
     'cmd.shown': 'Панель claude-hud показана',
     'pane.title': 'Подробности HUD',

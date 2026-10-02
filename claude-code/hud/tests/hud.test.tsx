@@ -1,4 +1,4 @@
-import type { On } from 'claude-code'
+import type { On, SessionMeasureInput } from 'claude-code'
 import { type Engine, expect, mock, test } from 'claude-code/testing'
 
 import { parseAnsi } from '../hooks/ansi'
@@ -616,4 +616,76 @@ test('the mascot leaves a narrow extras row before the warning does', async () =
   } finally {
     setLanguage('zh-Hans')
   }
+})
+
+const MEASURE: SessionMeasureInput = { context: { tokens: 45_000, window: 200_000, percent: 23 }, rateLimits: [], changed: ['context'] }
+
+test('a pushed measurement crossing a threshold toasts at once, and only once', { options: { contextAlerts: '80,90', usageAlerts: '75' } }, async ($, on) => {
+  const clock = host(on)
+  const toasts: string[] = []
+  on('ui.toast', ($, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  for (let i = 0; i < 30; i++) await clock.settle()
+  expect(toasts).toEqual([])
+  await $.session.measure({ ...MEASURE, context: { ...MEASURE.context, percent: 91 } })
+  await $.session.measure({
+    ...MEASURE,
+    context: { ...MEASURE.context, percent: 92 },
+    rateLimits: [{ kind: 'five_hour', percentUsed: 76 }, { kind: 'seven_day', percentUsed: 40 }],
+    changed: ['context', 'rateLimits'],
+  })
+  expect(toasts).toEqual(['上下文已用 90%，可以考虑 /compact', m('alert.fiveHour', { p: 75 })])
+})
+
+test('a Remote Control delivery marks the bridge client and passes through untouched', async ($, on) => {
+  FILES[SESSION_FILE] = sessionEntry('session_abc')
+  try {
+    const clock = host(on)
+    on('ui.render', ($, e) => {
+      const { Box } = $.ui.resolve(e)
+      return <Box key="core" />
+    })
+    on('session.receive', ($, e) => ({ text: e.text }))
+    await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+    for (let i = 0; i < 30; i++) await clock.settle()
+    const peer = await $.session.receive({ origin: { kind: 'scheduled-trigger' }, text: 'tick' })
+    expect(peer.text).toBe('tick')
+    await clock.advance(1_000)
+    for (let i = 0; i < 30; i++) await clock.settle()
+    expect(await bandText($)).not.toContain('已连接')
+    const got = await $.session.receive({ origin: { kind: 'bridge' }, text: 'from phone' })
+    expect(got.text).toBe('from phone')
+    await clock.advance(1_000)
+    for (let i = 0; i < 30; i++) await clock.settle()
+    expect(await bandText($)).toContain('远程控制 已连接')
+  } finally {
+    FILES[SESSION_FILE] = sessionEntry(null)
+  }
+})
+
+test('/hud theme with no name asks, and the answer switches like /hud theme <name>', async ($, on) => {
+  const clock = host(on)
+  let asked: { question: string; options: string[] } | null = null
+  let answer: string | null = 'kawaii'
+  on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => {
+    const q = (e as unknown as { questions: { question: string; options: { label: string }[] }[] }).questions[0]!
+    asked = { question: q.question, options: q.options.map(o => o.label) }
+    if (answer === null) return { deny: 'dismissed' }
+    return { result: { questions: [], answers: { [q.question]: answer } }, text: answer }
+  })
+  await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+  for (let i = 0; i < 30; i++) await clock.settle()
+  const set = await $.command.run({ ...COMMAND, args: 'theme' })
+  expect(asked!.question.startsWith('换哪套 HUD 主题？')).toBe(true)
+  expect(asked!.options).toEqual([1, 2, 3, 4].map(i => THEMES[i]!.name))
+  expect(set.text!.startsWith('HUD 主题：kawaii')).toBe(true)
+  expect(rows).toEqual([['hud.theme', 'kawaii']])
+  answer = 'nope'
+  expect((await $.command.run({ ...COMMAND, args: 'theme' })).text!.startsWith('没有名为 nope 的主题')).toBe(true)
+  answer = null
+  expect((await $.command.run({ ...COMMAND, args: 'theme' })).text!.startsWith('HUD 主题（当前 kawaii）')).toBe(true)
 })

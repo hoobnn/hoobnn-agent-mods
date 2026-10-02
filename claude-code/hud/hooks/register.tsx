@@ -31,6 +31,7 @@ import { factsSummary, type Io, runWithFacts, setIo } from './shims/host.js'
 import { loadHostFacts, type SessionApi } from './stdin.js'
 import { cleanSummary } from './summary.js'
 import { applyPalette, applyTheme, findTheme, moodOf, THEMES } from './themes.js'
+import type { Theme } from './themes.js'
 import { transcriptData } from './transcript-feed.js'
 
 const lines = atom({ plugin: 'hud', key: 'lines' } as const, [] as HudLine[])
@@ -85,6 +86,35 @@ async function sawBridge($: EngineInterface, origin: { kind: string }): Promise<
   if ((await read($, remotes)).some(r => r.surface === BRIDGE)) return false
   await update($, remotes, rs => [...rs.filter(r => r.surface !== BRIDGE), { id: BRIDGE, surface: BRIDGE }])
   return true
+}
+
+type Gauges = { context?: number; fiveHour?: number; sevenDay?: number }
+
+/** Toasts once per threshold a gauge crosses; re-armed once it drops back. */
+async function alert($: EngineInterface, gauges: Gauges, contextAlerts: number[], usageAlerts: number[]): Promise<void> {
+  const was = await read($, fired)
+  const context = crossThresholds(gauges.context, contextAlerts, was.context)
+  const fiveHour = crossThresholds(gauges.fiveHour, usageAlerts, was.fiveHour)
+  const sevenDay = crossThresholds(gauges.sevenDay, usageAlerts, was.sevenDay)
+  if (context.alert !== null) $.ui.toast(m('alert.context', { p: context.alert }))
+  if (fiveHour.alert !== null) $.ui.toast(m('alert.fiveHour', { p: fiveHour.alert }))
+  if (sevenDay.alert !== null) $.ui.toast(m('alert.sevenDay', { p: sevenDay.alert }))
+  const now = { context: context.fired, fiveHour: fiveHour.fired, sevenDay: sevenDay.fired }
+  if (JSON.stringify(now) !== JSON.stringify(was)) await update($, fired, () => now)
+}
+
+/** The gauges a usage reading carries (`$.session.usage()`, or a pushed `session.measure`). */
+function gaugesOf(usage: { context: { percent?: number }; rateLimits: readonly { kind: string; percentUsed: number }[] }): Gauges {
+  const percent = (kind: string) => usage.rateLimits.find(r => r.kind === kind)?.percentUsed
+  return { context: usage.context.percent, fiveHour: percent('five_hour'), sevenDay: percent('seven_day') }
+}
+
+/** Draws `picked` (the redraw scheduled) and writes the theme row. */
+async function setTheme($: EngineInterface, picked: Theme, schedule: () => void): Promise<{ text: string }> {
+  useTheme(picked)
+  schedule()
+  await persist(prefsOf($), 'theme', picked.name)
+  return { text: m('theme.set', { name: `${picked.name} ${picked.sample}` }) }
 }
 
 // Before 0.8 a theme picked with `/hud theme` was kept in the store; it is the `theme` row now.
@@ -161,7 +191,6 @@ export const register: Register = (on, options) => {
         const { rows, stdin, todayUsd } = await renderHud(io, session)
         const pet = config.position === 'below' ? await read($, petDock) : null
         const now = await $.clock.now()
-        await alert(stdin)
         if (todayUsd !== null) await recordSpend(now, todayUsd)
         const days = await read($, history)
         const today = localDay(now)
@@ -207,19 +236,6 @@ export const register: Register = (on, options) => {
       }
     }
 
-    // Toasts once per threshold a gauge crosses; re-armed once it drops back.
-    const alert = async (stdin: StdinData) => {
-      const was = await read($, fired)
-      const limits = stdin.rate_limits
-      const context = crossThresholds(stdin.context_window?.used_percentage, config.contextAlerts, was.context)
-      const fiveHour = crossThresholds(limits?.five_hour?.used_percentage, config.usageAlerts, was.fiveHour)
-      const sevenDay = crossThresholds(limits?.seven_day?.used_percentage, config.usageAlerts, was.sevenDay)
-      if (context.alert !== null) $.ui.toast(m('alert.context', { p: context.alert }))
-      if (fiveHour.alert !== null) $.ui.toast(m('alert.fiveHour', { p: fiveHour.alert }))
-      if (sevenDay.alert !== null) $.ui.toast(m('alert.sevenDay', { p: sevenDay.alert }))
-      const now = { context: context.fired, fiveHour: fiveHour.fired, sevenDay: sevenDay.fired }
-      if (JSON.stringify(now) !== JSON.stringify(was)) await update($, fired, () => now)
-    }
     // The mascot's mood: the quota, the context, whether a tool is running.
     const mood = (stdin: StdinData) => {
       const limits = stdin.rate_limits
@@ -259,6 +275,11 @@ export const register: Register = (on, options) => {
         inputSchema: { type: 'object', properties: {} },
       })
     }
+    // Usage the session already had (a resumed one): alerts now, not after the first measurement.
+    const usage = await $.session.usage().catch(() => null)
+    if (usage) {
+      await alert($, gaugesOf(usage), config.contextAlerts, config.usageAlerts)
+    }
     $.clock.every(TICK_MS, () => void refresh())
     void refresh()
     // Remote Control turns on and off outside the turn's events (`/remote-control`,
@@ -281,15 +302,21 @@ export const register: Register = (on, options) => {
     const [verb = '', arg = ''] = e.args.trim().toLowerCase().split(/\s+/)
     if (verb === 'theme') {
       const list = THEMES.map(t => `${t.name}${t.isNerdFont ? '*' : ''} ${t.sample}`).join(' · ')
-      if (!arg) return { text: m('theme.list', { name: live.theme.name, list }) }
+      const names = THEMES.map(t => t.name).join(', ')
       const at = THEMES.indexOf(live.theme)
+      if (!arg) {
+        // The engine's dialog offers the next four; "Other" takes any name. Dismissed, or no one to ask (-p): the list.
+        const offered = [1, 2, 3, 4].map(i => THEMES[(at + i) % THEMES.length]!.name)
+        const answer = await $.ui.ask(m('theme.ask', { name: live.theme.name, list: names }), { options: offered, header: 'HUD theme' }).catch(() => null)
+        if (answer === null) return { text: m('theme.list', { name: live.theme.name, list }) }
+        const asked = findTheme(answer.trim().split(/\s+/)[0]?.toLowerCase())
+        if (!asked) return { text: m('theme.unknown', { name: answer.trim(), list: names }) }
+        return setTheme($, asked, schedule)
+      }
       // `reset`: the option's default, claude-hud's own look.
       const picked = arg === 'next' ? THEMES[(at + 1) % THEMES.length] : arg === 'reset' ? THEMES[0] : findTheme(arg)
-      if (!picked) return { text: m('theme.unknown', { name: arg, list: THEMES.map(t => t.name).join(', ') }) }
-      useTheme(picked)
-      schedule()
-      await persist(prefsOf($), 'theme', picked.name)
-      return { text: m('theme.set', { name: `${picked.name} ${picked.sample}` }) }
+      if (!picked) return { text: m('theme.unknown', { name: arg, list: names }) }
+      return setTheme($, picked, schedule)
     }
     if (verb === 'detail') {
       if ((await $.ui.panes()).some(p => p.id === PANE)) {
@@ -324,6 +351,19 @@ export const register: Register = (on, options) => {
   })
   on('command.run', async ($, e, next) => {
     if (await sawBridge($, e.origin)) schedule()
+    return next(e)
+  })
+
+  // Remote Control's prompts reach the session as deliveries before they are a prompt.
+  on('session.receive', async ($, e, next) => {
+    if (await sawBridge($, e.origin)) schedule()
+    return next(e)
+  })
+
+  // Usage pushed by the engine: the alerts at once, and the gauges redrawn.
+  on('session.measure', async ($, e, next) => {
+    await alert($, gaugesOf(e), config.contextAlerts, config.usageAlerts)
+    schedule()
     return next(e)
   })
 
