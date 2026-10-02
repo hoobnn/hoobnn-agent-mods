@@ -14,14 +14,22 @@ function shortenToolName(rawName: string, maxLength: number): string {
   return shown.length <= maxLength ? shown : `${shown.slice(0, Math.max(0, maxLength - 1))}…`;
 }
 
-function shortenPath(target: string, maxLength = 20): string {
-  const normalized = sanitizeDisplayText(target).replace(/\\/g, '/');
+/** Relative to the session's directory (or project) when inside it, then cut to `…/<file>`. */
+function shortenPath(target: string, dirs: (string | undefined)[], maxLength = 20): string {
+  let normalized = sanitizeDisplayText(target).replace(/\\/g, '/');
+  for (const dir of dirs) {
+    const base = dir?.replace(/\\/g, '/').replace(/\/+$/, '');
+    if (base && normalized.startsWith(`${base}/`)) {
+      normalized = normalized.slice(base.length + 1);
+      break;
+    }
+  }
   if (normalized.length <= maxLength) return normalized;
   const filename = normalized.split('/').pop() || normalized;
-  return filename.length >= maxLength ? `${filename.slice(0, maxLength - 3)}...` : `.../${filename}`;
+  return filename.length >= maxLength ? `${filename.slice(0, maxLength - 1)}…` : `…/${filename}`;
 }
 
-/** `◐ Edit: auth.ts | ✓ Read ×3 | +2 more`: the two newest running tools, then completed counts. */
+/** `◐ Edit auth.ts | ✓ Read ×3 | +2 more`: the two newest running tools, then completed counts. */
 function toolsLine(f: Frame): string | null {
   const display = f.config?.display;
   const colors = f.config?.colors;
@@ -34,7 +42,7 @@ function toolsLine(f: Frame): string | null {
     .filter((tool) => tool.status === 'running')
     .slice(-2)
     .map((tool) => {
-      const target = tool.target ? label(`: ${shortenPath(tool.target)}`, colors) : '';
+      const target = tool.target ? ` ${label(shortenPath(tool.target, [f.stdin.cwd, f.stdin.workspace?.project_dir]), colors)}` : '';
       return `${yellow('◐')} ${cyan(shortenToolName(tool.name, maxLength))}${target}`;
     });
 

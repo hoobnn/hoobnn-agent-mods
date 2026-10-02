@@ -17,7 +17,7 @@ Mods, extensions and plugins I've written for coding-agent harnesses, one folder
 | Mod | What it does |
 | --- | --- |
 | [`hud`](claude-code/hud) | [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, above or below the prompt. On top of that: a turn-done alert for long turns, context and limit alerts, a forecast of when a limit runs out, a daily budget, the last 7 days' spend, a nag about uncommitted changes, a one-line task summary and a `/hud detail` pane |
-| [`ts-band`](claude-code/ts-band) | Each Tailscale node's state in a band above the prompt: green for direct, yellow through a relay or DERP, red when offline, with a toast when a node comes up or goes down |
+| [`ts-band`](claude-code/ts-band) | Tailscale node state in a band above the prompt: one short mark while every node is direct, otherwise only the nodes on a relay or DERP (yellow) or offline (red), with a toast when a node comes up or goes down |
 | [`hitokoto`](claude-code/hitokoto) | A line from [Hitokoto (一言)](https://hitokoto.cn) above the prompt, refreshed on a timer, once a day, per session or per prompt |
 
 Install them from this repo's marketplace:

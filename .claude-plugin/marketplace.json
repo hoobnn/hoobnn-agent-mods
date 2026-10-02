@@ -13,7 +13,7 @@
       "name": "hud",
       "source": "./claude-code/hud",
       "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt, plus alerts, budget, history, a task summary and a detail pane",
-      "version": "0.5.1",
+      "version": "0.6.0",
       "category": "monitoring",
       "tags": [
         "hud",
@@ -25,7 +25,7 @@
       "name": "ts-band",
       "source": "./claude-code/ts-band",
       "description": "Tailscale nodes' state in a band above the prompt",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "category": "monitoring",
       "tags": [
         "tailscale",
@@ -37,7 +37,7 @@
       "name": "hitokoto",
       "source": "./claude-code/hitokoto",
       "description": "A line from Hitokoto (一言) in a band above the prompt, refreshed on a timer, per session, per prompt or once a day",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "category": "productivity",
       "tags": [
         "hitokoto",

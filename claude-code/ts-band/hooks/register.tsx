@@ -126,22 +126,32 @@ export const register: Register = (on, options) => {
 
     const online = snap.nodes.filter(n => n.isOnline).length
     const shown = hideOffline ? snap.nodes.filter(n => n.isOnline) : snap.nodes
+    // Only what needs a look gets a place: nodes on a relay or DERP, and offline ones.
+    const issues = shown.filter(n => !n.isOnline || n.link !== 'direct')
+    const isAllUp = online === snap.nodes.length
 
     return (
       <Box flexDirection="column">
-      <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
-        <Text bold>TS {online}/{snap.nodes.length}</Text>
-        {shown.map(node => (
-          <Box key={node.name}>
-            <Text color={node.isOnline ? (node.link === 'direct' ? 'green' : 'yellow') : 'red'}>
-              {node.isOnline ? '●' : '○'}{' '}
-            </Text>
-            <Text dimColor={!node.isOnline}>{node.name} </Text>
-            <Text dimColor>{linkText(node)}</Text>
+        {issues.length === 0 && snap.nodes.length > 0 ? (
+          <Box flexDirection="row" columnGap={1}>
+            <Text bold>TS</Text>
+            <Text color={isAllUp ? 'green' : 'yellow'}>●</Text>
+            <Text>{online}/{snap.nodes.length}</Text>
+            <Text dimColor>{m('link.direct')}</Text>
           </Box>
-        ))}
-      </Box>
-      {below}
+        ) : (
+          <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
+            <Text bold>TS {online}/{snap.nodes.length}</Text>
+            {issues.map(node => (
+              <Box key={node.name}>
+                <Text color={node.isOnline ? 'yellow' : 'red'}>{node.isOnline ? '◐' : '○'} </Text>
+                <Text dimColor={!node.isOnline}>{node.name} </Text>
+                <Text dimColor>{linkText(node)}</Text>
+              </Box>
+            ))}
+          </Box>
+        )}
+        {below}
       </Box>
     )
   })

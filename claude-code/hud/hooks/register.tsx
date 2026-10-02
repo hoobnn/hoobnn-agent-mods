@@ -11,7 +11,9 @@ import type { Fired, HudLine, Remote, StepInfo, ToolStats } from '../types'
 import { parseAnsi } from './ansi.js'
 import {
   chimeWav,
+  appendExtras,
   crossThresholds,
+  dimSeparators,
   exhaustAt,
   extrasLine,
   formatDuration,
@@ -382,7 +384,7 @@ async function renderHud(io: Io, session: SessionApi): Promise<Rendered> {
     const resetsAt = stdin.rate_limits?.seven_day?.resets_at
     todayUsd = getCostTotals(stdin, { sevenDayResetAt: resetsAt ? new Date(resetsAt * 1000) : null })?.todayUsd ?? null
   })
-  const rendered = out.map(parseAnsi)
+  const rendered = out.map(line => dimSeparators(parseAnsi(line)))
   live.bridgeSessionId = await remoteControl(io, stdin.session_id ?? '')
   const rc = rcSpans(live.bridgeSessionId, await session.remotes())
   if (rc.length > 0) {
@@ -492,8 +494,9 @@ export const register: Register = (on, options) => {
           git: gitDirtyWarn > 0 || gitAheadWarn > 0 ? await gitCounts(io, stdin.cwd ?? '') : null,
           gitDirtyWarn,
           gitAheadWarn,
+          columns: live.columns,
         })
-        const all = extra.length > 0 ? [...rows, extra] : rows
+        const all = appendExtras(rows, extra, live.columns)
         live.lastLines = all.map(row => row.map(span => span.text).join(''))
         live.lastError = null
         await update($, lines, () => all)

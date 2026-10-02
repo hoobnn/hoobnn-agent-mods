@@ -43,7 +43,7 @@ Claude Code's statusline stdin carries these; the mod API does not, so the mod w
 
 - Remote Control: ` │ ⇄ 远程控制` at the end of the first line while the session's Remote Control is on, linked to the session on claude.ai, then `等待连接` or the attached clients by surface (`已连接 手机 · 网页/桌面×2`). The engine records the bridge as `bridgeSessionId` in `~/.claude/sessions/<pid>.json` (found by session id) and the mod API does not report it, so the file is read every 3 s and the HUD redrawn on a change; clients and their surfaces come from `session.attach` / `session.detach`.
 
-- An extras row under claude-hud's lines, each part shown only when it has something to say:
+- An extras row: appended to claude-hud's last line when both fit the width, else a line of its own under it; parts that do not fit leave it, the 7-day sparkline first and the `⚠` git warning last. Each part shows only when it has something to say:
   - `✎` the task in one line: a `$.model.fork` of the conversation (served from the prompt cache) after the first turn and every `summaryEveryTurns` turns (default 5; 0 off).
   - Usage forecast (`showForecast`): when the 5-hour or 7-day limit runs out at the rate used so far, if that comes before it resets.
   - Today's spend across sessions against `dailyBudgetUsd` (0 off), from claude-hud's daily-cost ledger; yellow from 80%, red past it.
@@ -53,6 +53,8 @@ Claude Code's statusline stdin carries these; the mod API does not, so the mod w
 - Turn done: a turn of the main thread that ran `notifyAfterSeconds` or longer (default 0, off; e.g. 60) ends with a toast and, with `notifySound`, a short chime (macOS).
 - Subagent lines: off by default (`showAgents`), since Claude Code lists running subagents itself, with their time and tokens; the detail pane still lists them.
 - `/hud detail` opens (and closes) a pane: each tool's calls, total and average time and failures this session; subagents; todos; today's and the week's spend.
+
+- Display tweaks over claude-hud: the ` │ ` and ` | ` separators are dimmed; a running tool's file shows relative to the session directory (`◐ Read src/a.ts`); the session duration is `⏱ 12m` and the prompt cache `缓存 至 14:05`, without the emoji-width `⏱️`.
 
 ## Not carried over
 

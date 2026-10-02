@@ -131,7 +131,7 @@ export const register: Register = (on, options) => {
     return (
       <Box flexDirection="column">
         <Box flexDirection="row" flexWrap="wrap" columnGap={1}>
-          <Text color="cyan">『{q.text}』</Text>
+          <Text dimColor italic>『{q.text}』</Text>
           {by ? <Text dimColor>{by}</Text> : null}
         </Box>
         {below}

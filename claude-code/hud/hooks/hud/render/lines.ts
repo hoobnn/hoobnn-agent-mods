@@ -45,10 +45,10 @@ export function promptCacheLine(f: Frame): string | null {
   const remainingMs = cache.warm ? expiresAtMs - f.now : 0;
   let value: string;
   if (remainingMs <= 0) {
-    value = label(`⏱ ${t('status.expired')}`, colors);
+    value = label(t('status.expired'), colors);
   } else {
     const warnMs = Math.max(60, Math.floor((TTL_SECONDS[cache.ttl ?? ''] ?? 300) / 5)) * 1000;
-    const until = `⏱ ${formatAbsoluteTime(new Date(expiresAtMs), new Date(f.now), wallClock(display), 'format.untilTime')}`;
+    const until = formatAbsoluteTime(new Date(expiresAtMs), new Date(f.now), wallClock(display), 'format.untilTime');
     value = remainingMs <= warnMs ? warning(until, colors) : `${getContextColor(0, colors)}${until}${RESET}`;
   }
   return `${label(t('label.promptCache'), colors)} ${value}`;

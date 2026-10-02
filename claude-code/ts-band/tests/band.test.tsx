@@ -67,6 +67,9 @@ test('band shows nodes and online count on every surface', async ($, on) => {
     expect(await ui.find({ type: 'Text', text: 'TS 3/4' })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: 'DERP-sfo' })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: '中继' })).toBeDefined()
+    // A direct node needs no look: only relayed and offline ones are listed.
+    expect(await ui.find({ type: 'Text', text: 'dev-box ' })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: 'phone ' })).toBeDefined()
     await ui.unmount()
   }
 })
@@ -98,8 +101,9 @@ test('nodes and hideOffline shape the band', { options: { nodes: 'phone=手机, 
   await $.session.start(START)
   await clock.settle()
   const ui = await $.ui.mount({ plugin: 'ts-band', surface: 'terminal', ...BAND })
-  expect(await ui.find({ type: 'Text', text: 'TS 1/2' })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: 'dev-box ' })).toBeDefined()
+  // The offline phone is hidden and dev-box is direct: one short mark.
+  expect(await ui.find({ type: 'Text', text: '1/2' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: '直连' })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: '手机 ' })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: 'vps-west ' })).toBeUndefined()
   await ui.unmount()
@@ -138,7 +142,7 @@ test('the band speaks the language option', { options: { language: 'de' } }, asy
   await $.session.start(START)
   await clock.settle()
   const ui = await $.ui.mount({ plugin: 'ts-band', surface: 'terminal', ...BAND })
-  expect(await ui.find({ type: 'Text', text: 'direkt' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'offline' })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: 'DERP-sfo' })).toBeDefined()
   await ui.unmount()
   const off = await $.command.run({ ...RUN, command: 'ts', args: 'off' })

@@ -140,7 +140,7 @@ export function versionPart(f: Frame): string | null {
 
 export function durationPart(f: Frame): string | null {
   const duration = f.config?.display?.showDuration === true ? sessionDuration(f) : '';
-  return labeled(f, duration && `⏱️  ${duration}`);
+  return labeled(f, duration && `⏱ ${duration}`);
 }
 
 export function extraPart(f: Frame): string | null {

@@ -4,8 +4,10 @@ import { expect, mock, test } from 'claude-code/testing'
 import { parseAnsi } from '../hooks/ansi'
 import {
   addDays,
+  appendExtras,
   chimeWav,
   crossThresholds,
+  dimSeparators,
   exhaustAt,
   extrasLine,
   lastDays,
@@ -247,6 +249,26 @@ test('forecast names the time a window runs out before its reset', async () => {
   // 20% after 2h lasts to the reset.
   expect(exhaustAt(20, resets, 5 * hour, now)).toBe(null)
   expect(exhaustAt(5, resets, 5 * hour, now)).toBe(null)
+})
+
+test('extras fit the width: low parts drop, the row joins the last line when it fits', async () => {
+  const x = { summary: 'Fix login', exhaust: [], todayUsd: 3, budgetUsd: 10, week: { values: [1, 2, 0, 0, 0, 0, 3], streak: 1 }, git: null, gitDirtyWarn: 20, gitAheadWarn: 5 }
+  const text = (row: { text: string }[]) => row.map(s => s.text).join('')
+  expect(text(extrasLine(x))).toMatch(/Fix login │ .* │ /)
+  // Too narrow for all three: the sparkline goes first, then the budget.
+  const narrow = text(extrasLine({ ...x, columns: 60 }))
+  expect(narrow).toMatch(/Fix login │ /)
+  expect(narrow).not.toMatch(/▁/)
+  expect(text(extrasLine({ ...x, columns: 12 }))).toBe('✎ Fix login')
+  const rows = [[{ text: 'a' }], [{ text: '◐ Read' }]]
+  const extra = [{ text: '✎ x' }]
+  expect(appendExtras(rows, extra, 80)).toEqual([[{ text: 'a' }], [{ text: '◐ Read' }, { text: ' │ ', dimColor: true }, { text: '✎ x' }]])
+  expect(appendExtras(rows, extra, 8)).toEqual([...rows, extra])
+  expect(dimSeparators([{ text: 'Opus │ proj', color: 'cyan' }])).toEqual([
+    { text: 'Opus', color: 'cyan' },
+    { text: ' │ ', dimColor: true },
+    { text: 'proj', color: 'cyan' },
+  ])
 })
 
 test('history helpers: sparkline, streak, git counts, summary', async () => {

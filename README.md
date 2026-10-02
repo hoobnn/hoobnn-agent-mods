@@ -17,7 +17,7 @@
 | Mod | 作用 |
 | --- | --- |
 | [`hud`](claude-code/hud) | 把 [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 改成 mod，显示模型、项目、git、上下文、用量、工具、子代理和待办，可以放在输入框上方或下方。另外加了：长任务结束提醒、上下文和额度预警、用量耗尽预测、每日预算、近 7 天花费、未提交改动提醒、一行任务摘要，以及 `/hud detail` 详情面板 |
-| [`ts-band`](claude-code/ts-band) | 在输入框上方显示各 Tailscale 节点的状态：直连绿色、走中继或 DERP 黄色、离线红色；节点上线或掉线时弹提示 |
+| [`ts-band`](claude-code/ts-band) | 在输入框上方显示 Tailscale 节点状态：全部直连时只占一个短标记，有节点走中继 / DERP（黄）或离线（红）时只列出这些节点；节点上线或掉线时弹提示 |
 | [`hitokoto`](claude-code/hitokoto) | 在输入框上方显示一句[一言](https://hitokoto.cn)，可以定时换、每天一句、每个会话一句或每次发消息换一句 |
 
 从本仓库的插件市场安装：
