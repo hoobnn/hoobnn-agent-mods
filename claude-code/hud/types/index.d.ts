@@ -29,6 +29,9 @@ export type StepInfo = {
   lastRequestAt: number | null
 }
 
+/** A remote client attached to the session: its id and the surface it draws on. */
+export type Remote = { id: string; surface: string }
+
 /** Alert thresholds (percent) already toasted, per gauge. */
 export type Fired = { context: number[]; fiveHour: number[]; sevenDay: number[] }
 
@@ -41,7 +44,8 @@ declare module 'claude-code' {
       lines: HudLine[]
       isHidden: boolean
       step: StepInfo
-      clients: string[]
+      /** Remote clients attached (a phone, the web), not the terminal. */
+      remotes: Remote[]
       /** The task in one line, from a fork of the conversation. */
       summary: string | null
       /** Main-thread turns completed, which sets the summary's cadence. */

@@ -7,7 +7,7 @@ import './shims/globals.js'
 import { atom, read, update } from 'claude-code'
 import type { Elements, Register, RenderElement, SessionRepo, SessionUsage, SessionVersion } from 'claude-code'
 
-import type { Fired, HudLine, StepInfo, ToolStats } from '../types'
+import type { Fired, HudLine, Remote, StepInfo, ToolStats } from '../types'
 import { parseAnsi } from './ansi.js'
 import {
   chimeWav,
@@ -46,8 +46,8 @@ const steps = atom({ plugin: 'hud', key: 'step' } as const, {
   currentUsage: null,
   lastRequestAt: null,
 } as StepInfo)
-// Remote clients attached to the session (a phone, the web), by client id.
-const clients = atom({ plugin: 'hud', key: 'clients' } as const, [] as string[])
+// Remote clients attached to the session (a phone, the web), with their surface.
+const remotes = atom({ plugin: 'hud', key: 'remotes' } as const, [] as Remote[])
 const summary = atom({ plugin: 'hud', key: 'summary' } as const, null as string | null)
 const turns = atom({ plugin: 'hud', key: 'turns' } as const, 0)
 const fired = atom({ plugin: 'hud', key: 'fired' } as const, { context: [], fiveHour: [], sevenDay: [] } as Fired)
@@ -98,7 +98,7 @@ type SessionApi = {
     step: StepInfo
     repo: SessionRepo | null
   }>
-  clients: () => Promise<string[]>
+  remotes: () => Promise<Remote[]>
   exists: (path: string) => Promise<boolean>
 }
 
@@ -167,14 +167,29 @@ async function remoteControl(io: Io, id: string): Promise<string | null> {
   return null
 }
 
-/** ` │ RC` (linked to the session on claude.ai) and how many remote clients are attached. */
-export function rcSpans(bridgeSessionId: string | null, clientCount: number): HudLine {
+const SURFACE_LABEL: Record<string, string> = { mobile: '手机', desktop: '网页/桌面', vscode: 'VS Code' }
+
+/**
+ * ` │ ⇄ 远程控制` (linked to the session on claude.ai), then who is attached by
+ * surface (`手机 · 网页/桌面×2`), or that it waits for a client.
+ */
+export function rcSpans(bridgeSessionId: string | null, attached: readonly Remote[]): HudLine {
   if (!bridgeSessionId) return []
   const spans: HudLine = [
     { text: ' │ ' },
-    { text: 'RC', color: 'green', href: `https://claude.ai/code/${bridgeSessionId}` },
+    { text: '⇄ 远程控制', color: 'green', href: `https://claude.ai/code/${bridgeSessionId}` },
   ]
-  if (clientCount > 0) spans.push({ text: ` ${clientCount} 已连接`, dimColor: true })
+  if (attached.length === 0) {
+    spans.push({ text: ' 等待连接', dimColor: true })
+    return spans
+  }
+  const counts = new Map<string, number>()
+  for (const r of attached) {
+    const label = SURFACE_LABEL[r.surface] ?? r.surface
+    counts.set(label, (counts.get(label) ?? 0) + 1)
+  }
+  const who = [...counts].map(([label, n]) => (n > 1 ? `${label}×${n}` : label)).join(' · ')
+  spans.push({ text: ` 已连接 ${who}`, color: 'cyan' })
   return spans
 }
 
@@ -350,7 +365,7 @@ async function renderHud(io: Io, session: SessionApi): Promise<Rendered> {
   })
   const rendered = out.map(parseAnsi)
   live.bridgeSessionId = await remoteControl(io, stdin.session_id ?? '')
-  const rc = rcSpans(live.bridgeSessionId, (await session.clients()).length)
+  const rc = rcSpans(live.bridgeSessionId, await session.remotes())
   if (rc.length > 0) {
     if (rendered.length > 0) rendered[0] = [...rendered[0]!, ...rc]
     else rendered.push(rc.slice(1))
@@ -417,7 +432,8 @@ export const register: Register = (on, options) => {
         ])
         return { id, cwd, root, model, usage, version, settings: settings as Record<string, unknown>, step, repo }
       },
-      clients: () => read($, clients),
+      // A value from before 0.4.3 (bare ids) is dropped rather than misread.
+      remotes: async () => (await read($, remotes)).filter(r => typeof r === 'object' && r !== null),
       exists: path => $.fs.exists(path),
     }
     setIo(io)
@@ -536,14 +552,16 @@ export const register: Register = (on, options) => {
   })
 
   on('session.attach', async ($, e, next) => {
-    if (e.surface !== 'terminal') await update($, clients, ids => (ids.includes(e.clientId) ? ids : [...ids, e.clientId]))
+    if (e.surface !== 'terminal') {
+      await update($, remotes, all => [...all.filter(r => r.id !== e.clientId), { id: e.clientId, surface: e.surface }])
+    }
     schedule()
 
     return next(e)
   })
 
   on('session.detach', async ($, e, next) => {
-    await update($, clients, ids => ids.filter(id => id !== e.clientId))
+    await update($, remotes, all => all.filter(r => r.id !== e.clientId))
     schedule()
 
     return next(e)

@@ -177,13 +177,16 @@ test('position below draws under the prompt and leaves the band alone', { option
 })
 
 
-test('rc label links the bridge session and counts attached clients', async () => {
-  expect(rcSpans(null, 2)).toEqual([])
-  expect(rcSpans('session_x', 0)).toEqual([
+test('rc label links the bridge session and names attached clients by surface', async () => {
+  const phone = { id: 'p1', surface: 'mobile' }
+  expect(rcSpans(null, [phone])).toEqual([])
+  expect(rcSpans('session_x', [])).toEqual([
     { text: ' │ ' },
-    { text: 'RC', color: 'green', href: 'https://claude.ai/code/session_x' },
+    { text: '⇄ 远程控制', color: 'green', href: 'https://claude.ai/code/session_x' },
+    { text: ' 等待连接', dimColor: true },
   ])
-  expect(rcSpans('session_x', 2).at(-1)).toEqual({ text: ' 2 已连接', dimColor: true })
+  const attached = [phone, { id: 'w1', surface: 'desktop' }, { id: 'w2', surface: 'desktop' }]
+  expect(rcSpans('session_x', attached).at(-1)).toEqual({ text: ' 已连接 手机 · 网页/桌面×2', color: 'cyan' })
 })
 
 test('rc state follows this session\'s entry in sessions/', async ($, on) => {
