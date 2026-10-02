@@ -1,6 +1,6 @@
 {
   "name": "ts-band",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Tailscale nodes' state in a band above the prompt, with a toast when a node comes up or goes down",
   "author": {
     "name": "hoobnn",

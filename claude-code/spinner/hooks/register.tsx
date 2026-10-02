@@ -310,7 +310,8 @@ export const register: Register = (on, options) => {
     const below = await next(e)
     return (
       <Box flexDirection="column">
-        {stage}
+        {/* Two cells in, as the engine indents the lines under the prompt. */}
+        <Box paddingLeft={2}>{stage}</Box>
         {below}
       </Box>
     )

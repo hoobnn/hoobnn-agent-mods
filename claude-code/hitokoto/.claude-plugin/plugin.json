@@ -1,6 +1,6 @@
 {
   "name": "hitokoto",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "A line from Hitokoto (一言) in a band above the prompt, refreshed on a timer, per session, per prompt or once a day",
   "author": {
     "name": "hoobnn",

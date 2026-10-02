@@ -115,7 +115,7 @@ export const register: Register = (on, options) => {
     if (snap.error) {
       return (
         <Box flexDirection="column">
-          <Box>
+          <Box paddingLeft={2}>
             <Text color="red">{m('error.read')}</Text>
             <Text dimColor wrap="truncate-end">{snap.error}</Text>
           </Box>
@@ -129,18 +129,19 @@ export const register: Register = (on, options) => {
     // Only what needs a look gets a place: nodes on a relay or DERP, and offline ones.
     const issues = shown.filter(n => !n.isOnline || n.link !== 'direct')
     const isAllUp = online === snap.nodes.length
+    // Rows sit two cells in, as the engine indents the lines under the prompt.
 
     return (
       <Box flexDirection="column">
         {issues.length === 0 && snap.nodes.length > 0 ? (
-          <Box flexDirection="row" columnGap={1}>
+          <Box flexDirection="row" columnGap={1} paddingLeft={2}>
             <Text bold>TS</Text>
             <Text color={isAllUp ? 'green' : 'yellow'}>●</Text>
             <Text>{online}/{snap.nodes.length}</Text>
             <Text dimColor>{m('link.direct')}</Text>
           </Box>
         ) : (
-          <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
+          <Box flexDirection="row" flexWrap="wrap" columnGap={2} paddingLeft={2}>
             <Text bold>TS {online}/{snap.nodes.length}</Text>
             {issues.map(node => (
               <Box key={node.name}>

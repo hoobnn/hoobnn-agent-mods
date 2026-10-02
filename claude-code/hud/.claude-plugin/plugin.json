@@ -1,6 +1,6 @@
 {
   "name": "hud",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, plus alerts, budget, history, a task summary, a detail pane and switchable themes",
   "author": {
     "name": "hoobnn",

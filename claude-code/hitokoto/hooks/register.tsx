@@ -130,7 +130,8 @@ export const register: Register = (on, options) => {
 
     return (
       <Box flexDirection="column">
-        <Box flexDirection="row" flexWrap="wrap" columnGap={1}>
+        {/* Two cells in, as the engine indents the lines under the prompt. */}
+        <Box flexDirection="row" flexWrap="wrap" columnGap={1} paddingLeft={2}>
           <Text dimColor italic>『{q.text}』</Text>
           {by ? <Text dimColor>{by}</Text> : null}
         </Box>

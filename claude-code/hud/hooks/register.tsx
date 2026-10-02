@@ -726,7 +726,7 @@ export const register: Register = (on, options) => {
   })
 
   // The HUD's rows over whatever the engine (or another mod) draws in the same place.
-  const drawRows = (el: Pick<Elements['terminal'], 'Box' | 'Text' | 'Link'>, rows: HudLine[], rest: RenderElement) => {
+  const drawRows = (el: Pick<Elements['terminal'], 'Box' | 'Text' | 'Link'>, rows: HudLine[], rest: RenderElement, indent = 0) => {
     const { Box, Text, Link } = el
 
     return (
@@ -734,7 +734,7 @@ export const register: Register = (on, options) => {
         {rows.map((row, i) => (
           // A row of sibling Texts, not nested ones: a nested Text drops dimColor.
           // claude-hud fits its own rows; the extras row wraps when it runs long.
-          <Box key={`l${i}`} flexDirection="row" flexWrap="wrap">
+          <Box key={`l${i}`} flexDirection="row" flexWrap="wrap" paddingLeft={indent}>
             {row.map((span, j) => {
               const text = (
               <Text
@@ -776,13 +776,14 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (position !== 'above') return next(e)
-    trackWidth(e.props.bodyColumns)
+    // Two cells in, as the engine indents the lines under the prompt.
+    trackWidth(e.props.bodyColumns - 2)
     const rows = await read($, lines)
     if (e.props.hasSurvey || rows.length === 0 || (await read($, isHidden))) {
       return next(e)
     }
 
-    return drawRows($.ui.resolve(e), rows, await next(e))
+    return drawRows($.ui.resolve(e), rows, await next(e), 2)
   })
 
   // Under the prompt, where the statusline sat: the HUD, then the engine's hint line.
