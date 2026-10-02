@@ -206,3 +206,23 @@ test('the band steps aside while a picker is open', async ($, on) => {
   await edit({ origin: { kind: 'composer' }, text: '/t', cursor: 2, start: 2, end: 2, inputText: 's ' })
   expect(await shown()).toBe(true)
 })
+
+test('a prompt reads the nodes again once the snapshot is 10 s old', async ($, on) => {
+  let runs = 0
+  const clock = host(on, () => {
+    runs++
+    return { exitCode: 0, stdout: STATUS, stderr: '' }
+  })
+  on('prompt.submit', ($, e) => ({ text: e.text }))
+  await $.session.start(START)
+  await clock.settle()
+  expect(runs).toBe(1)
+  // Fresh: the prompt leaves it to the timer.
+  await $.prompt.submit({ origin: { kind: 'composer' }, wait: false, text: 'hi' })
+  await clock.settle()
+  expect(runs).toBe(1)
+  await clock.advance(15_000)
+  await $.prompt.submit({ origin: { kind: 'composer' }, wait: false, text: 'again' })
+  await clock.settle()
+  expect(runs).toBe(2)
+})

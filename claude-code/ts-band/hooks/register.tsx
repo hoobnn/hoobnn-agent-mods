@@ -30,8 +30,15 @@ function prefsOf($: EngineInterface): Prefs {
   }
 }
 
-/** Reads `tailscale status` on a timer into the snapshot, toasting nodes that come up or go down. */
-function startPolling($: EngineInterface, config: Config): void {
+/** Reads into the snapshot sooner than the timer would, when it is older than this. */
+const PROMPT_REFRESH_MS = 10_000
+
+/**
+ * Reads `tailscale status` on a timer into the snapshot, toasting nodes that
+ * come up or go down. Returns a read to run now, skipped while one runs or the
+ * snapshot is fresh.
+ */
+function startPolling($: EngineInterface, config: Config): () => void {
   // The first candidate that runs is kept for the session.
   let tailscale: string | null = null
   const status = async () => {
@@ -71,9 +78,25 @@ function startPolling($: EngineInterface, config: Config): void {
     await update($, snapshot, () => fresh)
   }
 
+  let isRunning = false
+  const run = async () => {
+    if (isRunning) return
+    isRunning = true
+    try {
+      await refresh()
+    } finally {
+      isRunning = false
+    }
+  }
+
   // Not awaited: session.start holds the first prompt until it settles.
-  void refresh()
-  $.clock.every(config.intervalMs, () => void refresh())
+  void run()
+  $.clock.every(config.intervalMs, () => void run())
+  return async () => {
+    const snap = await read($, snapshot)
+    if (snap && (await $.clock.now()) - snap.checkedAt < PROMPT_REFRESH_MS) return
+    await run()
+  }
 }
 
 // Before 0.6 `/ts off` was kept in the store; it is the `visible` row now.
@@ -81,6 +104,8 @@ const STORE_MOVES = { isHidden: (kept: unknown) => ['visible', kept !== true] as
 
 export const register: Register = (on, options) => {
   const config = readConfig(options)
+  // Set in session.start: a read now, for each prompt the person sends.
+  let refreshNow: () => Promise<void> | void = () => {}
 
   on('session.start', async ($, e, next) => {
     const settings = (await $.settings.read().catch(() => ({}))) as { language?: unknown }
@@ -93,7 +118,7 @@ export const register: Register = (on, options) => {
     await $.command.register({ name: 'ts', description: m('cmd.description'), argumentHint: '[off|on]' })
     const kept = await keptRows(prefsOf($), STORE_MOVES)
     await update($, isHidden, () => !(kept.visible ?? config.isVisible))
-    startPolling($, config)
+    refreshNow = startPolling($, config)
     const result = await next(e)
     await migrateStore(prefsOf($), STORE_MOVES)
     return result
@@ -115,6 +140,8 @@ export const register: Register = (on, options) => {
   })
   on('prompt.submit', async ($, e, next) => {
     if (await read($, isPicking)) await update($, isPicking, () => false)
+    // A new round: the nodes as they are now, not as the last tick saw them.
+    void refreshNow()
     return next(e)
   })
 
