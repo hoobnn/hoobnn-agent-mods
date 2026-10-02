@@ -1,0 +1,112 @@
+// todo-bar's messages; the language is resolved by the kit (kit/lang.ts).
+import { createMessages } from './kit/lang'
+import type { Lang } from './kit/lang'
+
+export { parseLanguage, resolveLanguage } from './kit/lang'
+
+export type Key = 'cmd.description' | 'cmd.hidden' | 'cmd.shown' | 'cmd.none' | 'cmd.header' | 'band.next' | 'band.done' | 'band.took'
+
+export const MESSAGES: Record<Lang, Record<Key, string>> = {
+  en: {
+    'cmd.description': 'List the tasks and their progress; off / on hides or shows the band (kept across sessions)',
+    'cmd.hidden': 'Task band hidden',
+    'cmd.shown': 'Task band shown',
+    'cmd.none': 'No tasks yet: the band appears when Claude writes a task list',
+    'cmd.header': 'Tasks {done}/{total}',
+    'band.next': 'Next: ',
+    'band.done': 'All done',
+    'band.took': 'took {d}',
+  },
+  'zh-Hans': {
+    'cmd.description': '列出任务与进度；off / on 隐藏或显示进度条（跨会话保持）',
+    'cmd.hidden': '任务进度条已隐藏',
+    'cmd.shown': '任务进度条已显示',
+    'cmd.none': '还没有任务：Claude 写下任务清单时进度条会出现',
+    'cmd.header': '任务 {done}/{total}',
+    'band.next': '接下来：',
+    'band.done': '全部完成',
+    'band.took': '用时 {d}',
+  },
+  'zh-Hant': {
+    'cmd.description': '列出任務與進度；off / on 隱藏或顯示進度條（跨工作階段保留）',
+    'cmd.hidden': '任務進度條已隱藏',
+    'cmd.shown': '任務進度條已顯示',
+    'cmd.none': '還沒有任務：Claude 寫下任務清單時進度條會出現',
+    'cmd.header': '任務 {done}/{total}',
+    'band.next': '接下來：',
+    'band.done': '全部完成',
+    'band.took': '用時 {d}',
+  },
+  ja: {
+    'cmd.description': 'タスクと進捗を一覧表示。off / on でバーを非表示・表示（セッションをまたいで保持）',
+    'cmd.hidden': 'タスクバーを非表示にしました',
+    'cmd.shown': 'タスクバーを表示しました',
+    'cmd.none': 'タスクはまだありません。Claude がタスクリストを書くとバーが表示されます',
+    'cmd.header': 'タスク {done}/{total}',
+    'band.next': '次: ',
+    'band.done': 'すべて完了',
+    'band.took': '所要 {d}',
+  },
+  ko: {
+    'cmd.description': '작업과 진행 상황 보기. off / on으로 막대 숨기기·표시(세션 간 유지)',
+    'cmd.hidden': '작업 막대를 숨겼습니다',
+    'cmd.shown': '작업 막대를 표시했습니다',
+    'cmd.none': '아직 작업이 없습니다. Claude가 작업 목록을 쓰면 막대가 나타납니다',
+    'cmd.header': '작업 {done}/{total}',
+    'band.next': '다음: ',
+    'band.done': '모두 완료',
+    'band.took': '소요 {d}',
+  },
+  es: {
+    'cmd.description': 'Lista las tareas y su avance; off / on oculta o muestra la barra (se mantiene entre sesiones)',
+    'cmd.hidden': 'Barra de tareas oculta',
+    'cmd.shown': 'Barra de tareas visible',
+    'cmd.none': 'Aún no hay tareas: la barra aparece cuando Claude escribe una lista de tareas',
+    'cmd.header': 'Tareas {done}/{total}',
+    'band.next': 'Después: ',
+    'band.done': 'Todo listo',
+    'band.took': 'en {d}',
+  },
+  fr: {
+    'cmd.description': 'Liste les tâches et leur avancement ; off / on masque ou affiche la barre (conservé entre les sessions)',
+    'cmd.hidden': 'Barre des tâches masquée',
+    'cmd.shown': 'Barre des tâches affichée',
+    'cmd.none': 'Pas encore de tâches : la barre apparaît quand Claude écrit une liste de tâches',
+    'cmd.header': 'Tâches {done}/{total}',
+    'band.next': 'Ensuite : ',
+    'band.done': 'Tout est fait',
+    'band.took': 'en {d}',
+  },
+  de: {
+    'cmd.description': 'Aufgaben und Fortschritt auflisten; off / on blendet die Leiste aus oder ein (bleibt über Sitzungen erhalten)',
+    'cmd.hidden': 'Aufgabenleiste ausgeblendet',
+    'cmd.shown': 'Aufgabenleiste eingeblendet',
+    'cmd.none': 'Noch keine Aufgaben: Die Leiste erscheint, sobald Claude eine Aufgabenliste schreibt',
+    'cmd.header': 'Aufgaben {done}/{total}',
+    'band.next': 'Als Nächstes: ',
+    'band.done': 'Alles erledigt',
+    'band.took': 'in {d}',
+  },
+  'pt-BR': {
+    'cmd.description': 'Lista as tarefas e o progresso; off / on oculta ou mostra a barra (mantido entre sessões)',
+    'cmd.hidden': 'Barra de tarefas oculta',
+    'cmd.shown': 'Barra de tarefas visível',
+    'cmd.none': 'Ainda não há tarefas: a barra aparece quando o Claude escreve uma lista de tarefas',
+    'cmd.header': 'Tarefas {done}/{total}',
+    'band.next': 'Depois: ',
+    'band.done': 'Tudo pronto',
+    'band.took': 'em {d}',
+  },
+  ru: {
+    'cmd.description': 'Список задач и прогресс; off / on скрывает или показывает панель (сохраняется между сессиями)',
+    'cmd.hidden': 'Панель задач скрыта',
+    'cmd.shown': 'Панель задач показана',
+    'cmd.none': 'Задач пока нет: панель появится, когда Claude составит список задач',
+    'cmd.header': 'Задачи {done}/{total}',
+    'band.next': 'Далее: ',
+    'band.done': 'Всё готово',
+    'band.took': 'за {d}',
+  },
+}
+
+export const { m, setLang } = createMessages(MESSAGES)

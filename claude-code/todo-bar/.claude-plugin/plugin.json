@@ -1,0 +1,53 @@
+{
+  "name": "todo-bar",
+  "version": "0.1.0",
+  "description": "The task list's progress in a band above the prompt, read from the todo and task tools' own calls: no tool, no prompt, no tokens",
+  "author": {
+    "name": "hoobnn",
+    "url": "https://github.com/hoobnn"
+  },
+  "homepage": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "repository": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "license": "MIT",
+  "keywords": [
+    "todo",
+    "tasks",
+    "progress",
+    "band",
+    "mod"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "visible": {
+      "type": "boolean",
+      "title": "Show the band",
+      "description": "Show the progress band; /todos off and /todos on set this too",
+      "default": true
+    },
+    "showNext": {
+      "type": "boolean",
+      "title": "Show what comes next",
+      "description": "A dim second row with the next one or two tasks",
+      "default": true
+    },
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "Language of the band and /todos; auto follows Claude Code's language setting, then the system locale",
+      "options": [
+        "auto",
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "es",
+        "fr",
+        "de",
+        "pt-BR",
+        "ru"
+      ],
+      "default": "auto"
+    }
+  }
+}

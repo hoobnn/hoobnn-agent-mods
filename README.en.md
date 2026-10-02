@@ -2,7 +2,7 @@
 
 [简体中文](README.md) · **English**
 
-Mods, extensions and plugins I've written for coding-agent harnesses, one folder per harness. What's usable today is mainly four Claude Code mods: a statusline HUD, a Tailscale node band, a Hitokoto band and spinner animations.
+Mods, extensions and plugins I've written for coding-agent harnesses, one folder per harness. What's usable today is mainly five Claude Code mods: a statusline HUD, a Tailscale node band, a Hitokoto band, spinner animations and a task progress band.
 
 | Folder | Harness | What goes there |
 | --- | --- | --- |
@@ -20,6 +20,7 @@ Mods, extensions and plugins I've written for coding-agent harnesses, one folder
 | [`ts-band`](claude-code/ts-band) | Tailscale node state in a band above the prompt: one short mark while every node is direct, otherwise only the nodes on a relay or DERP (yellow) or offline (red), with a toast when a node comes up or goes down |
 | [`hitokoto`](claude-code/hitokoto) | A line from [Hitokoto (一言)](https://hitokoto.cn) above the prompt, refreshed on a timer, once a day, per session or per prompt |
 | [`spinner`](claude-code/spinner) | Animations and a companion pet while the model works: a scene above the prompt (pixel-art: a shoot-em-up, Claude's Clawd, a dot-eater, an electric mouse, a robot cat, a rainbow cat; plus cat, bunny, sakura, mecha, neon, dino, ocean and Matrix rain); a Codex-style pet that changes pose for thinking, tools and replies, whose bubble names the tool running and flags a permission prompt (never repeating the spinner line), stays between turns, levels up and takes a pat (click or `/spinner pet`); a three-second confetti finale with the turn's time; fourteen themes, switched and previewed with `/spinner` |
+| [`todo-bar`](claude-code/todo-bar) | The task list's progress above the prompt: it shows once Claude writes a task list (TodoWrite, TaskCreate / TaskUpdate), with the task running, a bar, the count and percent, and the next one or two below; a finished list shows its time, then folds. It reads only those calls' results: no tool of its own, nothing added to the prompt, no call refused, no tokens; `/todos` lists every task |
 
 Install them from this repo's marketplace:
 
@@ -29,9 +30,10 @@ claude plugin install hud@hoobnn-agent-mods
 claude plugin install ts-band@hoobnn-agent-mods
 claude plugin install hitokoto@hoobnn-agent-mods
 claude plugin install spinner@hoobnn-agent-mods
+claude plugin install todo-bar@hoobnn-agent-mods
 ```
 
-Options (`hud`'s `position`, `theme`, `dailyBudgetUsd` and `summaryEveryTurns`, `ts-band`'s `nodes` and `hideOffline`, `hitokoto`'s `refreshMode` and `categories`, `spinner`'s `theme`, `stage`, `celebrate` and `companion`, …) are rows in `/config`, or `pluginConfigs` in `~/.claude/settings.json`. `/config` is the one place a mod's settings live: what a slash command changes (`/hud theme neon`, `/ts off`, `/spinner stage off`) it writes there, and every mod has a `visible` row that `/hud`, `/ts`, `/hitokoto` and `/spinner` `off` / `on` set. Each mod's folder has its own README with the details.
+Options (`hud`'s `position`, `theme`, `dailyBudgetUsd` and `summaryEveryTurns`, `ts-band`'s `nodes` and `hideOffline`, `hitokoto`'s `refreshMode` and `categories`, `spinner`'s `theme`, `stage`, `celebrate` and `companion`, …) are rows in `/config`, or `pluginConfigs` in `~/.claude/settings.json`. `/config` is the one place a mod's settings live: what a slash command changes (`/hud theme neon`, `/ts off`, `/spinner stage off`) it writes there, and every mod has a `visible` row that `/hud`, `/ts`, `/hitokoto`, `/spinner` and `/todos` `off` / `on` set. Each mod's folder has its own README with the details.
 
 `spinner` at work (the `clawd` theme through a turn, the companion's bubble following the tools, then the finale; every theme's GIF is in [`claude-code/spinner`](claude-code/spinner)):
 
@@ -39,7 +41,7 @@ Options (`hud`'s `position`, `theme`, `dailyBudgetUsd` and `summaryEveryTurns`, 
 
 ![spinner, thunder theme](claude-code/spinner/assets/thunder.gif)
 
-All four mods speak English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, Brazilian Portuguese and Russian. `hud` follows `language` in claude-hud's config; `ts-band`, `hitokoto` and `spinner` each have a `language` option whose default, `auto`, follows Claude Code's `language` setting, then the system locale, then English.
+All the mods speak English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, Brazilian Portuguese and Russian. `hud` follows `language` in claude-hud's config; `ts-band`, `hitokoto`, `spinner` and `todo-bar` each have a `language` option whose default, `auto`, follows Claude Code's `language` setting, then the system locale, then English.
 
 ### Developing
 

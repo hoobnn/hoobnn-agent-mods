@@ -5,7 +5,7 @@
     "url": "https://github.com/hoobnn"
   },
   "metadata": {
-    "description": "Mods for Claude Code: a claude-hud port, a Tailscale band, a Hitokoto band and spinner animations",
+    "description": "Mods for Claude Code: a claude-hud port, a Tailscale band, a Hitokoto band spinner animations and a task progress band",
     "version": "0.3.0"
   },
   "plugins": [
@@ -55,6 +55,19 @@
         "spinner",
         "animation",
         "pet",
+        "mod"
+      ]
+    },
+    {
+      "name": "todo-bar",
+      "source": "./claude-code/todo-bar",
+      "description": "The task list's progress in a band above the prompt, read from the todo and task tools' own calls: no tool, no prompt, no tokens",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": [
+        "todo",
+        "tasks",
+        "progress",
         "mod"
       ]
     }
