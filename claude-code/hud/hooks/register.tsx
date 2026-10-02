@@ -200,7 +200,6 @@ async function sawBridge($: EngineInterface, origin: { kind: string }): Promise<
 }
 
 function surfaceLabel(surface: string): string {
-  if (surface === BRIDGE) return m('surface.bridge')
   if (surface === 'mobile') return m('surface.mobile')
   if (surface === 'desktop') return m('surface.desktop')
   return surface === 'vscode' ? 'VS Code' : surface
@@ -217,12 +216,14 @@ export function rcSpans(bridgeSessionId: string | null, attached: readonly Remot
     { text: ' │ ' },
     { text: m('rc.label'), color: 'green', href: `https://claude.ai/code/${bridgeSessionId}` },
   ]
-  // A client that attached already names its surface; the message-only one adds nothing.
+  // A client that attached names its surface; the message-only one is just there.
   const named = attached.filter(r => r.surface !== BRIDGE)
-  if (named.length > 0) attached = named
-  if (attached.length === 0) return spans
+  if (named.length === 0) {
+    if (attached.length > 0) spans.push({ text: ` ${m('rc.connected')}`, color: 'cyan' })
+    return spans
+  }
   const counts = new Map<string, number>()
-  for (const r of attached) {
+  for (const r of named) {
     const label = surfaceLabel(r.surface)
     counts.set(label, (counts.get(label) ?? 0) + 1)
   }

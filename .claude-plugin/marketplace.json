@@ -13,7 +13,7 @@
       "name": "hud",
       "source": "./claude-code/hud",
       "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt, plus alerts, budget, history, a task summary, a detail pane and switchable themes",
-      "version": "0.7.2",
+      "version": "0.7.3",
       "category": "monitoring",
       "tags": [
         "hud",

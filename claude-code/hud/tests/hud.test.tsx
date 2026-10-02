@@ -206,7 +206,7 @@ test('rc label links the bridge session and names attached clients by surface', 
   expect(rcSpans('session_x', attached).at(-1)).toEqual({ text: ' 已连接 手机 · 网页/桌面×2', color: 'cyan' })
   // The Claude app over Remote Control is known only by its messages.
   const bridge = { id: 'bridge', surface: 'bridge' }
-  expect(rcSpans('session_x', [bridge]).at(-1)).toEqual({ text: ' 已连接 手机/网页', color: 'cyan' })
+  expect(rcSpans('session_x', [bridge]).at(-1)).toEqual({ text: ' 已连接', color: 'cyan' })
   expect(rcSpans('session_x', [bridge, phone]).at(-1)).toEqual({ text: ' 已连接 手机', color: 'cyan' })
 })
 

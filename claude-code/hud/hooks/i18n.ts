@@ -8,9 +8,9 @@ type Text = string | { one?: string; few?: string; many?: string; other: string 
 type Key =
   | 'rc.label'
   | 'rc.attached'
+  | 'rc.connected'
   | 'surface.mobile'
   | 'surface.desktop'
-  | 'surface.bridge'
   | 'forecast'
   | 'limit.fiveHour'
   | 'limit.sevenDay'
@@ -51,9 +51,9 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
   en: {
     'rc.label': '⇄ Remote Control',
     'rc.attached': 'connected: {who}',
+    'rc.connected': 'connected',
     'surface.mobile': 'phone',
     'surface.desktop': 'web/desktop',
-    'surface.bridge': 'phone/web',
     forecast: '{label} runs out ≈{time} at this pace',
     'limit.fiveHour': '5-hour limit',
     'limit.sevenDay': '7-day limit',
@@ -89,9 +89,9 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
   'zh-Hans': {
     'rc.label': '⇄ 远程控制',
     'rc.attached': '已连接 {who}',
+    'rc.connected': '已连接',
     'surface.mobile': '手机',
     'surface.desktop': '网页/桌面',
-    'surface.bridge': '手机/网页',
     forecast: '{label}按当前速度 ≈{time} 用完',
     'limit.fiveHour': '5 小时额度',
     'limit.sevenDay': '7 天额度',
@@ -127,9 +127,9 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
   'zh-Hant': {
     'rc.label': '⇄ 遠端控制',
     'rc.attached': '已連線 {who}',
+    'rc.connected': '已連線',
     'surface.mobile': '手機',
     'surface.desktop': '網頁/桌面',
-    'surface.bridge': '手機/網頁',
     forecast: '{label}依目前速度 ≈{time} 用完',
     'limit.fiveHour': '5 小時額度',
     'limit.sevenDay': '7 天額度',
@@ -165,9 +165,9 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
   ja: {
     'rc.label': '⇄ リモートコントロール',
     'rc.attached': '接続中: {who}',
+    'rc.connected': '接続中',
     'surface.mobile': 'スマホ',
     'surface.desktop': 'Web/デスクトップ',
-    'surface.bridge': 'スマホ/Web',
     forecast: '{label}は今のペースだと ≈{time} に使い切ります',
     'limit.fiveHour': '5時間枠',
     'limit.sevenDay': '7日間枠',
@@ -203,9 +203,9 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
   ko: {
     'rc.label': '⇄ 원격 제어',
     'rc.attached': '연결됨: {who}',
+    'rc.connected': '연결됨',
     'surface.mobile': '휴대폰',
     'surface.desktop': '웹/데스크톱',
-    'surface.bridge': '휴대폰/웹',
     forecast: '{label}: 현재 속도면 ≈{time}에 소진',
     'limit.fiveHour': '5시간 한도',
     'limit.sevenDay': '7일 한도',
@@ -241,9 +241,9 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
   es: {
     'rc.label': '⇄ Control remoto',
     'rc.attached': 'conectado: {who}',
+    'rc.connected': 'conectado',
     'surface.mobile': 'teléfono',
     'surface.desktop': 'web/escritorio',
-    'surface.bridge': 'teléfono/web',
     forecast: '{label}: a este ritmo se agota hacia las {time}',
     'limit.fiveHour': 'Límite de 5 h',
     'limit.sevenDay': 'Límite de 7 días',
@@ -279,9 +279,9 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
   fr: {
     'rc.label': '⇄ Contrôle à distance',
     'rc.attached': `connecté${NB}: {who}`,
+    'rc.connected': 'connecté',
     'surface.mobile': 'téléphone',
     'surface.desktop': 'web/bureau',
-    'surface.bridge': 'téléphone/web',
     forecast: `{label}${NB}: épuisée vers {time} à ce rythme`,
     'limit.fiveHour': 'Limite de 5 h',
     'limit.sevenDay': 'Limite de 7 jours',
@@ -317,9 +317,9 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
   de: {
     'rc.label': '⇄ Fernsteuerung',
     'rc.attached': 'verbunden: {who}',
+    'rc.connected': 'verbunden',
     'surface.mobile': 'Smartphone',
     'surface.desktop': 'Web/Desktop',
-    'surface.bridge': 'Smartphone/Web',
     forecast: '{label}: bei diesem Tempo ≈{time} aufgebraucht',
     'limit.fiveHour': '5-Stunden-Limit',
     'limit.sevenDay': '7-Tage-Limit',
@@ -355,9 +355,9 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
   'pt-BR': {
     'rc.label': '⇄ Controle remoto',
     'rc.attached': 'conectado: {who}',
+    'rc.connected': 'conectado',
     'surface.mobile': 'celular',
     'surface.desktop': 'web/desktop',
-    'surface.bridge': 'celular/web',
     forecast: '{label}: no ritmo atual, esgota por volta das {time}',
     'limit.fiveHour': 'Limite de 5 h',
     'limit.sevenDay': 'Limite de 7 dias',
@@ -393,9 +393,9 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
   ru: {
     'rc.label': '⇄ Удалённое управление',
     'rc.attached': 'подключено: {who}',
+    'rc.connected': 'подключено',
     'surface.mobile': 'телефон',
     'surface.desktop': 'веб/компьютер',
-    'surface.bridge': 'телефон/веб',
     forecast: '{label}: при текущем темпе будет исчерпан около {time}',
     'limit.fiveHour': 'Лимит на 5 ч',
     'limit.sevenDay': 'Лимит на 7 дн.',
