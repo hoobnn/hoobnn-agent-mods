@@ -3,11 +3,21 @@
 import { commandFact, getIo } from './host.js'
 import { promisify } from './util.js'
 
-type ExecOptions = { cwd?: string; env?: Record<string, string | undefined>; timeout?: number; [key: string]: unknown }
+type ExecOptions = {
+  cwd?: string
+  env?: Record<string, string | undefined>
+  timeout?: number
+  maxBuffer?: number
+  encoding?: string
+  windowsHide?: boolean
+  shell?: boolean
+}
 type ExecResult = { stdout: string; stderr: string }
 
 export class ExecError extends Error {
   code: number | string
+  /** Set when the command outlived its timeout, as Node's `killed`. */
+  killed = false
   stdout: string
   stderr: string
   constructor(message: string, code: number | string, stdout: string, stderr: string) {
@@ -36,7 +46,9 @@ async function run(argv: readonly string[], options: ExecOptions = {}): Promise<
       timeoutMs: Math.min(Math.max(Number(options.timeout) || 30_000, 1), 600_000),
     })
   } catch (err) {
-    throw new ExecError(String(err), 'ENOENT', '', '')
+    const error = new ExecError(String(err), 'ENOENT', '', '')
+    error.killed = /time/i.test(String(err))
+    throw error
   }
   if (out.exitCode !== 0) {
     throw new ExecError(`Command failed: ${argv.join(' ')}\n${out.stderr}`, out.exitCode, out.stdout, out.stderr)
@@ -44,7 +56,7 @@ async function run(argv: readonly string[], options: ExecOptions = {}): Promise<
   return { stdout: out.stdout, stderr: out.stderr }
 }
 
-type Callback = (err: unknown, stdout?: string, stderr?: string) => void
+type Callback = (err: ExecError | null, stdout: string, stderr: string) => void
 
 function splitArgs(rest: unknown[]): { args: string[]; options: ExecOptions; cb?: Callback } {
   let args: string[] = []
@@ -58,11 +70,16 @@ function splitArgs(rest: unknown[]): { args: string[]; options: ExecOptions; cb?
   return { args, options, cb }
 }
 
-export function execFile(file: string, ...rest: unknown[]): void {
-  const { args, options, cb } = splitArgs(rest)
-  run([file, ...args], options).then(
+export function execFile(
+  file: string,
+  args?: readonly string[] | ExecOptions | Callback,
+  options?: ExecOptions | Callback,
+  callback?: Callback,
+): void {
+  const { args: argv, options: opts, cb } = splitArgs([args, options, callback])
+  run([file, ...argv], opts).then(
     r => cb?.(null, r.stdout, r.stderr),
-    err => cb?.(err, (err as ExecError).stdout, (err as ExecError).stderr),
+    (err: ExecError) => cb?.(err, err.stdout ?? '', err.stderr ?? ''),
   )
 }
 ;(execFile as unknown as Record<symbol, unknown>)[promisify.custom] = (file: string, ...rest: unknown[]) => {
@@ -70,11 +87,11 @@ export function execFile(file: string, ...rest: unknown[]): void {
   return run([file, ...args], options)
 }
 
-export function exec(command: string, ...rest: unknown[]): void {
-  const { options, cb } = splitArgs(rest)
-  run(['/bin/sh', '-c', command], options).then(
+export function exec(command: string, options?: ExecOptions | Callback, callback?: Callback): void {
+  const { options: opts, cb } = splitArgs([options, callback])
+  run(['/bin/sh', '-c', command], opts).then(
     r => cb?.(null, r.stdout, r.stderr),
-    err => cb?.(err, (err as ExecError).stdout, (err as ExecError).stderr),
+    (err: ExecError) => cb?.(err, err.stdout ?? '', err.stderr ?? ''),
   )
 }
 ;(exec as unknown as Record<symbol, unknown>)[promisify.custom] = (command: string, ...rest: unknown[]) => {

@@ -14,7 +14,7 @@ Mods, extensions and plugins for coding-agent harnesses, grouped by harness.
 
 | Mod | What it does |
 | --- | --- |
-| [`hud`](claude-code/hud) | [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.9.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt |
+| [`hud`](claude-code/hud) | [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt |
 | [`ts-band`](claude-code/ts-band) | Tailscale nodes' state in a band above the prompt |
 
 Load them in every session by naming their folders in `~/.claude/settings.json`:

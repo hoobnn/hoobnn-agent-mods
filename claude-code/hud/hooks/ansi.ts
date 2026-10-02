@@ -1,6 +1,7 @@
 // claude-hud writes SGR escapes; the band draws Text elements. This turns a
-// line of escapes into styled spans. OSC sequences (hyperlinks) are dropped
-// and their text kept: a Link takes only https URLs, never file:// ones.
+// line of escapes into styled spans. An OSC 8 link to an https URL rides on
+// its spans as `href`; any other link (file://) is dropped and its text kept,
+// since a Link takes https only.
 import type { Span } from '../types'
 
 const BASIC = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
@@ -56,7 +57,7 @@ function applySgr(style: Style, params: string): Style {
   return next
 }
 
-const ESCAPE = /\x1b\[([0-9;]*)m|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|[\x00-\x08\x0b-\x1f\x7f]/g
+const ESCAPE = /\x1b\[([0-9;]*)m|\x1b\]8;[^;\x07\x1b]*;([^\x07\x1b]*)(?:\x07|\x1b\\)|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|[\x00-\x08\x0b-\x1f\x7f]/g
 
 export function parseAnsi(line: string): Span[] {
   const spans: Span[] = []
@@ -73,7 +74,11 @@ export function parseAnsi(line: string): Span[] {
   }
   for (const match of line.matchAll(ESCAPE)) {
     push(line.slice(last, match.index))
-    if (match[1] !== undefined) style = applySgr(style, match[1])
+    if (match[1] !== undefined) style = { ...applySgr(style, match[1]), ...(style.href ? { href: style.href } : {}) }
+    else if (match[2] !== undefined) {
+      const { href: _closed, ...rest } = style
+      style = /^https:\/\//.test(match[2]) ? { ...rest, href: match[2] } : rest
+    }
     last = (match.index ?? 0) + match[0].length
   }
   push(line.slice(last))

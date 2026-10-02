@@ -5,18 +5,20 @@
 import './shims/globals.js'
 
 import { atom, read, update } from 'claude-code'
-import type { Elements, Register, RenderElement, SessionUsage, SessionVersion } from 'claude-code'
+import type { Elements, Register, RenderElement, SessionRepo, SessionUsage, SessionVersion } from 'claude-code'
 
 import type { HudLine, StepInfo } from '../types'
 import { parseAnsi } from './ansi.js'
+import type { GitRepoIdentity } from './hud/git.js'
 import { main } from './hud/index.js'
-import { parseTranscript } from './hud/transcript.js'
 import { setRenderSink } from './hud/render/index.js'
+import { setTranscriptProvider } from './hud/transcript.js'
 import type { StdinData } from './hud/types.js'
 import { processShim } from './shims/globals.js'
 import { factsSummary, type Io, markStable, runWithFacts, setIo } from './shims/host.js'
 import { sysinfo } from './shims/os.js'
 import { basename, setCwdProvider } from './shims/path.js'
+import { pullTranscript, transcriptData, transcriptMeta } from './transcript-feed.js'
 
 const lines = atom({ plugin: 'hud', key: 'lines' } as const, [])
 const isHidden = atom({ plugin: 'hud', key: 'isHidden' } as const, false)
@@ -26,7 +28,10 @@ const steps = atom({ plugin: 'hud', key: 'step' } as const, {
   effort: null,
   apiDurationMs: 0,
   currentUsage: null,
+  lastRequestAt: null,
 } as StepInfo)
+
+setTranscriptProvider(async path => transcriptData(path))
 
 // Events (tool calls, model requests, turn ends) drive the live updates; the
 // tick only keeps minute-grained clocks (duration, resets, cache) current.
@@ -43,7 +48,6 @@ const live = {
   columns: undefined as number | undefined,
   lastStdin: null as StdinData | null,
   lastError: null as string | null,
-  lastTranscript: null as Record<string, unknown> | null,
   lastLines: [] as string[],
   refreshMs: 0,
 }
@@ -59,6 +63,7 @@ type SessionApi = {
     version: SessionVersion
     settings: Record<string, unknown>
     step: StepInfo
+    repo: SessionRepo | null
   }>
   exists: (path: string) => Promise<boolean>
 }
@@ -109,6 +114,13 @@ async function gitWorktree(io: Io, cwd: string): Promise<string | undefined> {
   return resolveIn(gitDir) !== resolveIn(commonDir) ? basename(top) : undefined
 }
 
+/** `git@github.com:o/n.git`, `https://github.com/o/n` → `{ host, owner, name }`, as workspace.repo. */
+export function repoIdentity(remote: string | null | undefined): GitRepoIdentity | undefined {
+  if (!remote) return undefined
+  const match = /^(?:[a-z+]+:\/\/)?(?:[^@/]+@)?([^/:]+)[:/](?:\d+\/)?([^/]+)\/([^/]+?)(?:\.git)?\/?$/i.exec(remote.trim())
+  return match ? { host: match[1]!.toLowerCase(), owner: match[2]!, name: match[3]! } : undefined
+}
+
 function epochSeconds(iso: string | undefined): number | null {
   if (!iso) return null
   const ms = Date.parse(iso)
@@ -116,13 +128,23 @@ function epochSeconds(iso: string | undefined): number | null {
 }
 
 async function buildStdin(io: Io, session: SessionApi): Promise<StdinData> {
-  const { id, cwd, root, model: sessionModel, usage, version, settings, step } = await session.info()
+  const { id, cwd, root, model: sessionModel, usage, version, settings, step, repo } = await session.info()
   processShim.cwdPath = cwd
   // Looked up once per session id: /clear starts a new transcript with no session.start.
   if (live.transcriptFor !== id || !live.transcriptPath) {
     live.transcriptPath = await findTranscript(io, session, id, [root, cwd])
     live.transcriptFor = live.transcriptPath ? id : undefined
   }
+  if (live.transcriptPath) {
+    const size = await io.stat(live.transcriptPath).then(stat => stat.size, () => 0)
+    await pullTranscript(live.transcriptPath, size)
+  }
+  const meta = transcriptMeta(live.transcriptPath)
+  // The prompt cache's state, which the statusline reports and `$` does not:
+  // its clock restarts at the last main-thread request (else the last
+  // response on record) and runs for the TTL the last cache write used.
+  const cacheAnchor = step.lastRequestAt ?? meta.lastResponseAt
+  const expiresAt = cacheAnchor === undefined ? null : Math.floor(cacheAnchor / 1000) + (meta.ttl === '1h' ? 3600 : 300)
   const modelId = step.model ?? sessionModel
   const percent = usage.context.percent
   const window = (kind: string) => {
@@ -150,8 +172,11 @@ async function buildStdin(io: Io, session: SessionApi): Promise<StdinData> {
     ? permissions.additionalDirectories.filter((d): d is string => typeof d === 'string')
     : []
 
+  const outputStyle = (settings as { outputStyle?: unknown }).outputStyle
+
   return {
     session_id: id,
+    session_name: meta.sessionName,
     version: version.version,
     transcript_path: live.transcriptPath,
     cwd,
@@ -160,7 +185,9 @@ async function buildStdin(io: Io, session: SessionApi): Promise<StdinData> {
       project_dir: root,
       added_dirs: addedDirs,
       git_worktree: await gitWorktree(io, cwd),
+      repo: repoIdentity(repo?.remote),
     },
+    output_style: typeof outputStyle === 'string' ? { name: outputStyle } : undefined,
     model: { id: modelId, display_name: modelDisplayName(modelId) },
     context_window: {
       context_window_size: usage.context.window,
@@ -177,7 +204,14 @@ async function buildStdin(io: Io, session: SessionApi): Promise<StdinData> {
       total_lines_added: null,
       total_lines_removed: null,
     },
-    rate_limits: { five_hour: window('five_hour'), seven_day: window('seven_day') },
+    rate_limits: { five_hour: window('five_hour'), seven_day: window('seven_day'), spend_limit: window('spend_limit') },
+    prompt_cache: {
+      caching_observed: meta.cachingObserved,
+      warm: expiresAt !== null && expiresAt * 1000 > Date.now(),
+      ttl: meta.ttl,
+      expires_at: expiresAt,
+      hit_ratio: meta.hitRatio,
+    },
     // Before the first request of the session, the configured level.
     effort: (step.effort ?? (settings as { effortLevel?: unknown }).effortLevel)
       ? { level: String(step.effort ?? (settings as { effortLevel?: unknown }).effortLevel) }
@@ -214,21 +248,7 @@ async function renderHud(io: Io, session: SessionApi): Promise<HudLine[]> {
   await runWithFacts(async () => {
     out = []
     setRenderSink(line => out.push(line))
-    await main({
-      readStdin: async () => stdin,
-      parseTranscript: async path => {
-        const parsed = await parseTranscript(path)
-        live.lastTranscript = {
-          tools: parsed.tools.length,
-          agents: parsed.agents.length,
-          todos: parsed.todos.length,
-          sessionStart: parsed.sessionStart,
-          sessionName: parsed.sessionName,
-        }
-        return parsed
-      },
-      log: (...args: unknown[]) => out.push(args.map(String).join(' ')),
-    })
+    await main(async () => stdin)
   })
   const rendered = out.map(parseAnsi)
   live.lastLines = rendered.map(row => row.map(span => span.text).join(''))
@@ -266,7 +286,7 @@ export const register: Register = (on, options) => {
     }
     const session: SessionApi = {
       info: async () => {
-        const [id, cwd, root, model, usage, version, settings, step] = await Promise.all([
+        const [id, cwd, root, model, usage, version, settings, step, repo] = await Promise.all([
           $.session.id(),
           $.session.cwd(),
           $.session.root(),
@@ -275,8 +295,9 @@ export const register: Register = (on, options) => {
           $.session.version(),
           $.settings.read().catch(() => ({})),
           read($, steps),
+          $.session.repo().catch(() => null),
         ])
-        return { id, cwd, root, model, usage, version, settings: settings as Record<string, unknown>, step }
+        return { id, cwd, root, model, usage, version, settings: settings as Record<string, unknown>, step, repo }
       },
       exists: path => $.fs.exists(path),
     }
@@ -328,7 +349,7 @@ export const register: Register = (on, options) => {
 
   on('tool.call', { tool: /^mcp__hud__hud_debug$/ }, async () => {
     const text = JSON.stringify(
-      { lines: live.lastLines, stdin: live.lastStdin, transcript: live.lastTranscript, error: live.lastError, refreshMs: live.refreshMs, columns: live.columns, facts: factsSummary() },
+      { lines: live.lastLines, stdin: live.lastStdin, error: live.lastError, refreshMs: live.refreshMs, columns: live.columns, facts: factsSummary() },
       null,
       2,
     )
@@ -364,6 +385,8 @@ export const register: Register = (on, options) => {
                   cache_read_input_tokens: usage.cache_read_input_tokens,
                 }
               : step.currentUsage,
+            // The request's start is when the main thread's prompt cache was last used.
+            lastRequestAt: started,
           },
     )
     schedule()
@@ -378,15 +401,16 @@ export const register: Register = (on, options) => {
   })
 
   // The HUD's rows over whatever the engine (or another mod) draws in the same place.
-  const drawRows = (el: Pick<Elements['terminal'], 'Box' | 'Text'>, rows: HudLine[], rest: RenderElement) => {
-    const { Box, Text } = el
+  const drawRows = (el: Pick<Elements['terminal'], 'Box' | 'Text' | 'Link'>, rows: HudLine[], rest: RenderElement) => {
+    const { Box, Text, Link } = el
 
     return (
       <Box flexDirection="column">
         {rows.map((row, i) => (
           // A row of sibling Texts, not nested ones: a nested Text drops dimColor.
           <Box key={`l${i}`} flexDirection="row">
-            {row.map((span, j) => (
+            {row.map((span, j) => {
+              const text = (
               <Text
                 key={`s${j}`}
                 color={span.color}
@@ -400,7 +424,16 @@ export const register: Register = (on, options) => {
               >
                 {span.text}
               </Text>
-            ))}
+              )
+              // claude-hud's https links (a GitHub branch) stay clickable.
+              return span.href ? (
+                <Link key={`s${j}`} href={span.href}>
+                  {text}
+                </Link>
+              ) : (
+                text
+              )
+            })}
           </Box>
         ))}
         {rest}

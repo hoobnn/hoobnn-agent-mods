@@ -58,13 +58,16 @@ function host(on: On) {
     else if (argv.includes('rev-parse --git-dir')) stdout = '.git\n.git\n/home/u/proj\n'
     else if (argv.startsWith('git')) {
       if (argv.includes('branch --show-current') || argv.includes('symbolic-ref')) stdout = 'main\n'
-      else if (argv.includes('status')) stdout = '## main\n M a.ts\n'
+      else if (argv.includes('--porcelain=v2')) {
+        stdout = '# branch.oid abc123\0# branch.head main\0' + '1 .M N... 100644 100644 100644 abc abc a.ts\0'
+      } else if (argv.includes('status')) stdout = '## main\n M a.ts\n'
       else if (argv.includes('rev-parse')) stdout = 'main\n'
     } else exitCode = 1
     return { value: { exitCode, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
   })
   on('session.id', () => ({ value: 'sess-1' }))
   on('session.cwd', () => ({ value: CWD }))
+  on('session.repo', () => ({ value: { root: CWD, remote: 'git@github.com:o/proj.git', internal: false, name: null } }))
   on('session.root', () => ({ value: CWD }))
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('session.usage', () => ({
@@ -97,6 +100,14 @@ test('ansi spans keep colors and text', async () => {
   ])
 })
 
+test('https links ride on spans, file links drop', async () => {
+  const spans = parseAnsi('\x1b]8;;file:///p\x1b\\proj\x1b]8;;\x1b\\ \x1b[36m\x1b]8;;https://github.com/o/n/tree/main\x1b\\main\x1b]8;;\x1b\\\x1b[0m')
+  expect(spans).toEqual([
+    { text: 'proj ' },
+    { color: 'cyan', href: 'https://github.com/o/n/tree/main', text: 'main' },
+  ])
+})
+
 test('band renders claude-hud lines from the session', async ($, on) => {
   const clock = host(on)
   on('ui.render', ($, e) => {
@@ -109,6 +120,7 @@ test('band renders claude-hud lines from the session', async ($, on) => {
   const shown = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
   expect(/Opus 5\.5/.test(shown)).toBe(true)
   expect(/proj git:\(main\*\)/.test(shown)).toBe(true)
+  expect(await ui.find({ type: 'Link' })).toBeDefined()
   expect(/45k\/200k/.test(shown)).toBe(true)
   expect(/25%/.test(shown)).toBe(true)
   expect(/◐ Read/.test(shown)).toBe(true)

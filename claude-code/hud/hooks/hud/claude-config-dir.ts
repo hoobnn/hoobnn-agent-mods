@@ -31,7 +31,7 @@ export function getHudPluginDir(homeDir: string): string {
   return path.join(getClaudeConfigDir(homeDir), 'plugins', 'claude-hud');
 }
 
-// hud mod: caches live apart from the statusline claude-hud's so the two never share state.
+// hud mod: caches live apart from a statusline claude-hud's so the two never share state.
 export function getHudCacheDir(homeDir: string): string {
   return path.join(getClaudeConfigDir(homeDir), 'plugins', 'claude-hud-mod');
 }

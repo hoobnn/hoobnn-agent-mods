@@ -1,42 +1,26 @@
-// hud mod: git runs through the engine's `$.process.run` (the original's
-// Windows worker and process-tree handling have no place in the hooks
-// environment).
+// hud mod: git runs through the engine's `$.process.run` (via the
+// child_process shim); the Windows worker and its tree-kill have no place in
+// the hooks environment.
 import { execFile } from '../shims/child_process.js';
-import { promisify } from '../shims/util.js';
-
-const execFileAsync = promisify(execFile);
 
 export const GIT_MAX_OUTPUT_BYTES = 1024 * 1024;
 
-export interface GitCommandRunner {
-  run(args: readonly string[], timeout: number): Promise<{ stdout: string }>;
-  close(): Promise<void>;
-}
+export class GitTimeoutError extends Error {}
 
 export function createGitEnvironment(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  return {
-    ...base,
-    GIT_OPTIONAL_LOCKS: '0',
-    GIT_TERMINAL_PROMPT: '0',
-    GCM_INTERACTIVE: 'Never',
-  };
+  return { ...base, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'Never' };
 }
 
-class DirectGitRunner implements GitCommandRunner {
-  constructor(private readonly cwd: string) {}
-
-  async run(args: readonly string[], timeout: number): Promise<{ stdout: string }> {
-    const { stdout } = await execFileAsync('git', [...args], {
-      cwd: this.cwd,
+/** Run git and resolve with its stdout. Rejects on non-zero exit or timeout. */
+export function runGit(cwd: string, args: readonly string[], timeout: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile('git', [...args], {
+      cwd,
       timeout,
       env: { GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'Never' },
+    }, (error: unknown, stdout?: string) => {
+      if (!error) resolve(stdout ?? '');
+      else reject((error as { killed?: boolean }).killed ? new GitTimeoutError(`git ${args.join(' ')} timed out`) : error);
     });
-    return { stdout };
-  }
-
-  async close(): Promise<void> {}
-}
-
-export function createGitRunner(cwd: string): GitCommandRunner {
-  return new DirectGitRunner(cwd);
+  });
 }

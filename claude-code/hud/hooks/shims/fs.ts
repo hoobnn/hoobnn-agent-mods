@@ -191,7 +191,7 @@ export function fchmodSync(_fd: number, _mode: number): void {}
 export function utimesSync(_p: string, _a: unknown, _m: unknown): void {}
 export function fsyncSync(_fd: number): void {}
 
-export function createReadStream(): never {
+export function createReadStream(_path?: string): never {
   throw new Error('hud: createReadStream is not available; transcript reads go through readAppendedLines')
 }
 
