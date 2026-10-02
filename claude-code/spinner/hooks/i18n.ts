@@ -18,6 +18,7 @@ export type Key =
   | 'cmd.stageOn'
   | 'cmd.preview'
   | 'cmd.unknown'
+  | 'cmd.pick'
   | 'finale.done'
   | 'finale.aborted'
   | 'finale.error'
@@ -48,6 +49,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.stageOn': 'Animation band above the prompt on',
     'cmd.preview': 'Previewing {theme} above the prompt',
     'cmd.unknown': 'No theme called {name}. Themes: {list}',
+    'cmd.pick': 'Which theme? (Other: type one of {list})',
     'finale.done': 'Done · {time}',
     'finale.aborted': 'Interrupted',
     'finale.error': 'Something went wrong',
@@ -77,6 +79,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.stageOn': '输入框上方的动画带已开启',
     'cmd.preview': '正在输入框上方预览 {theme}',
     'cmd.unknown': '没有叫 {name} 的主题。可选：{list}',
+    'cmd.pick': '换哪个主题？（其他里可输入：{list}）',
     'finale.done': '完成 · {time}',
     'finale.aborted': '已中断',
     'finale.error': '出错了',
@@ -106,6 +109,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.stageOn': '輸入框上方的動畫帶已開啟',
     'cmd.preview': '正在輸入框上方預覽 {theme}',
     'cmd.unknown': '沒有名為 {name} 的主題。可選：{list}',
+    'cmd.pick': '換哪個主題？（其他裡可輸入：{list}）',
     'finale.done': '完成 · {time}',
     'finale.aborted': '已中斷',
     'finale.error': '出錯了',
@@ -135,6 +139,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.stageOn': '入力欄上のアニメーションバーをオンにしました',
     'cmd.preview': '入力欄の上で {theme} をプレビュー中',
     'cmd.unknown': '{name} というテーマはありません。テーマ一覧：{list}',
+    'cmd.pick': 'どのテーマにする？（その他で入力可：{list}）',
     'finale.done': '完了 · {time}',
     'finale.aborted': '中断しました',
     'finale.error': 'エラーが発生しました',
@@ -164,6 +169,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.stageOn': '입력창 위 애니메이션 띠를 켰습니다',
     'cmd.preview': '입력창 위에서 {theme} 미리 보는 중',
     'cmd.unknown': '{name} 테마가 없습니다. 테마 목록: {list}',
+    'cmd.pick': '어떤 테마로 할까요? (기타에 입력: {list})',
     'finale.done': '완료 · {time}',
     'finale.aborted': '중단됨',
     'finale.error': '오류가 발생했습니다',
@@ -193,6 +199,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.stageOn': 'Barra animada sobre el prompt activada',
     'cmd.preview': 'Vista previa de {theme} sobre el prompt',
     'cmd.unknown': 'No hay ningún tema llamado {name}. Temas: {list}',
+    'cmd.pick': '¿Qué tema? (En Otro escribe uno de: {list})',
     'finale.done': 'Listo · {time}',
     'finale.aborted': 'Interrumpido',
     'finale.error': 'Algo salió mal',
@@ -222,6 +229,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.stageOn': 'Bande animée au-dessus du prompt activée',
     'cmd.preview': 'Aperçu de {theme} au-dessus du prompt',
     'cmd.unknown': 'Aucun thème nommé {name}. Thèmes : {list}',
+    'cmd.pick': 'Quel thème ? (Autre : tape l’un de {list})',
     'finale.done': 'Terminé · {time}',
     'finale.aborted': 'Interrompu',
     'finale.error': 'Une erreur est survenue',
@@ -251,6 +259,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.stageOn': 'Animationsleiste über der Eingabe an',
     'cmd.preview': 'Vorschau von {theme} über der Eingabe',
     'cmd.unknown': 'Kein Thema namens {name}. Themen: {list}',
+    'cmd.pick': 'Welches Thema? (Unter Andere eintippen: {list})',
     'finale.done': 'Fertig · {time}',
     'finale.aborted': 'Abgebrochen',
     'finale.error': 'Etwas ist schiefgelaufen',
@@ -280,6 +289,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.stageOn': 'Faixa animada acima do prompt ativada',
     'cmd.preview': 'Prévia de {theme} acima do prompt',
     'cmd.unknown': 'Nenhum tema chamado {name}. Temas: {list}',
+    'cmd.pick': 'Qual tema? (Em Outro digite um de: {list})',
     'finale.done': 'Pronto · {time}',
     'finale.aborted': 'Interrompido',
     'finale.error': 'Algo deu errado',
@@ -309,6 +319,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.stageOn': 'Анимированная полоса над вводом включена',
     'cmd.preview': 'Предпросмотр {theme} над вводом',
     'cmd.unknown': 'Темы {name} нет. Темы: {list}',
+    'cmd.pick': 'Какую тему? (В «Другое» введите одну из: {list})',
     'finale.done': 'Готово · {time}',
     'finale.aborted': 'Прервано',
     'finale.error': 'Что-то пошло не так',

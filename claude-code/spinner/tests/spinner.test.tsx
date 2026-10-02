@@ -24,6 +24,11 @@ const IDLE = { ...BAND, props: { ...BAND.props, isWorking: false } }
 
 const DONE = { turnId: 't1', reason: 'answer', answer: 'done', durationMs: 12_400, isAborted: false } as const
 
+/** The band's own text (the pet's stats and bubble), as text to search. */
+async function said(ui: { findAll: (query: { type: string }) => Promise<unknown> }): Promise<string> {
+  return JSON.stringify(await ui.findAll({ type: 'Text' }))
+}
+
 /** What a Client's module last drew, as text to search. */
 async function drawn(ui: { drawn: (scope?: { in?: string }) => Promise<unknown> }, key: string): Promise<string> {
   return JSON.stringify(await ui.drawn({ in: key }))
@@ -31,9 +36,16 @@ async function drawn(ui: { drawn: (scope?: { in?: string }) => Promise<unknown> 
 
 // The /config rows the plugin wrote, as `[key, value]`.
 let rows: [string, unknown][] = []
+// What the AskUserQuestion dialog answers (`/spinner theme`); null: dismissed.
+let asked: { question: string; options: string[] } | null = null
+let answer: string | null = null
+// The id of the last tool call the host ran, for a check about it.
+let lastCallId = ''
 
 function host(on: On, stored: Record<string, unknown> = {}) {
   rows = []
+  asked = null
+  answer = null
   const clock = mock.clock(on, { now: 1_000_000 })
   mock.store(on, stored)
   mock.env(on, { LANG: 'zh_CN.UTF-8' })
@@ -45,8 +57,16 @@ function host(on: On, stored: Record<string, unknown> = {}) {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('turn.start', ($, e) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: 'ok' }))
-  on('classic.Notification', () => ({}))
-  on('tool.call', async () => {
+  // The engine's verdict: every call asks.
+  on('tool.check', () => ({ decision: 'ask' }))
+  on('tool.call', async ($, e) => {
+    if (e.tool === 'AskUserQuestion') {
+      const q = e.questions[0]!
+      asked = { question: q.question, options: q.options.map(o => o.label) }
+      if (answer === null) return { deny: 'dismissed' }
+      return { result: { questions: e.questions, answers: { [q.question]: answer } }, text: answer }
+    }
+    lastCallId = e.tool_use_id
     await clock.sleep(1000)
     return { deny: 'test' }
   })
@@ -127,9 +147,10 @@ test('band plays the scene and the companion while working, keeps other bands', 
     const ui = await $.ui.mount({ plugin: 'spinner', surface, ...BAND })
     expect(await ui.find({ type: 'Text', text: 'Sauteing…' })).toBeDefined()
     expect(await drawn(ui, 'work')).toContain('HI 00000')
-    expect(await drawn(ui, 'work')).toContain('Lv.1 ♥0')
+    expect(await said(ui)).toContain('Lv.1 ♥0')
+    expect(await ui.findAll({ type: 'Client' })).toHaveLength(2)
     // Thinking is the engine's line to say; the bubble stays quiet.
-    expect(await drawn(ui, 'work')).not.toContain(' · ')
+    expect(await ui.findAll({ type: 'Text' })).toHaveLength(2)
     await ui.advance(STAGE_MS * 5)
     expect(await drawn(ui, 'work')).toContain('HI 00005')
     await ui.unmount()
@@ -137,8 +158,8 @@ test('band plays the scene and the companion while working, keeps other bands', 
 
   await $.command.run({ ...RUN, command: 'spinner', args: 'stage off' })
   const off = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
-  expect(await drawn(off, 'work')).not.toContain('HI 0')
-  expect(await drawn(off, 'work')).toContain('Lv.1 ♥0')
+  expect(await off.findAll({ type: 'Client' })).toHaveLength(1)
+  expect(await said(off)).toContain('Lv.1 ♥0')
   await off.unmount()
 })
 
@@ -151,19 +172,42 @@ test('the companion follows tool calls and permission prompts', async ($, on) =>
   const call = $.tool.call({ tool: 'Bash', command: 'npm test' })
   await clock.settle()
   let ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
-  expect(await drawn(ui, 'work')).toContain('Bash: npm test')
+  expect(await said(ui)).toContain('Bash: npm test')
   await ui.unmount()
 
-  await $.classic.Notification({ notification_type: 'permission_prompt', message: 'Claude needs your permission' })
+  // The check asks; the pet says so only once the ask has stood a moment.
+  await $.tool.check({ tool: 'Bash', input: { command: 'npm test' }, tool_use_id: lastCallId } as never)
   ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
-  expect(await drawn(ui, 'work')).toContain('等你确认一下～')
+  expect(await said(ui)).not.toContain('等你确认')
+  await ui.unmount()
+  await clock.advance(600)
+  ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  expect(await said(ui)).toContain('等你确认一下～')
   await ui.unmount()
 
   await clock.advance(1000)
   await call
   ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
-  expect(await drawn(ui, 'work')).not.toContain('Bash: npm test')
-  expect(await drawn(ui, 'work')).not.toContain('等你确认')
+  expect(await said(ui)).not.toContain('Bash: npm test')
+  expect(await said(ui)).not.toContain('等你确认')
+  await ui.unmount()
+})
+
+test('an ask the mode settles at once never reaches the pet', async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  const call = $.tool.call({ tool: 'Bash', command: 'npm test' })
+  await clock.settle()
+  // A query (no call id) and a call already over: neither is the person's to answer.
+  await $.tool.check({ tool: 'Bash', input: { command: 'ls' } })
+  await clock.advance(1000)
+  await call
+  await $.tool.check({ tool: 'Bash', input: { command: 'npm test' }, tool_use_id: lastCallId } as never)
+  await clock.advance(600)
+  const ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  expect(await said(ui)).not.toContain('等你确认')
   await ui.unmount()
 })
 
@@ -180,11 +224,13 @@ test('a finished turn plays the finale, then the companion waits; a click pats i
 
   await clock.advance(FINALE_MS)
   const idle = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...IDLE })
-  expect(await drawn(idle, 'idle')).toContain('做完啦，快看看！')
-  expect(await drawn(idle, 'idle')).toContain('Lv.1 ♥0')
-  await idle.post({ pat: true })
-  expect(await drawn(idle, 'idle')).toContain('Lv.1 ♥1')
-  expect(await drawn(idle, 'idle')).toMatch(/"(♡|♥)"/)
+  expect(await idle.findAll({ type: 'Client' })).toHaveLength(1)
+  expect(await said(idle)).toContain('做完啦，快看看！')
+  expect(await said(idle)).toContain('Lv.1 ♥0')
+  await idle.post({ pat: true }, { in: 'pet' })
+  expect(await said(idle)).toContain('Lv.1 ♥1')
+  // A pat floats pixel hearts over the pet.
+  expect(await drawn(idle, 'pet')).toMatch(/#ff6b9d|#ff8fab/)
   await idle.unmount()
 
   expect((await $.command.run({ ...RUN, command: 'spinner', args: 'pet' })).text).toContain('♥2')
@@ -216,6 +262,54 @@ test('/spinner switches, hides and reports', async ($, on) => {
   await band.unmount()
 })
 
+test('/spinner theme asks which: an offered option, one typed under Other, or dismissed', async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.command.run({ ...RUN, command: 'spinner', args: 'cat' })
+
+  answer = 'random'
+  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'theme' })).text).toContain('每个会话随机一个主题')
+  expect(asked?.question).toContain('换哪个主题')
+  expect(asked?.options).toHaveLength(4)
+  expect(asked?.options[0]).toBe('random')
+
+  answer = ' Neon '
+  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'theme' })).text).toBe('已切换到 neon')
+  expect(asked?.options).not.toContain('neon')
+  expect(rows).toEqual([
+    ['spinner.theme', 'cat'],
+    ['spinner.theme', 'random'],
+    ['spinner.theme', 'neon'],
+  ])
+
+  answer = 'nyancat'
+  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'theme' })).text).toContain('没有叫 nyancat 的主题')
+
+  answer = null
+  expect((await $.command.run({ ...RUN, command: 'spinner', args: 'theme' })).text).toContain('当前主题：neon')
+  expect(rows).toHaveLength(3)
+})
+
+test('a subagent\'s permission ask shows too, until its call ends', async ($, on) => {
+  const clock = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  const call = $.tool.call({ tool: 'Bash', command: 'rm -rf build', agentId: 'a1' } as never)
+  await clock.settle()
+  await $.tool.check({ tool: 'Bash', input: { command: 'rm -rf build' }, tool_use_id: lastCallId } as never)
+  await clock.advance(600)
+  let ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  expect(await said(ui)).toContain('等你确认一下～')
+  await ui.unmount()
+  await clock.advance(1000)
+  await call
+  ui = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  expect(await said(ui)).not.toContain('等你确认')
+  await ui.unmount()
+})
+
 test('/spinner arguments', async () => {
   expect(parseCommand('')).toEqual({ kind: 'status' })
   expect(parseCommand(' OFF ')).toEqual({ kind: 'visible', isOn: false })
@@ -227,6 +321,10 @@ test('/spinner arguments', async () => {
   expect(parseCommand('preview x')).toEqual({ kind: 'unknown', name: 'x' })
   expect(parseCommand('Random')).toEqual({ kind: 'theme', theme: 'random' })
   expect(parseCommand('cat')).toEqual({ kind: 'theme', theme: 'cat' })
+  expect(parseCommand('theme')).toEqual({ kind: 'pick' })
+  expect(parseCommand('theme neon')).toEqual({ kind: 'theme', theme: 'neon' })
+  expect(parseCommand('theme random')).toEqual({ kind: 'theme', theme: 'random' })
+  expect(parseCommand('theme x')).toEqual({ kind: 'unknown', name: 'x' })
 })
 
 test('/spinner writes its /config rows, once per change', { options: { theme: 'dino' } }, async ($, on) => {

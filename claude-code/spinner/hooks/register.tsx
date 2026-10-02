@@ -44,6 +44,8 @@ const PREVIEW_MS = 8000
 const PET_LABEL_W = 24
 /** How long a pat's hearts float. */
 const PAT_MS = 2500
+/** How long an `ask` must stand before the pet shows it: the mode settles most at once. */
+const ASK_DELAY_MS = 600
 /** Quiet this long after a turn, the companion dozes off. */
 const SLEEP_MS = 5 * 60_000
 
@@ -165,6 +167,8 @@ export const register: Register = (on, options) => {
   const config = readConfig(options)
   // Tool calls running now: a pet stays busy until the last of parallel calls ends.
   const running = new Map<string, string>()
+  // Every call still open, a subagent's too: an ask is shown only while its call is.
+  const open = new Set<string>()
   let sleepTimer: { cancel: () => void } | undefined
 
   on('session.start', async ($, e, next) => {
@@ -201,7 +205,18 @@ export const register: Register = (on, options) => {
   })
 
   on('tool.call', async ($, e, next) => {
-    if (e.agentId) return next(e)
+    // A subagent's call is no news for the bubble, but its permission ask is.
+    if (e.agentId) {
+      open.add(e.tool_use_id)
+      try {
+        return await next(e)
+      } finally {
+        open.delete(e.tool_use_id)
+        // Its ask answered: back to what the main thread is doing.
+        if ((await read($, activity)).act === 'ask') await settle($, running)
+      }
+    }
+    open.add(e.tool_use_id)
     const label = toolLabel(e as unknown as { tool: string } & Record<string, unknown>)
     running.set(e.tool_use_id, label)
     await update($, activity, () => (e.tool === 'AskUserQuestion' ? { act: 'ask' as Act } : { act: 'tool' as Act, tool: label }))
@@ -209,18 +224,26 @@ export const register: Register = (on, options) => {
     try {
       return await next(e)
     } finally {
+      open.delete(e.tool_use_id)
       running.delete(e.tool_use_id)
       await settle($, running)
     }
   })
 
-  // The one sure sign the person is being asked: the permission prompt itself.
-  on('classic.Notification', async ($, e, next) => {
-    if (e.notification_type === 'permission_prompt') {
-      await update($, activity, a => ({ ...a, act: 'ask' as Act }))
-      await publishPet($)
+  // A call the engine puts to the person: `ask` from the permission check. The
+  // mode often settles an ask by itself at once, so the pet waits a moment and
+  // asks only if the call is still open.
+  on('tool.check', async ($, e, next) => {
+    const verdict = await next(e)
+    const id = e.tool_use_id
+    if (verdict.decision === 'ask' && id !== undefined && open.has(id)) {
+      $.clock.after(ASK_DELAY_MS, async () => {
+        if (!open.has(id)) return
+        await update($, activity, a => ({ ...a, act: 'ask' as Act }))
+        await publishPet($)
+      })
     }
-    return next(e)
+    return verdict
   })
 
   on('turn.complete', async ($, e, next) => {
@@ -297,6 +320,24 @@ export const register: Register = (on, options) => {
         await update($, preview, () => ({ theme: name, id }))
         $.clock.after(PREVIEW_MS, () => void update($, preview, p => (p?.id === id ? null : p)))
         return { text: m('cmd.preview', { theme: name }) }
+      }
+      case 'pick': {
+        // 2-4 options fit the dialog: random and three others; any theme typed under Other.
+        const current = await read($, theme)
+        const others = THEME_NAMES.filter(n => n !== current)
+        const start = (await $.clock.now()) % others.length
+        const offered = ['random', ...[0, 1, 2].map(i => others[(start + i) % others.length]!)]
+        let answer: string
+        try {
+          answer = (await $.ui.ask(m('cmd.pick', { list }), { options: offered, header: 'Theme' })).trim().toLowerCase()
+        } catch {
+          // Dismissed, or no one to ask (-p): what `/spinner` alone says.
+          return { text: await status($) }
+        }
+        if (answer !== 'random' && !isThemeName(answer)) return { text: m('cmd.unknown', { name: answer, list }) }
+        const name = await choose($, answer, true)
+        await persist(prefsOf($), 'theme', answer)
+        return { text: answer === 'random' ? m('cmd.random', { theme: name }) : m('cmd.switched', { theme: name }) }
       }
       case 'theme': {
         const name = await choose($, command.theme, true)

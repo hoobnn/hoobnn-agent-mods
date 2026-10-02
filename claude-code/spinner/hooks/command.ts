@@ -10,6 +10,7 @@ export type SpinnerCommand =
   | { kind: 'pat' }
   | { kind: 'preview'; theme: ThemeName | null }
   | { kind: 'theme'; theme: ThemeName | 'random' }
+  | { kind: 'pick' }
   | { kind: 'unknown'; name: string }
 
 export const USAGE = '[theme|random|pet|preview|off|on|stage off|companion off]'
@@ -25,6 +26,11 @@ export function parseCommand(args: string): SpinnerCommand {
   if (verb === 'preview') {
     if (!arg) return { kind: 'preview', theme: null }
     return isThemeName(arg) ? { kind: 'preview', theme: arg } : { kind: 'unknown', name: arg }
+  }
+  // `theme` alone asks which; `theme <name>` is the same as `<name>`.
+  if (verb === 'theme') {
+    if (!arg) return { kind: 'pick' }
+    return arg === 'random' || isThemeName(arg) ? { kind: 'theme', theme: arg } : { kind: 'unknown', name: arg }
   }
   if (verb === 'random' || isThemeName(verb)) return { kind: 'theme', theme: verb }
   return { kind: 'unknown', name: verb }
