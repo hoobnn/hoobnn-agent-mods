@@ -12,7 +12,7 @@ const MAX_CONFIG_FILE_BYTES = 64 * 1024;
 const MAX_CONFIG_NESTING_DEPTH = 8;
 const UNSAFE_CONFIG_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 
-const LANGUAGES = ['en', 'zh', 'zh-Hans', 'zh-Hant', 'zh-TW'] as const satisfies readonly Language[];
+const LANGUAGES = ['en', 'zh', 'zh-Hans', 'zh-Hant', 'zh-TW', 'ja', 'ko', 'es', 'fr', 'de', 'pt', 'pt-BR', 'ru'] as const satisfies readonly Language[];
 const LINE_LAYOUTS = ['compact', 'expanded'] as const;
 const PATH_LEVELS = [1, 2, 3, 'full'] as const;
 const CONTEXT_VALUE_MODES = ['percent', 'tokens', 'remaining', 'both'] as const;

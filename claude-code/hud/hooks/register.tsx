@@ -23,7 +23,9 @@ import {
   sparkline,
   streak,
 } from './extras.js'
+import { loadConfig } from './hud/config.js'
 import { getCostTotals } from './hud/daily-cost.js'
+import { setLanguage } from './hud/i18n/index.js'
 import type { GitRepoIdentity } from './hud/git.js'
 import { main } from './hud/index.js'
 import { setRenderSink } from './hud/render/index.js'
@@ -34,6 +36,7 @@ import { processShim } from './shims/globals.js'
 import { factsSummary, type Io, markStable, runWithFacts, setIo } from './shims/host.js'
 import { sysinfo } from './shims/os.js'
 import { basename, setCwdProvider } from './shims/path.js'
+import { m, money, summaryPrompt } from './i18n.js'
 import { pullTranscript, transcriptData, transcriptMeta } from './transcript-feed.js'
 
 const lines = atom({ plugin: 'hud', key: 'lines' } as const, [])
@@ -57,8 +60,8 @@ const tools = atom({ plugin: 'hud', key: 'tools' } as const, {} as ToolStats)
 const PANE = 'hud-detail'
 // Days of spend the store keeps; the HUD draws the last 7.
 const HISTORY_DAYS = 60
-const SUMMARY_PROMPT =
-  '用一句不超过 25 个字的中文概括这个会话眼下正在做的任务，只输出这句话本身，不加引号、前缀或句末标点。'
+// Columns the summary may take in the row (a CJK character takes two).
+const SUMMARY_COLUMNS = 56
 
 setTranscriptProvider(async path => transcriptData(path))
 
@@ -167,29 +170,33 @@ async function remoteControl(io: Io, id: string): Promise<string | null> {
   return null
 }
 
-const SURFACE_LABEL: Record<string, string> = { mobile: '手机', desktop: '网页/桌面', vscode: 'VS Code' }
+function surfaceLabel(surface: string): string {
+  if (surface === 'mobile') return m('surface.mobile')
+  if (surface === 'desktop') return m('surface.desktop')
+  return surface === 'vscode' ? 'VS Code' : surface
+}
 
 /**
- * ` │ ⇄ 远程控制` (linked to the session on claude.ai), then who is attached by
- * surface (`手机 · 网页/桌面×2`), or that it waits for a client.
+ * ` │ ⇄ Remote Control` (linked to the session on claude.ai), then who is attached
+ * by surface (`phone · web/desktop×2`), or that it waits for a client.
  */
 export function rcSpans(bridgeSessionId: string | null, attached: readonly Remote[]): HudLine {
   if (!bridgeSessionId) return []
   const spans: HudLine = [
     { text: ' │ ' },
-    { text: '⇄ 远程控制', color: 'green', href: `https://claude.ai/code/${bridgeSessionId}` },
+    { text: m('rc.label'), color: 'green', href: `https://claude.ai/code/${bridgeSessionId}` },
   ]
   if (attached.length === 0) {
-    spans.push({ text: ' 等待连接', dimColor: true })
+    spans.push({ text: ` ${m('rc.waiting')}`, dimColor: true })
     return spans
   }
   const counts = new Map<string, number>()
   for (const r of attached) {
-    const label = SURFACE_LABEL[r.surface] ?? r.surface
+    const label = surfaceLabel(r.surface)
     counts.set(label, (counts.get(label) ?? 0) + 1)
   }
   const who = [...counts].map(([label, n]) => (n > 1 ? `${label}×${n}` : label)).join(' · ')
-  spans.push({ text: ` 已连接 ${who}`, color: 'cyan' })
+  spans.push({ text: ` ${m('rc.attached', { who })}`, color: 'cyan' })
   return spans
 }
 
@@ -338,12 +345,24 @@ async function gitCounts(io: Io, cwd: string): Promise<{ dirty: number; ahead: n
   return out && out.exitCode === 0 ? parseGitStatus(out.stdout) : null
 }
 
-/** One reply line of the summary fork, trimmed to fit the row. */
-export function cleanSummary(text: string): string | null {
+const WIDE = /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe4f\uff00-\uff60\uffe0-\uffe6]/
+
+/** One reply line of the summary fork: quotes and closing punctuation off, cut to `columns`. */
+export function cleanSummary(text: string, columns = SUMMARY_COLUMNS): string | null {
   const line = text.split('\n').map(l => l.trim()).find(Boolean) ?? ''
-  const bare = line.replace(/^["'“”「『]+|["'“”」』。.]+$/g, '').trim()
+  const bare = line
+    .replace(/^["'“”‘’„‚«»「『【]+/, '')
+    .replace(/["'“”‘’„‚«»」』】。．.!！?？…]+$/, '')
+    .trim()
   if (!bare) return null
-  return [...bare].length > 40 ? `${[...bare].slice(0, 39).join('')}…` : bare
+  let width = 0
+  let out = ''
+  for (const ch of bare) {
+    width += WIDE.test(ch) ? 2 : 1
+    if (width > columns - 1) return `${out.trimEnd()}…`
+    out += ch
+  }
+  return out
 }
 
 type Rendered = { rows: HudLine[]; stdin: StdinData; todayUsd: number | null }
@@ -456,8 +475,8 @@ export const register: Register = (on, options) => {
         const limits = stdin.rate_limits
         const exhaust = hasForecast
           ? [
-              { label: '5h 额度', at: exhaustAt(limits?.five_hour?.used_percentage, limits?.five_hour?.resets_at, FIVE_HOUR_WINDOW_MS, now) },
-              { label: '7d 额度', at: exhaustAt(limits?.seven_day?.used_percentage, limits?.seven_day?.resets_at, SEVEN_DAY_WINDOW_MS, now) },
+              { label: m('limit.fiveHour'), at: exhaustAt(limits?.five_hour?.used_percentage, limits?.five_hour?.resets_at, FIVE_HOUR_WINDOW_MS, now) },
+              { label: m('limit.sevenDay'), at: exhaustAt(limits?.seven_day?.used_percentage, limits?.seven_day?.resets_at, SEVEN_DAY_WINDOW_MS, now) },
             ].flatMap(({ label, at }) => (at === null ? [] : [{ label, at }]))
           : []
         const extra = extrasLine({
@@ -493,9 +512,9 @@ export const register: Register = (on, options) => {
       const context = crossThresholds(stdin.context_window?.used_percentage, contextThresholds, was.context)
       const fiveHour = crossThresholds(limits?.five_hour?.used_percentage, usageThresholds, was.fiveHour)
       const sevenDay = crossThresholds(limits?.seven_day?.used_percentage, usageThresholds, was.sevenDay)
-      if (context.alert !== null) $.ui.toast(`上下文已用 ${context.alert}%，可以考虑 /compact`)
-      if (fiveHour.alert !== null) $.ui.toast(`5 小时额度已用 ${fiveHour.alert}%`)
-      if (sevenDay.alert !== null) $.ui.toast(`7 天额度已用 ${sevenDay.alert}%`)
+      if (context.alert !== null) $.ui.toast(m('alert.context', { p: context.alert }))
+      if (fiveHour.alert !== null) $.ui.toast(m('alert.fiveHour', { p: fiveHour.alert }))
+      if (sevenDay.alert !== null) $.ui.toast(m('alert.sevenDay', { p: sevenDay.alert }))
       const now = { context: context.fired, fiveHour: fiveHour.fired, sevenDay: sevenDay.fired }
       if (JSON.stringify(now) !== JSON.stringify(was)) await update($, fired, () => now)
     }
@@ -517,7 +536,9 @@ export const register: Register = (on, options) => {
     }
 
     await loadHostFacts(io, extraCmd)
-    await $.command.register({ name: 'hud', description: '显示 / 隐藏 claude-hud 横条；detail 打开详情面板', argumentHint: '[detail]' })
+    // claude-hud sets its language in each pass; the command's description is read before the first.
+    await runWithFacts(async () => setLanguage((await loadConfig()).language))
+    await $.command.register({ name: 'hud', description: m('cmd.description'), argumentHint: '[detail]' })
     if (isDebug) {
       await $.tool.register({
           name: 'hud_debug',
@@ -541,14 +562,14 @@ export const register: Register = (on, options) => {
     if (e.args.trim().toLowerCase() === 'detail') {
       if ((await $.ui.panes()).some(p => p.id === PANE)) {
         await $.ui.close({ id: PANE })
-        return { text: 'HUD 详情面板已关闭' }
+        return { text: m('pane.closed') }
       }
-      await $.ui.open({ id: PANE, title: 'HUD 详情' })
-      return { text: 'HUD 详情面板已打开（/hud detail 关闭）' }
+      await $.ui.open({ id: PANE, title: m('pane.title') })
+      return { text: m('pane.opened') }
     }
     const hidden = await update($, isHidden, v => !v)
 
-    return { text: hidden ? 'claude-hud 横条已隐藏' : 'claude-hud 横条已显示' }
+    return { text: m(hidden ? 'cmd.hidden' : 'cmd.shown') }
   })
 
   on('session.attach', async ($, e, next) => {
@@ -626,7 +647,7 @@ export const register: Register = (on, options) => {
     if (e.agentId !== undefined || e.isAborted) return next(e)
 
     if (notifyMs > 0 && e.durationMs >= notifyMs && e.reason === 'answer') {
-      $.ui.toast(`✓ 本轮完成，用时 ${formatDuration(e.durationMs)}`)
+      $.ui.toast(m('turn.done', { d: formatDuration(e.durationMs) }))
       if (hasChime) void $.audio.play({ base64: chimeWav(), mime: 'audio/wav' }).catch(() => {})
     }
     const count = await update($, turns, n => n + 1)
@@ -634,7 +655,7 @@ export const register: Register = (on, options) => {
       isSummarizing = true
       // Not awaited: the fork reads the conversation from the prompt cache while the person reads the answer.
       void $.model
-        .fork({ prompt: SUMMARY_PROMPT })
+        .fork({ prompt: summaryPrompt() })
         .then(async reply => {
           const line = reply.isAnswered ? cleanSummary(reply.text) : null
           if (line) {
@@ -735,21 +756,30 @@ export const register: Register = (on, options) => {
     const today = localDay(await $.clock.now())
     const week = lastDays(days, today, 7)
     const heading = (text: string) => <Text bold color="cyan">{text}</Text>
+    const todaySpent = money(days[today] ?? 0) + (budgetUsd > 0 ? `/${money(budgetUsd)}` : '')
+    const days7 = streak(days, today)
+    const spendLine = [
+      m('spend.today', { spent: todaySpent }),
+      `${m('spend.week', { spent: money(week.reduce((a, b) => a + b, 0)) })} ${sparkline(week)}`,
+      ...(days7 > 1 ? [m('streak', { n: days7 })] : []),
+    ].join(' · ')
 
     return (
       <Box flexDirection="column">
-        {heading('工具耗时')}
-        {stats.length === 0 && <Text dimColor>本会话还没有工具调用</Text>}
+        {heading(m('pane.tools'))}
+        {stats.length === 0 && <Text dimColor>{m('pane.noTools')}</Text>}
         {stats.slice(0, 12).map(([name, s]) => (
           <Box key={`t-${name}`} flexDirection="row" columnGap={1}>
             <Text>{name}</Text>
-            <Text dimColor>×{s.count} 共 {formatDuration(s.totalMs)} 均 {formatDuration(s.totalMs / s.count)}</Text>
-            {s.errors > 0 ? <Text color="red">失败 {s.errors}</Text> : null}
+            <Text dimColor>
+              {m('pane.toolStats', { count: s.count, total: formatDuration(s.totalMs), avg: formatDuration(s.totalMs / s.count) })}
+            </Text>
+            {s.errors > 0 ? <Text color="red">{m('pane.failed', { n: s.errors })}</Text> : null}
           </Box>
         ))}
         <Text> </Text>
-        {heading('子 Agent')}
-        {agents.length === 0 && <Text dimColor>无</Text>}
+        {heading(m('pane.agents'))}
+        {agents.length === 0 && <Text dimColor>{m('pane.none')}</Text>}
         {agents.map(a => (
           <Box key={`a-${a.id}`} flexDirection="row" columnGap={1}>
             <Text color={a.status === 'running' ? 'yellow' : 'green'}>{a.status === 'running' ? '◐' : '✓'}</Text>
@@ -760,19 +790,16 @@ export const register: Register = (on, options) => {
           </Box>
         ))}
         <Text> </Text>
-        {heading('Todo')}
-        {todos.length === 0 && <Text dimColor>无</Text>}
+        {heading(m('pane.todos'))}
+        {todos.length === 0 && <Text dimColor>{m('pane.none')}</Text>}
         {todos.map((t, i) => (
           <Text key={`d-${i}`} dimColor={t.status === 'completed'} color={t.status === 'in_progress' ? 'yellow' : undefined}>
             {t.status === 'completed' ? '☑' : t.status === 'in_progress' ? '◐' : '☐'} {t.content}
           </Text>
         ))}
         <Text> </Text>
-        {heading('花费')}
-        <Text>
-          今日 ${(days[today] ?? 0).toFixed(2)}{budgetUsd > 0 ? ` / $${budgetUsd.toFixed(2)}` : ''} · 7 天 $
-          {week.reduce((a, b) => a + b, 0).toFixed(2)} {sparkline(week)} · 连续 {streak(days, today)} 天
-        </Text>
+        {heading(m('pane.spend'))}
+        <Text>{spendLine}</Text>
       </Box>
     )
   })

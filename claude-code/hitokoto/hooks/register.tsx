@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Quote } from '../types'
+import { m, resolveLanguage, setLang } from './i18n'
 import { attribution, hitokotoUrl, localDate, parseQuote } from './parse'
 
 const quote = atom({ plugin: 'hitokoto', key: 'quote' } as const, null)
@@ -22,7 +23,7 @@ async function refresh($: EngineInterface, url: string): Promise<string | null> 
     }
     const fresh = parseQuote(text)
     if (!fresh) {
-      return '返回内容无法解析'
+      return m('error.parse')
     }
     await update($, quote, () => fresh)
     return null
@@ -57,13 +58,20 @@ export const register: Register = (on, options) => {
   const url = hitokotoUrl(typeof options.categories === 'string' ? options.categories : '')
   const intervalMinutes = typeof options.intervalMinutes === 'number' ? options.intervalMinutes : 30
   const intervalMs = Math.max(1, intervalMinutes) * 60_000
-  const mode: Mode = MODES.find(m => m === options.refreshMode) ?? 'interval'
+  const mode: Mode = MODES.find(mode => mode === options.refreshMode) ?? 'interval'
   const isDaily = mode === 'daily'
 
   on('session.start', async ($, e, next) => {
+    const settings = (await $.settings.read().catch(() => ({}))) as { language?: unknown }
+    const locale = await Promise.all([
+      $.env.get('LC_ALL').catch(() => undefined),
+      $.env.get('LC_MESSAGES').catch(() => undefined),
+      $.env.get('LANG').catch(() => undefined),
+    ])
+    setLang(resolveLanguage(options.language, settings.language, locale))
     await $.command.register({
       name: 'hitokoto',
-      description: '换一句一言；off / on 隐藏或显示横条（跨会话保持）',
+      description: m('cmd.description'),
       argumentHint: '[off|on]',
     })
     if ((await $.store.get('isHidden')) === true) {
@@ -96,17 +104,17 @@ export const register: Register = (on, options) => {
     if (arg === 'off' || arg === 'on') {
       await update($, isHidden, () => arg === 'off')
       await $.store.set('isHidden', arg === 'off')
-      return { text: arg === 'off' ? '一言横条已隐藏' : '一言横条已显示' }
+      return { text: m(arg === 'off' ? 'cmd.hidden' : 'cmd.shown') }
     }
 
     await update($, isHidden, () => false)
     await $.store.set('isHidden', false)
     const error = await fetchNew($, url, isDaily)
     if (error) {
-      return { text: `一言获取失败：${error}` }
+      return { text: m('error.fetch', { error }) }
     }
     const q = await read($, quote)
-    return { text: q ? `${q.text} ${attribution(q)}`.trim() : '一言获取失败' }
+    return { text: q ? `${q.text} ${attribution(q)}`.trim() : m('error.fetch', { error: m('error.parse') }) }
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {

@@ -14,6 +14,8 @@ import {
   sparkline,
   streak,
 } from '../hooks/extras'
+import { setLanguage } from '../hooks/hud/i18n/index'
+import { MESSAGES, m, money } from '../hooks/i18n'
 import { cleanSummary, rcSpans } from '../hooks/register'
 
 const HOME = '/home/u'
@@ -49,6 +51,8 @@ const FILES: Record<string, string> = {
 const DIRS = new Set([HOME, `${HOME}/.claude`, `${HOME}/.claude/sessions`, CWD])
 
 let contextPercent = 23
+// Each command's description, as the mod registered it.
+const registered: string[] = []
 
 function host(on: On, stored: Record<string, unknown> = {}) {
   const clock = mock.clock(on, { now: Date.parse('2026-10-02T06:01:00Z') })
@@ -104,7 +108,10 @@ function host(on: On, stored: Record<string, unknown> = {}) {
   }))
   on('session.version', () => ({ value: { version: '2.1.287', base: '2.1.287', builtAt: '2026-10-01T00:00:00Z' } }))
   on('settings.read', () => ({ value: {} }))
-  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  on('command.register', ($, e) => {
+    registered.push(e.description ?? '')
+    return { value: { command: e.name } }
+  })
   on('tool.register', ($, e) => ({ value: { tool: e.name } }))
   return clock
 }
@@ -178,6 +185,7 @@ test('position below draws under the prompt and leaves the band alone', { option
 
 
 test('rc label links the bridge session and names attached clients by surface', async () => {
+  setLanguage('zh-Hans')
   const phone = { id: 'p1', surface: 'mobile' }
   expect(rcSpans(null, [phone])).toEqual([])
   expect(rcSpans('session_x', [])).toEqual([
@@ -246,7 +254,11 @@ test('history helpers: sparkline, streak, git counts, summary', async () => {
   expect(addDays('2026-03-01', -1)).toBe('2026-02-28')
   expect(parseGitStatus('# branch.oid x\n# branch.ab +3 -1\n1 .M a\n? b\n')).toEqual({ dirty: 2, ahead: 3 })
   expect(cleanSummary('“修复登录页的跳转 bug。”\n')).toBe('修复登录页的跳转 bug')
+  expect(cleanSummary('« Corriger la redirection »')).toBe('Corriger la redirection')
   expect(cleanSummary('  \n')).toBe(null)
+  // Cut by columns: a CJK character takes two.
+  expect(cleanSummary('一二三四五六七八九十', 10)).toBe('一二三四…')
+  setLanguage('zh-Hans')
   expect(chimeWav().startsWith('UklGR')).toBe(true)
   const line = extrasLine({
     summary: null,
@@ -370,5 +382,50 @@ test('alerts and the turn-done toast are off by default', async ($, on) => {
     expect(toasts).toEqual([])
   } finally {
     contextPercent = 23
+  }
+})
+
+test('every locale carries every message with the same placeholders', async () => {
+  const holes = (text: unknown) =>
+    [...new Set(Object.values(typeof text === 'string' ? { other: text } : (text as object)).flatMap(v => String(v).match(/\{\w+\}/g) ?? []))].sort()
+  for (const [lang, messages] of Object.entries(MESSAGES)) {
+    for (const [key, text] of Object.entries(MESSAGES.en)) {
+      expect([lang, key, holes((messages as Record<string, unknown>)[key])]).toEqual([lang, key, holes(text)])
+    }
+  }
+})
+
+test('plurals, money and percent spacing follow the language', async () => {
+  expect(m('git.dirty', { n: 1 }, 'en')).toBe('1 uncommitted change')
+  expect(m('git.dirty', { n: 21 }, 'ru')).toBe('21 незакоммиченное изменение')
+  expect(m('git.dirty', { n: 22 }, 'ru')).toBe('22 незакоммиченных изменения')
+  expect(m('git.dirty', { n: 25 }, 'ru')).toBe('25 незакоммиченных изменений')
+  expect(m('streak', { n: 3 }, 'de')).toBe('3 Tage in Folge')
+  expect(m('alert.fiveHour', { p: 80 }, 'fr')).toBe('Limite de 5 heures utilisée à 80\u00a0%')
+  expect(money(3.2, 'en')).toBe('$3.20')
+  expect(money(3.2, 'de')).toBe('3,20\u00a0$')
+  expect(money(3.2, 'ja')).toBe('$3.20')
+})
+
+test('the band follows claude-hud\'s language', async ($, on) => {
+  const config = FILES[`${HOME}/.claude/plugins/claude-hud/config.json`]!
+  FILES[`${HOME}/.claude/plugins/claude-hud/config.json`] = config.replace('"zh-Hans"', '"de"')
+  try {
+    const clock = host(on)
+    on('ui.render', ($, e) => {
+      const { Box } = $.ui.resolve(e)
+      return <Box key="core" />
+    })
+    registered.length = 0
+    await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+    for (let i = 0; i < 30; i++) await clock.settle()
+    expect(registered[0]).toBe('claude-hud-Leiste ein- oder ausblenden; detail öffnet den Detailbereich')
+    const ui = await $.ui.mount({ plugin: 'hud', surface: 'terminal', ...BAND })
+    const shown = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
+    expect(/Kontext/.test(shown)).toBe(true)
+    await ui.unmount()
+  } finally {
+    FILES[`${HOME}/.claude/plugins/claude-hud/config.json`] = config
+    setLanguage('zh-Hans')
   }
 })

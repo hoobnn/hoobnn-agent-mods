@@ -1,6 +1,7 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
+import { MESSAGES, parseLanguage, resolveLanguage } from '../hooks/i18n'
 import { parseStatus, selectNodes } from '../hooks/parse'
 
 
@@ -42,6 +43,7 @@ function host(
 ) {
   const clock = mock.clock(on)
   mock.store(on, stored)
+  mock.env(on, { LANG: 'zh_CN.UTF-8' })
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('process.run', ($, e) => ({ value: { ...run(e.argv), isStdoutTruncated: false, isStderrTruncated: false } }))
   on('session.start', ($, e) => ({ cwd: e.cwd }))
@@ -113,4 +115,32 @@ test('/ts hide is kept across sessions', async ($, on) => {
 
   const on_ = await $.command.run({ ...RUN, command: 'ts', args: 'on' })
   expect(on_.text).toBe('Tailscale 横条已显示')
+})
+
+test('language: option, then the setting, then the locale', async () => {
+  expect(parseLanguage('简体中文')).toBe('zh-Hans')
+  expect(parseLanguage('繁體中文')).toBe('zh-Hant')
+  expect(parseLanguage('zh_TW.UTF-8')).toBe('zh-Hant')
+  expect(parseLanguage('Japanese')).toBe('ja')
+  expect(parseLanguage('es-MX')).toBe('es')
+  expect(parseLanguage('pt_BR.UTF-8')).toBe('pt-BR')
+  expect(parseLanguage('Deutsch')).toBe('de')
+  expect(parseLanguage('C')).toBe(null)
+  expect(resolveLanguage('fr', '简体中文', ['ja_JP.UTF-8'])).toBe('fr')
+  expect(resolveLanguage('auto', '简体中文', ['ja_JP.UTF-8'])).toBe('zh-Hans')
+  expect(resolveLanguage('auto', undefined, [undefined, undefined, 'ko_KR.UTF-8'])).toBe('ko')
+  expect(resolveLanguage('auto', 'Klingon', ['C'])).toBe('en')
+  for (const messages of Object.values(MESSAGES)) expect(Object.keys(messages)).toEqual(Object.keys(MESSAGES.en))
+})
+
+test('the band speaks the language option', { options: { language: 'de' } }, async ($, on) => {
+  const clock = host(on, () => ({ exitCode: 0, stdout: STATUS, stderr: '' }))
+  await $.session.start(START)
+  await clock.settle()
+  const ui = await $.ui.mount({ plugin: 'ts-band', surface: 'terminal', ...BAND })
+  expect(await ui.find({ type: 'Text', text: 'direkt' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'DERP-sfo' })).toBeDefined()
+  await ui.unmount()
+  const off = await $.command.run({ ...RUN, command: 'ts', args: 'off' })
+  expect(off.text).toBe('Tailscale-Leiste ausgeblendet')
 })

@@ -3,7 +3,7 @@ import { DEFAULT_CONFIG } from '../config.js';
 import { formatAuthSegment } from '../auth.js';
 import { formatUsd } from '../cost.js';
 import { formatModelName, getProviderLabel, resolveModelName } from '../stdin.js';
-import { t } from '../i18n/index.js';
+import { interpolate, t, type MessageKey } from '../i18n/index.js';
 import { formatTokens } from '../utils/format.js';
 import { getFileHref, safeHyperlink } from '../utils/hyperlinks.js';
 import { sanitizeDisplayText } from '../utils/sanitize.js';
@@ -175,6 +175,13 @@ export function customLinePart(f: Frame, position: 'first' | 'last'): string | n
 }
 
 /** `2 CLAUDE.md`, `3 rules`, `4 MCPs`, `1 hooks`, once their total reaches environmentThreshold. */
+// "3 rules", or the locale's own pattern ("Regeln: 3") where a noun after the
+// count would need plural agreement.
+function countLabel(n: number, key: MessageKey): string {
+  const pattern = t(key);
+  return pattern.includes('{n}') ? interpolate(pattern, { n }) : `${n} ${pattern}`;
+}
+
 export function configCountParts(f: Frame, mcpSuffix = ''): string[] {
   const display = f.config?.display;
   const total = f.claudeMdCount + f.rulesCount + f.mcpCount + f.hooksCount;
@@ -182,9 +189,9 @@ export function configCountParts(f: Frame, mcpSuffix = ''): string[] {
   const colors = f.config?.colors;
   return [
     f.claudeMdCount > 0 ? label(`${f.claudeMdCount} CLAUDE.md`, colors) : null,
-    f.rulesCount > 0 ? label(`${f.rulesCount} ${t('label.rules')}`, colors) : null,
+    f.rulesCount > 0 ? label(countLabel(f.rulesCount, 'label.rules'), colors) : null,
     f.mcpCount > 0 ? `${label(`${f.mcpCount} MCPs`, colors)}${mcpSuffix}` : null,
-    f.hooksCount > 0 ? label(`${f.hooksCount} ${t('label.hooks')}`, colors) : null,
+    f.hooksCount > 0 ? label(countLabel(f.hooksCount, 'label.hooks'), colors) : null,
   ].filter((part): part is string => part !== null);
 }
 

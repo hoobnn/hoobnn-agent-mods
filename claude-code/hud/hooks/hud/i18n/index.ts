@@ -2,17 +2,29 @@ import type { Language, MessageKey, Messages } from "./types.js";
 import { en } from "./en.js";
 import { zhHans } from "./zh-Hans.js";
 import { zhHant } from "./zh-Hant.js";
+import { ja } from "./ja.js";
+import { ko } from "./ko.js";
+import { es } from "./es.js";
+import { fr } from "./fr.js";
+import { de } from "./de.js";
+import { ptBR } from "./pt-BR.js";
+import { ru } from "./ru.js";
 
 export type { Language, MessageKey, Messages };
 
-type CanonicalLanguage = "en" | "zh-Hans" | "zh-Hant";
+export type CanonicalLanguage = "en" | "zh-Hans" | "zh-Hant" | "ja" | "ko" | "es" | "fr" | "de" | "pt-BR" | "ru";
 
-const locales: Record<CanonicalLanguage | "zh" | "zh-TW", Messages> = {
+const locales: Record<CanonicalLanguage, Messages> = {
   en,
-  zh: zhHans,
   "zh-Hans": zhHans,
   "zh-Hant": zhHant,
-  "zh-TW": zhHant,
+  ja,
+  ko,
+  es,
+  fr,
+  de,
+  "pt-BR": ptBR,
+  ru,
 };
 
 // Resolve short language tags to canonical BCP 47 forms.
@@ -24,6 +36,14 @@ const CANONICAL: Record<Language, CanonicalLanguage> = {
   "zh-Hans": "zh-Hans",
   "zh-Hant": "zh-Hant",
   "zh-TW": "zh-Hant",
+  "ja": "ja",
+  "ko": "ko",
+  "es": "es",
+  "fr": "fr",
+  "de": "de",
+  "pt": "pt-BR",
+  "pt-BR": "pt-BR",
+  "ru": "ru",
 };
 
 let currentLanguage: Language = "en";
@@ -33,14 +53,14 @@ export function setLanguage(lang: Language): void {
 }
 
 // https://www.rfc-editor.org/info/bcp47
-function getCanonicalLanguage(): CanonicalLanguage {
+export function getCanonicalLanguage(): CanonicalLanguage {
   return CANONICAL[currentLanguage] ?? "en";
 }
 
 // https://www.unicode.org/reports/tr11/
 export function isCjkLanguage(): boolean {
   const canon = getCanonicalLanguage();
-  return canon === "zh-Hans" || canon === "zh-Hant";
+  return canon === "zh-Hans" || canon === "zh-Hant" || canon === "ja" || canon === "ko";
 }
 
 export function t(key: MessageKey): string {

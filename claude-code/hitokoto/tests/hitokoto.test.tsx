@@ -32,6 +32,7 @@ test('parses quote and attribution', async () => {
 function host(on: On, reply: () => { status: number; text: string }, stored: Record<string, unknown> = {}, now = 0) {
   const clock = mock.clock(on, { now })
   mock.store(on, stored)
+  mock.env(on, { LANG: 'zh_CN.UTF-8' })
   const urls: string[] = []
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('http.fetch', ($, e) => {
@@ -113,4 +114,15 @@ test('session mode fetches once per session', { options: { refreshMode: 'session
   await $.session.start(START)
   await clock.advance(3 * 3600_000)
   expect(urls.length).toBe(1)
+})
+
+test('replies follow Claude Code\'s language setting', async ($, on) => {
+  const { clock } = host(on, () => ({ status: 503, text: '' }))
+  on('settings.read', () => ({ value: { language: '日本語' } }))
+  await $.session.start(START)
+  await clock.settle()
+  const off = await $.command.run({ ...RUN, command: 'hitokoto', args: 'off' })
+  expect(off.text).toBe('Hitokoto バーを非表示にしました')
+  const again = await $.command.run({ ...RUN, command: 'hitokoto', args: '' })
+  expect(again.text).toBe('Hitokoto を取得できませんでした: HTTP 503')
 })

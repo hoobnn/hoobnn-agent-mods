@@ -1,6 +1,6 @@
 {
   "name": "ts-band",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Tailscale nodes' state in a band above the prompt, with a toast when a node comes up or goes down",
   "author": {
     "name": "hoobnn",
@@ -40,6 +40,25 @@
       "title": "Hide offline nodes",
       "description": "Leave offline nodes out of the band (they still count in the total)",
       "default": false
+    },
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "Language of the band, toasts and /ts; auto follows Claude Code's language setting, then the system locale",
+      "options": [
+        "auto",
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "es",
+        "fr",
+        "de",
+        "pt-BR",
+        "ru"
+      ],
+      "default": "auto"
     }
   }
 }

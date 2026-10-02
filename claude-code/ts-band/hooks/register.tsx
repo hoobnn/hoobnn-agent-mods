@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import type { Node, Snapshot } from '../types'
+import { m, resolveLanguage, setLang } from './i18n'
 import { parseStatus, selectNodes } from './parse'
 
 const snapshot = atom({ plugin: 'ts-band', key: 'snapshot' } as const, null)
@@ -16,10 +17,9 @@ const TAILSCALE_CANDIDATES = [
   '/Applications/Tailscale.app/Contents/MacOS/Tailscale',
 ]
 
-const LINK_LABEL = { direct: '直连', 'peer-relay': '中继', derp: 'DERP', offline: '离线' }
-
 function linkText(node: Node): string {
-  return node.link === 'derp' && node.via ? `DERP-${node.via}` : LINK_LABEL[node.link]
+  if (node.link === 'derp') return node.via ? `DERP-${node.via}` : 'DERP'
+  return m(node.link === 'direct' ? 'link.direct' : node.link === 'peer-relay' ? 'link.relay' : 'link.offline')
 }
 
 export const register: Register = (on, options) => {
@@ -31,9 +31,16 @@ export const register: Register = (on, options) => {
   const hideOffline = options.hideOffline === true
 
   on('session.start', async ($, e, next) => {
+    const settings = (await $.settings.read().catch(() => ({}))) as { language?: unknown }
+    const locale = await Promise.all([
+      $.env.get('LC_ALL').catch(() => undefined),
+      $.env.get('LC_MESSAGES').catch(() => undefined),
+      $.env.get('LANG').catch(() => undefined),
+    ])
+    setLang(resolveLanguage(options.language, settings.language, locale))
     await $.command.register({
       name: 'ts',
-      description: '显示 / 隐藏 Tailscale 节点状态横条（跨会话保持）',
+      description: m('cmd.description'),
       argumentHint: '[off|on]',
     })
     // Hidden or shown is kept across sessions in the mod's store.
@@ -73,7 +80,7 @@ export const register: Register = (on, options) => {
         const was = new Map(previous.nodes.map(n => [n.name, n.isOnline]))
         for (const node of fresh.nodes) {
           if (was.has(node.name) && was.get(node.name) !== node.isOnline) {
-            $.ui.toast(`Tailscale: ${node.name} ${node.isOnline ? '上线' : '离线'}`)
+            $.ui.toast(m(node.isOnline ? 'toast.up' : 'toast.down', { name: node.name }))
           }
         }
       }
@@ -92,7 +99,7 @@ export const register: Register = (on, options) => {
     const hidden = await update($, isHidden, v => (arg === 'off' ? true : arg === 'on' ? false : !v))
     await $.store.set('isHidden', hidden)
 
-    return { text: hidden ? 'Tailscale 横条已隐藏' : 'Tailscale 横条已显示' }
+    return { text: m(hidden ? 'cmd.hidden' : 'cmd.shown') }
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
@@ -109,7 +116,7 @@ export const register: Register = (on, options) => {
       return (
         <Box flexDirection="column">
           <Box>
-            <Text color="red">TS 读取失败: </Text>
+            <Text color="red">{m('error.read')}</Text>
             <Text dimColor wrap="truncate-end">{snap.error}</Text>
           </Box>
           {below}

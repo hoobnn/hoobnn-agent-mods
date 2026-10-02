@@ -1,6 +1,6 @@
 {
   "name": "hitokoto",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A line from Hitokoto (一言) in a band above the prompt, refreshed on a timer, per session, per prompt or once a day",
   "author": {
     "name": "hoobnn",
@@ -40,6 +40,25 @@
       "title": "Refresh interval (min)",
       "description": "Minutes between new lines in interval mode (at least 1)",
       "default": 30
+    },
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "Language of /hitokoto's replies and errors (the lines themselves are Chinese); auto follows Claude Code's language setting, then the system locale",
+      "options": [
+        "auto",
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "es",
+        "fr",
+        "de",
+        "pt-BR",
+        "ru"
+      ],
+      "default": "auto"
     }
   }
 }

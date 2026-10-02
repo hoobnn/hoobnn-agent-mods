@@ -9,15 +9,21 @@ claude-hud 0.10.0 rebuilt as a Claude Code mod: the same lines, drawn below the 
 - `hooks/hud/`: claude-hud's `src/` (MIT, see `LICENSE.claude-hud`), kept close to upstream. Local changes:
   - `index.ts`: `main(source)` takes the stdin from the mod; errors and setup notes go to the render sink; the run-as-script block is gone.
   - `render/index.ts`: lines go to a sink (`setRenderSink`, `emitLine`) instead of `console.log`.
+  - `i18n/`: seven more locales (`ja`, `ko`, `es`, `fr`, `de`, `pt-BR`, `ru`, plus the `pt` alias) in `types.ts`, `index.ts` and new files; `getCanonicalLanguage` is exported; `isCjkLanguage` counts `ja` and `ko` too. `config.ts`'s `LANGUAGES` lists them.
+  - `render/parts.ts`: `countLabel` lets a locale write a count as `Regeln: 3` (a `{n}` pattern) where `3 Regeln` would need plural agreement.
   - `transcript.ts`: `Parser` is exported and `setTranscriptProvider` lets the mod answer `parseTranscript`.
   - `git-runner.ts`: git runs through `$.process.run`; the Windows worker is gone.
   - `config.ts`: the bounded config read is one `readFileSync`; O_NOFOLLOW becomes an lstat check.
   - `claude-config-dir.ts`: `getHudCacheDir` (`plugins/claude-hud-mod`), used by `speed.ts` and `daily-cost.ts`, so caches never collide with a statusline copy.
 - `hooks/shims/`: the Node APIs claude-hud imports, over `$`. Synchronous reads answer from facts fetched before the pass; a miss is fetched and the pass re-run (`host.ts`). Writes are held and written once a pass completes.
 - `hooks/ansi.ts`: SGR escapes to styled spans.
+- `hooks/i18n.ts`: the mod's own strings in every language claude-hud has, with plural forms, money and percent written as each language writes them.
 - `hooks/extras.ts`: what the mod adds (below), as pure helpers: thresholds, the usage forecast, the spend history, the git counts, the extras row and the chime.
 
 ## Config
+
+Language: claude-hud's own `language` (`en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`, `pt-BR`, `ru`) in its config file sets the whole HUD, what the mod adds included (alerts, the extras row, the detail pane, `/hud`, the task summary).
+
 
 claude-hud's own files: `~/.claude/plugins/claude-hud/config.json` and `~/.claude/claude-hud.json`, so `/claude-hud:configure` keeps working. Mod options (`/config`, or `pluginConfigs.hud.options` in settings): `position` (`below` the prompt, or `above` it as a band), `extraCmd` (claude-hud's `--extra-cmd`), `debug` (registers `mcp__hud__hud_debug`), and the options of the additions below.
 

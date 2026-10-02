@@ -2,6 +2,7 @@
 // spend against a budget, the spend history, a git nag and the task summary.
 // Pure helpers; register.tsx feeds them from `$` and draws the row.
 import type { HudLine } from '../types'
+import { m, money } from './i18n.js'
 
 /** "80, 90" → [80, 90]: whole percents in 1-100, ascending; empty turns alerts off. */
 export function parseThresholds(spec: string): number[] {
@@ -133,15 +134,13 @@ export function parseGitStatus(stdout: string): { dirty: number; ahead: number }
   return { dirty, ahead }
 }
 
-const usd = (n: number) => `$${n.toFixed(2)}`
-
-/** "今日 $3.20/$10.00 ▓▓▓░░░░░", red once past the budget, yellow from 80%. */
+/** "Today $3.20/$10.00 ▓▓▓░░░░░", red once past the budget, yellow from 80%. */
 export function budgetSpans(todayUsd: number, budgetUsd: number, width = 8): HudLine {
   const ratio = budgetUsd > 0 ? todayUsd / budgetUsd : 0
   const filled = Math.min(width, Math.round(ratio * width))
   const color = ratio >= 1 ? 'red' : ratio >= 0.8 ? 'yellow' : 'green'
   return [
-    { text: `今日 ${usd(todayUsd)}/${usd(budgetUsd)} `, dimColor: ratio < 0.8 },
+    { text: `${m('spend.today', { spent: `${money(todayUsd)}/${money(budgetUsd)}` })} `, dimColor: ratio < 0.8 },
     { text: '▓'.repeat(filled), color },
     { text: '░'.repeat(width - filled), dimColor: true },
   ]
@@ -165,19 +164,19 @@ export function extrasLine(x: ExtrasInput): HudLine {
   const parts: HudLine[] = []
   if (x.summary) parts.push([{ text: `✎ ${x.summary}`, color: 'cyan' }])
   for (const { label, at } of x.exhaust) {
-    parts.push([{ text: `${label} 按当前速度 ≈${clockTime(at)} 用完`, color: 'magenta' }])
+    parts.push([{ text: m('forecast', { label, time: clockTime(at) }), color: 'magenta' }])
   }
   if (x.budgetUsd > 0 && x.todayUsd !== null) parts.push(budgetSpans(x.todayUsd, x.budgetUsd))
   if (x.week && x.week.values.some(v => v > 0)) {
     parts.push([
-      { text: '7天 ', dimColor: true },
+      { text: `${m('week')} `, dimColor: true },
       { text: sparkline(x.week.values), color: 'blue' },
-      ...(x.week.streak > 1 ? [{ text: ` 连续 ${x.week.streak} 天`, dimColor: true }] : []),
+      ...(x.week.streak > 1 ? [{ text: ` ${m('streak', { n: x.week.streak })}`, dimColor: true }] : []),
     ])
   }
   const nags: string[] = []
-  if (x.git && x.gitDirtyWarn > 0 && x.git.dirty >= x.gitDirtyWarn) nags.push(`${x.git.dirty} 个改动未提交`)
-  if (x.git && x.gitAheadWarn > 0 && x.git.ahead >= x.gitAheadWarn) nags.push(`${x.git.ahead} 个提交未推送`)
+  if (x.git && x.gitDirtyWarn > 0 && x.git.dirty >= x.gitDirtyWarn) nags.push(m('git.dirty', { n: x.git.dirty }))
+  if (x.git && x.gitAheadWarn > 0 && x.git.ahead >= x.gitAheadWarn) nags.push(m('git.ahead', { n: x.git.ahead }))
   if (nags.length > 0) parts.push([{ text: `⚠ ${nags.join(' · ')}`, color: 'yellow' }])
 
   return parts.flatMap((part, i) => (i === 0 ? part : [{ text: ' │ ', dimColor: true }, ...part]))

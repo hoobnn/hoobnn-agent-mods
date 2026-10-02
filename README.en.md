@@ -31,9 +31,12 @@ claude plugin install hitokoto@hoobnn-agent-mods
 
 Options (`hud`'s `position`, `dailyBudgetUsd` and `summaryEveryTurns`, `ts-band`'s `nodes` and `hideOffline`, `hitokoto`'s `refreshMode` and `categories`, …) are rows in `/config`, or `pluginConfigs` in `~/.claude/settings.json`. Each mod's folder has its own README with the details.
 
+All three mods speak English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, Brazilian Portuguese and Russian. `hud` follows `language` in claude-hud's config; `ts-band` and `hitokoto` each have a `language` option whose default, `auto`, follows Claude Code's `language` setting, then the system locale, then English.
+
 ### Developing
 
 - Run a working copy over the installed one: `claude --plugin-dir claude-code/<mod>`. It's watched, so a save reloads the hooks module.
+- `ts-band` and `hitokoto` carry the same language resolver in their own `hooks/i18n.ts` (an installed mod reaches nothing outside its folder): change one, change both.
 - `scripts/check.sh` validates, tests and type-checks every mod. The mod API is early access, so run it after a Claude Code update too. `tsc` needs the types Claude Code puts in `.claude-plugin/types/` the first time it loads the mod.
 - Release: bump `version` in the mod's `plugin.json` and its entry in `.claude-plugin/marketplace.json`, commit, then `claude plugin tag claude-code/<mod> --push` (tags look like `<mod>--v<version>`). Installs pick it up with `claude plugin marketplace update hoobnn-agent-mods && claude plugin update <mod>@hoobnn-agent-mods`.
 
