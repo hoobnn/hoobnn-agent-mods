@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Mods for Claude Code: a claude-hud port, a Tailscale band, a Hitokoto band, spinner animations, a task progress band and a turn receipt",
-    "version": "0.6.0"
+    "version": "0.7.0"
   },
   "plugins": [
     {
@@ -49,7 +49,7 @@
       "name": "spinner",
       "source": "./claude-code/spinner",
       "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt (a shoot-em-up, Clawd, pixel homages and more), a finale and a pet that levels up, in fifteen themes, one of them a visualizer of the sound the computer plays",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "category": "productivity",
       "tags": [
         "spinner",
