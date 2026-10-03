@@ -6,3 +6,4 @@ hud 2
 spinner 2
 todo-bar 2
 ts-band 2
+receipt 2

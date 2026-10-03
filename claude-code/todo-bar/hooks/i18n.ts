@@ -4,7 +4,7 @@ import type { Lang } from './kit/lang'
 
 export { parseLanguage, resolveLanguage } from './kit/lang'
 
-export type Key = 'cmd.description' | 'cmd.hidden' | 'cmd.shown' | 'cmd.none' | 'cmd.header' | 'band.next' | 'band.done' | 'band.took'
+export type Key = 'cmd.description' | 'cmd.hidden' | 'cmd.shown' | 'cmd.none' | 'cmd.header' | 'band.next' | 'band.done' | 'band.took' | 'cmd.calls'
 
 export const MESSAGES: Record<Lang, Record<Key, string>> = {
   en: {
@@ -16,6 +16,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.next': 'Next: ',
     'band.done': 'All done',
     'band.took': 'took {d}',
+    'cmd.calls': 'tool calls: {n}',
   },
   'zh-Hans': {
     'cmd.description': '列出任务与进度；off / on 隐藏或显示进度条（跨会话保持）',
@@ -26,6 +27,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.next': '接下来：',
     'band.done': '全部完成',
     'band.took': '用时 {d}',
+    'cmd.calls': '工具调用 {n} 次',
   },
   'zh-Hant': {
     'cmd.description': '列出任務與進度；off / on 隱藏或顯示進度條（跨工作階段保留）',
@@ -36,6 +38,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.next': '接下來：',
     'band.done': '全部完成',
     'band.took': '用時 {d}',
+    'cmd.calls': '工具呼叫 {n} 次',
   },
   ja: {
     'cmd.description': 'タスクと進捗を一覧表示。off / on でバーを非表示・表示（セッションをまたいで保持）',
@@ -46,6 +49,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.next': '次: ',
     'band.done': 'すべて完了',
     'band.took': '所要 {d}',
+    'cmd.calls': 'ツール呼び出し {n} 回',
   },
   ko: {
     'cmd.description': '작업과 진행 상황 보기. off / on으로 막대 숨기기·표시(세션 간 유지)',
@@ -56,6 +60,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.next': '다음: ',
     'band.done': '모두 완료',
     'band.took': '소요 {d}',
+    'cmd.calls': '도구 호출 {n}회',
   },
   es: {
     'cmd.description': 'Lista las tareas y su avance; off / on oculta o muestra la barra (se mantiene entre sesiones)',
@@ -66,6 +71,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.next': 'Después: ',
     'band.done': 'Todo listo',
     'band.took': 'en {d}',
+    'cmd.calls': 'llamadas a herramientas: {n}',
   },
   fr: {
     'cmd.description': 'Liste les tâches et leur avancement ; off / on masque ou affiche la barre (conservé entre les sessions)',
@@ -76,6 +82,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.next': 'Ensuite : ',
     'band.done': 'Tout est fait',
     'band.took': 'en {d}',
+    'cmd.calls': "appels d'outils : {n}",
   },
   de: {
     'cmd.description': 'Aufgaben und Fortschritt auflisten; off / on blendet die Leiste aus oder ein (bleibt über Sitzungen erhalten)',
@@ -86,6 +93,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.next': 'Als Nächstes: ',
     'band.done': 'Alles erledigt',
     'band.took': 'in {d}',
+    'cmd.calls': 'Werkzeugaufrufe: {n}',
   },
   'pt-BR': {
     'cmd.description': 'Lista as tarefas e o progresso; off / on oculta ou mostra a barra (mantido entre sessões)',
@@ -96,6 +104,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.next': 'Depois: ',
     'band.done': 'Tudo pronto',
     'band.took': 'em {d}',
+    'cmd.calls': 'chamadas de ferramentas: {n}',
   },
   ru: {
     'cmd.description': 'Список задач и прогресс; off / on скрывает или показывает панель (сохраняется между сессиями)',
@@ -106,6 +115,7 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.next': 'Далее: ',
     'band.done': 'Всё готово',
     'band.took': 'за {d}',
+    'cmd.calls': 'вызовов инструментов: {n}',
   },
 }
 

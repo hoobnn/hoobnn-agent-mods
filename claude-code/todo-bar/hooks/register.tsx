@@ -5,7 +5,7 @@ import { atom, read, update } from 'claude-code'
 import type { Elements, EngineInterface, Register, RenderElement } from 'claude-code'
 
 import type { Board } from '../types'
-import { addTask, bar, formatDuration, fromTodos, progress, updateTask } from './board'
+import { addTask, bar, countCall, elapsed, formatDuration, fromTodos, progress, updateTask } from './board'
 import { readConfig } from './config'
 import type { Config } from './config'
 import { m, setLang } from './i18n'
@@ -19,6 +19,8 @@ const board = atom({ plugin: 'todo-bar', key: 'board' } as const, null as Board 
 const isHidden = atom({ plugin: 'todo-bar', key: 'isHidden' } as const, false)
 // True while a picker is open above the band (see kit/band).
 const isPicking = atom({ plugin: 'todo-bar', key: 'isPicking' } as const, false)
+// The clock as the band last read it: moved on while a task runs, so its time keeps up.
+const tick = atom({ plugin: 'todo-bar', key: 'tick' } as const, 0)
 
 /** How long a finished list shows its time before the band folds away. */
 export const FINISH_MS = 8000
@@ -27,6 +29,8 @@ const SAVED = 'board:'
 const KEEP_SESSIONS = 20
 const TOOLS = new Set(['TodoWrite', 'TaskCreate', 'TaskUpdate'])
 const MARK = { pending: '○', in_progress: '●', completed: '✓' } as const
+/** How often the running task's time is redrawn. */
+const TICK_MS = 30_000
 
 /** The kit's hold on this mod's store and `/config` rows. */
 function prefsOf($: EngineInterface): Prefs {
@@ -57,12 +61,18 @@ async function setBoard($: EngineInterface, next: Board | null): Promise<void> {
   }
 }
 
-/** `/todos` alone: every task with its mark. */
+/** `/todos` alone: every task with its mark, how long it ran and the tool calls it took. */
 async function listing($: EngineInterface): Promise<string> {
   const now = await read($, board)
   if (!now) return m('cmd.none')
   const { done, total } = progress(now)
-  return [m('cmd.header', { done, total }), ...now.items.map(i => `${MARK[i.status]} ${i.title}`)].join('\n')
+  const at = await $.clock.now()
+  const line = (i: Board['items'][number]) => {
+    const ran = elapsed(i, at)
+    const facts = [ran === null ? '' : formatDuration(ran), i.calls ? m('cmd.calls', { n: i.calls }) : ''].filter(Boolean)
+    return `${MARK[i.status]} ${i.title}${facts.length > 0 ? `  ${facts.join(' · ')}` : ''}`
+  }
+  return [m('cmd.header', { done, total }), ...now.items.map(line)].join('\n')
 }
 
 export const register: Register = (on, options) => {
@@ -83,13 +93,31 @@ export const register: Register = (on, options) => {
       const kept = (await $.store.get(SAVED + (await $.session.id()))) as Board | undefined
       if (kept && Array.isArray(kept.items)) await update($, board, () => (kept.doneAt !== null ? { ...kept, isFolded: true } : kept))
     }
+    await update($, tick, () => 0)
+    $.clock.every(TICK_MS, async () => {
+      const now = await read($, board)
+      if (now && now.doneAt === null && now.items.some(i => i.status === 'in_progress')) {
+        const at = await $.clock.now()
+        await update($, tick, () => at)
+      }
+    })
     return next(e)
   })
 
   // The main thread's list, once the call has run; a refused or failed call changes nothing.
   on('tool.call', async ($, e, next) => {
     const ran = await next(e)
-    if (e.agentId || !TOOLS.has(e.tool) || ran.deny !== undefined || ran.isError) return ran
+    if (e.agentId || ran.deny !== undefined) return ran
+    // Another tool's call counts toward the running task; the count is saved with the board's next change.
+    if (!TOOLS.has(e.tool)) {
+      const was = await read($, board)
+      if (was && was.doneAt === null) {
+        const counted = countCall(was)
+        if (counted !== was) await update($, board, () => counted)
+      }
+      return ran
+    }
+    if (ran.isError) return ran
     const input = e as unknown as Record<string, unknown>
     const result = (ran.result ?? {}) as Record<string, unknown>
     const was = await read($, board)
@@ -140,12 +168,13 @@ export const register: Register = (on, options) => {
     if (e.props.hasSurvey || now === null || now.isFolded || (await read($, isHidden)) || (await read($, isPicking))) return next(e)
     const ui = $.ui.resolve(e)
     // Two cells in, as kit/band indents the band.
-    return stackAbove(ui, drawBoard(ui, now, e.props.bodyColumns - 2, config), await next(e))
+    await read($, tick)
+    return stackAbove(ui, drawBoard(ui, now, e.props.bodyColumns - 2, config, await $.clock.now()), await next(e))
   })
 }
 
 /** The band: the running task, a bar, the count; then what comes next. Finished: a check and the time it took. */
-function drawBoard(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, now: Board, columns: number, config: Config): RenderElement {
+function drawBoard(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, now: Board, columns: number, config: Config, at: number): RenderElement {
   const { Box, Text } = ui
   const { done, total, current, isRunning, next } = progress(now)
   const pct = total === 0 ? 0 : Math.round((done / total) * 100)
@@ -165,6 +194,9 @@ function drawBoard(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, now: Board, c
     )
   }
   const label = current ? (isRunning ? current.active : current.title) : ''
+  // The running task's time from its first minute; yellow once it passes slowMinutes.
+  const ran = isRunning && current ? elapsed(current, at) : null
+  const isSlow = ran !== null && config.slowMinutes > 0 && ran >= config.slowMinutes * 60_000
   return (
     <Box flexDirection="column">
       <Box flexDirection="row" columnGap={1}>
@@ -172,6 +204,11 @@ function drawBoard(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, now: Board, c
         <Box flexGrow={1} flexShrink={1}>
           <Text wrap="truncate-end" dimColor={!isRunning}>{label}</Text>
         </Box>
+        {ran !== null && ran >= 60_000 ? (
+          <Box flexShrink={0}>
+            <Text color={isSlow ? 'yellow' : undefined} dimColor={!isSlow}>{formatDuration(ran)}</Text>
+          </Box>
+        ) : null}
         <Box flexShrink={0}>
           <Text>
             <Text color="cyan">{filled}</Text>

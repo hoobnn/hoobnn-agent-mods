@@ -2,7 +2,7 @@
 
 **简体中文** · [English](README.en.md)
 
-我给几个编程 Agent 工具写的 mod、扩展和插件，按工具分目录放。目前能用的主要是 Claude Code 的五个 mod：状态栏 HUD、Tailscale 节点状态条、一言、运行动画和任务进度条。
+我给几个编程 Agent 工具写的 mod、扩展和插件，按工具分目录放。目前能用的主要是 Claude Code 的六个 mod：状态栏 HUD、Tailscale 节点状态条、一言、运行动画、任务进度条和回合回执。
 
 | 目录 | 对应工具 | 放什么 |
 | --- | --- | --- |
@@ -20,7 +20,8 @@
 | [`ts-band`](claude-code/ts-band) | 在输入框上方显示 Tailscale 节点状态：全部直连时只占一个短标记，有节点走中继 / DERP（黄）或离线（红）时只列出这些节点；节点上线或掉线时弹提示；Claude 执行 `tailscale up/down/switch` 等命令后立即刷新，读取失败时保留上次的节点 |
 | [`hitokoto`](claude-code/hitokoto) | 在输入框上方显示一句[一言](https://hitokoto.cn)，可以定时换、每天一句、每个会话一句或每次发消息换一句，点后面的 ↻ 换一句 |
 | [`spinner`](claude-code/spinner) | AI 运行时的动画和宠物伴侣：输入框上方放动画小剧场，有像素风的雷霆战机横版射击、Claude 的 Clawd、吃豆人、电气鼠、蓝色机器猫、彩虹猫，以及猫、兔子、樱花、机甲、霓虹、小恐龙、小鱼、字符雨；宠物伴侣参考 Codex Pets，按思考 / 调工具 / 输出切换动作，气泡只说 Spinner 行没有的信息（正在跑的工具、等你确认），空闲时留在输入框上方，Claude 跑测试或提交时会说一声（通过 / 没过 / 提交好了），多个子代理并行时显示数量；跑完一轮、测试通过、提交成功都涨经验升级，点它或 `/spinner pet` 摸摸会冒爱心；一轮结束放 3 秒彩带并显示用时；14 套主题，`/spinner` 随时切换和预览；`reducedMotion` 让所有动画只画静止的一帧，终端太矮或太窄时宠物缩成一行 |
-| [`todo-bar`](claude-code/todo-bar) | 输入框上方的任务进度条：Claude 写任务清单（TodoWrite、TaskCreate / TaskUpdate）时出现，显示正在做的一项、进度条、完成数和百分比，第二行是接下来的一两项；全部完成后显示用时，几秒后收起。只读这些工具调用的结果，不注册工具、不加提示词、不拦任何调用，不花 token；`/todos` 列出全部任务 |
+| [`todo-bar`](claude-code/todo-bar) | 输入框上方的任务进度条：Claude 写任务清单（TodoWrite、TaskCreate / TaskUpdate）时出现，显示正在做的一项、进度条、完成数和百分比，第二行是接下来的一两项；正在做的一项满 1 分钟后显示已用时间，超过 `slowMinutes` 变黄；全部完成后显示用时，几秒后收起。只读这些工具调用的结果，不注册工具、不加提示词、不拦任何调用，不花 token；`/todos` 列出全部任务，以及每项的用时和期间的工具调用数 |
+| [`receipt`](claude-code/receipt) | 回合回执：一轮结束后在输入框上方用一行说明它做了什么：改了几个文件、增删多少行、跑了几条命令、几条失败、读了几次、开了几个子代理（子代理改的文件也算在内），下一轮开始时收起。同一调用中间没做任何改动却连续失败、或者同一处改过去又改回来时弹 toast 提醒。和 `todo-bar` 一样只读工具调用的结果，不花 token；`/receipt` 列出改动的文件、失败的命令和预警 |
 
 从本仓库的插件市场安装：
 
@@ -31,9 +32,10 @@ claude plugin install ts-band@hoobnn-agent-mods
 claude plugin install hitokoto@hoobnn-agent-mods
 claude plugin install spinner@hoobnn-agent-mods
 claude plugin install todo-bar@hoobnn-agent-mods
+claude plugin install receipt@hoobnn-agent-mods
 ```
 
-选项（`hud` 的 `position`、`theme`、`dailyBudgetUsd`、`summaryEveryTurns`，`ts-band` 的 `nodes`、`hideOffline`，`hitokoto` 的 `refreshMode`、`categories`，`spinner` 的 `theme`、`stage`、`celebrate`、`companion` 等）都能在 `/config` 里改，也可以写在 `~/.claude/settings.json` 的 `pluginConfigs` 里。`/config` 是 mod 设置的唯一归处：斜杠命令改的设置（`/hud theme neon`、`/ts off`、`/spinner stage off`）都写回这里；每个 mod 都有 `visible` 选项，`/hud`、`/ts`、`/hitokoto`、`/spinner`、`/todos` 的 `off` / `on` 改的就是它。每个 mod 的完整说明见各自目录下的 README（英文）。
+选项（`hud` 的 `position`、`theme`、`dailyBudgetUsd`、`summaryEveryTurns`，`ts-band` 的 `nodes`、`hideOffline`，`hitokoto` 的 `refreshMode`、`categories`，`spinner` 的 `theme`、`stage`、`celebrate`、`companion` 等）都能在 `/config` 里改，也可以写在 `~/.claude/settings.json` 的 `pluginConfigs` 里。`/config` 是 mod 设置的唯一归处：斜杠命令改的设置（`/hud theme neon`、`/ts off`、`/spinner stage off`）都写回这里；每个 mod 都有 `visible` 选项，`/hud`、`/ts`、`/hitokoto`、`/spinner`、`/todos`、`/receipt` 的 `off` / `on` 改的就是它。每个 mod 的完整说明见各自目录下的 README（英文）。
 
 `spinner` 的效果（`clawd` 主题跑完一轮，宠物伴侣的气泡跟着工具变化，最后放庆祝动画；14 套主题的动图见 [`claude-code/spinner`](claude-code/spinner)）：
 
@@ -41,7 +43,7 @@ claude plugin install todo-bar@hoobnn-agent-mods
 
 ![spinner 雷霆战机主题](claude-code/spinner/assets/thunder.gif)
 
-这些 mod 都支持英语、简体中文、繁体中文、日语、韩语、西班牙语、法语、德语、巴西葡萄牙语和俄语。`hud` 跟随 claude-hud 配置里的 `language`；`ts-band`、`hitokoto`、`spinner` 和 `todo-bar` 有各自的 `language` 选项，默认 `auto`，依次跟随 Claude Code 的 `language` 设置、系统语言环境，都没有时用英语。
+这些 mod 都支持英语、简体中文、繁体中文、日语、韩语、西班牙语、法语、德语、巴西葡萄牙语和俄语。`hud` 跟随 claude-hud 配置里的 `language`；`ts-band`、`hitokoto`、`spinner`、`todo-bar` 和 `receipt` 有各自的 `language` 选项，默认 `auto`，依次跟随 Claude Code 的 `language` 设置、系统语言环境，都没有时用英语。
 
 ### 开发
 

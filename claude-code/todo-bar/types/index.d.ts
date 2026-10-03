@@ -1,7 +1,11 @@
 export type ItemStatus = 'pending' | 'in_progress' | 'completed'
 
-/** One task: its title, the words it shows while it runs, and where it stands. */
-export type Item = { id: string; title: string; active: string; status: ItemStatus }
+/**
+ * One task: its title, the words it shows while it runs, and where it stands;
+ * when it started running and was done, and the tool calls made while it ran.
+ * The last three are optional so a board kept by an older version resumes.
+ */
+export type Item = { id: string; title: string; active: string; status: ItemStatus; startedAt?: number; doneAt?: number; calls?: number }
 
 /**
  * The list the band draws: from TodoWrite (the whole list each call) or from
@@ -18,6 +22,6 @@ export type Board = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'todo-bar': { board: Board | null; isHidden: boolean; isPicking: boolean }
+    'todo-bar': { board: Board | null; isHidden: boolean; isPicking: boolean; tick: number }
   }
 }

@@ -5,7 +5,7 @@
     "url": "https://github.com/hoobnn"
   },
   "metadata": {
-    "description": "Mods for Claude Code: a claude-hud port, a Tailscale band, a Hitokoto band spinner animations and a task progress band",
+    "description": "Mods for Claude Code: a claude-hud port, a Tailscale band, a Hitokoto band, spinner animations, a task progress band and a turn receipt",
     "version": "0.5.0"
   },
   "plugins": [
@@ -68,6 +68,19 @@
         "todo",
         "tasks",
         "progress",
+        "mod"
+      ]
+    },
+    {
+      "name": "receipt",
+      "source": "./claude-code/receipt",
+      "description": "What each turn did, in a band above the prompt once it ends: files and lines changed, commands and failures, reads, subagents; a toast when the model goes in circles. No tool, no prompt, no tokens",
+      "version": "0.1.0",
+      "category": "monitoring",
+      "tags": [
+        "receipt",
+        "turn",
+        "activity",
         "mod"
       ]
     }

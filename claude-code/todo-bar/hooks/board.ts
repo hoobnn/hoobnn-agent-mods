@@ -10,13 +10,34 @@ const STATUSES: readonly ItemStatus[] = ['pending', 'in_progress', 'completed']
 const str = (v: unknown) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '')
 const statusOf = (v: unknown): ItemStatus => STATUSES.find(s => s === v) ?? 'pending'
 
+/**
+ * Each item's times carried over from the board before (a task by its id, a
+ * todo by its title, as TodoWrite sends the whole list again): it started when
+ * first seen running, was done when first seen completed.
+ */
+function stamp(prev: Board | null, source: Board['source'], items: Item[], now: number): Item[] {
+  const before = prev && prev.source === source ? prev.items : []
+  return items.map(item => {
+    const was = before.find(b => (source === 'task' ? b.id === item.id : b.title === item.title))
+    const startedAt = was?.startedAt ?? (item.status === 'in_progress' ? now : undefined)
+    const doneAt = item.status !== 'completed' ? undefined : (was?.status === 'completed' ? was.doneAt : undefined) ?? now
+    const stamped: Item = { ...item }
+    if (startedAt !== undefined) stamped.startedAt = startedAt
+    if (doneAt !== undefined) stamped.doneAt = doneAt
+    if (was?.calls) stamped.calls = was.calls
+    return stamped
+  })
+}
+
 /** A board whose list just changed: finished when every item is, started over when it comes back from finished. */
-function settle(prev: Board | null, source: Board['source'], items: Item[], now: number): Board | null {
-  if (items.length === 0) return null
-  const isDone = items.every(i => i.status === 'completed')
+function settle(prev: Board | null, source: Board['source'], listed: Item[], now: number): Board | null {
+  if (listed.length === 0) return null
+  const isDone = listed.every(i => i.status === 'completed')
   // A finished list sent again (the model closing it twice) stays as it finished.
-  if (isDone && prev !== null && prev.source === source && prev.doneAt !== null) return { ...prev, items }
+  if (isDone && prev !== null && prev.source === source && prev.doneAt !== null) return { ...prev, items: stamp(prev, source, listed, now) }
   const isFresh = prev === null || prev.source !== source || prev.doneAt !== null
+  // A fresh list owes the finished one nothing, not even a task of the same name.
+  const items = stamp(isFresh ? null : prev, source, listed, now)
   return { source, items, startedAt: isFresh ? now : prev.startedAt, doneAt: isDone ? now : null, isFolded: false }
 }
 
@@ -58,6 +79,19 @@ export function updateTask(
           return { ...i, title, active: str(change.activeForm) || (str(change.subject) ? title : i.active), status }
         })
   return settle(prev, 'task', items, now)
+}
+
+/** The board with one more tool call counted on the running item; the same board when none runs. */
+export function countCall(board: Board): Board {
+  const running = board.items.find(i => i.status === 'in_progress')
+  if (!running) return board
+  return { ...board, items: board.items.map(i => (i === running ? { ...i, calls: (i.calls ?? 0) + 1 } : i)) }
+}
+
+/** How long an item ran: until it was done, else until now; null when it was never seen running. */
+export function elapsed(item: Item, now: number): number | null {
+  if (item.startedAt === undefined) return null
+  return Math.max(0, (item.doneAt ?? now) - item.startedAt)
 }
 
 /** Where the board stands: done and total, the running item (else the first open one), and the next open ones. */

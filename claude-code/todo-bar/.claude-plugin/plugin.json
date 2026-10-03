@@ -30,6 +30,12 @@
       "description": "A dim second row with the next one or two tasks",
       "default": true
     },
+    "slowMinutes": {
+      "type": "number",
+      "title": "Slow task (minutes)",
+      "description": "The running task's time turns yellow once it has run this many minutes; 0 never",
+      "default": 10
+    },
     "language": {
       "type": "string",
       "title": "Language",

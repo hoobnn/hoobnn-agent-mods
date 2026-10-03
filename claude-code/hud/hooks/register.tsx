@@ -531,7 +531,15 @@ export const register: Register = (on, options) => {
       if (config.hasChime) void $.audio.play({ base64: chimeWav(), mime: 'audio/wav' }).catch(() => {})
     }
     const count = await update($, turns, n => n + 1)
-    if (config.summaryEvery > 0 && !isSummarizing && (count === 1 || count % config.summaryEvery === 0)) {
+    // While the model keeps a task list with work left, the list already says what it is doing
+    // (Claude Code draws it, and so do todo-bar and the todos line): no fork, and an older line steps aside.
+    const todos = live.transcriptPath ? transcriptData(live.transcriptPath)?.todos ?? [] : []
+    const hasPlan = todos.some(t => t.status !== 'completed')
+    if (hasPlan && (await read($, summary)) !== null) {
+      await update($, summary, () => null)
+      schedule()
+    }
+    if (config.summaryEvery > 0 && !hasPlan && !isSummarizing && (count === 1 || count % config.summaryEvery === 0)) {
       isSummarizing = true
       // Not awaited: the fork reads the conversation from the prompt cache while the person reads the answer.
       void $.model

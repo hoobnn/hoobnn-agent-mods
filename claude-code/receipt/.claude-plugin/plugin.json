@@ -1,0 +1,60 @@
+{
+  "name": "receipt",
+  "version": "0.1.0",
+  "description": "What each turn did, in a band above the prompt once it ends (files changed with lines, commands and failures, reads, subagents), and a toast when the model goes in circles; read from the turn's own tool calls: no tool, no prompt, no tokens",
+  "author": {
+    "name": "hoobnn",
+    "url": "https://github.com/hoobnn"
+  },
+  "homepage": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "repository": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "license": "MIT",
+  "keywords": [
+    "receipt",
+    "turn",
+    "activity",
+    "loop",
+    "band",
+    "mod"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "visible": {
+      "type": "boolean",
+      "title": "Show the receipt",
+      "description": "Show the receipt above the prompt between turns; /receipt off and /receipt on set this too",
+      "default": true
+    },
+    "repeatFailures": {
+      "type": "number",
+      "title": "Repeated failure alert",
+      "description": "Toast when the same call fails this many times in a row with no file changed in between; 0 off",
+      "default": 3
+    },
+    "flipFlops": {
+      "type": "number",
+      "title": "Back-and-forth edit alert",
+      "description": "Toast when edits to a file put back what an earlier edit took out this many times; 0 off",
+      "default": 2
+    },
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "Language of the receipt, /receipt and the alerts; auto follows Claude Code's language setting, then the system locale",
+      "options": [
+        "auto",
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "es",
+        "fr",
+        "de",
+        "pt-BR",
+        "ru"
+      ],
+      "default": "auto"
+    }
+  }
+}
