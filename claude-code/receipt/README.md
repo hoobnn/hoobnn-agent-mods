@@ -2,6 +2,8 @@
 
 What each turn did, in one row above the prompt once it ends:
 
+![receipt: what the last turn changed, ran and read](assets/preview.png)
+
 ```
 ✓ 上一轮 2m 13s · 改动 3 个文件 +48 −12 · 命令 6 · 1 失败 · 读取 14 · 子代理 1 · ⚠ 1
 ```

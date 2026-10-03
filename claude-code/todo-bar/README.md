@@ -2,6 +2,8 @@
 
 The task list's progress in a band above the prompt. It shows once Claude writes a task list and follows it as the work moves on:
 
+![todo-bar: the running task, its time, the bar and what comes next](assets/preview.png)
+
 ```
 ● Writing the tests        ━━━━━━━━──────────────────  2/7  29%
   Next: Run the build · Publish
@@ -10,6 +12,8 @@ The task list's progress in a band above the prompt. It shows once Claude writes
 Once the running task has run a minute its time shows after it (`3m 12s`), dim, then yellow from `slowMinutes` (default 10; 0 never), so a step that drags stands out.
 
 Once every task is done the band turns green with the time the list took, `✓ All done ━━━━━━━━ 7/7 took 3m 12s`, and folds away after 8 seconds; the next list brings it back.
+
+![todo-bar: every task done](assets/done.png)
 
 It costs no tokens. It reads the calls Claude already makes, after they have run: `TodoWrite` (the whole list each call), and `TaskCreate` / `TaskUpdate` (one task a call). It registers no tool, adds nothing to the system prompt, and refuses or holds no call. A call that was refused or failed changes nothing; a subagent's own list is left out.
 

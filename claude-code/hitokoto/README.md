@@ -2,6 +2,8 @@
 
 A line from [Hitokoto (一言)](https://hitokoto.cn) in a band above the prompt, with its author and source dimmed after it, and a `↻` that brings another when clicked (not in `daily` mode). `/hitokoto` fetches one now, `/hitokoto off` and `/hitokoto on` hide and show the band by writing the `visible` option (so `/config` shows it, and it is kept across sessions).
 
+![hitokoto: a line and its source above the prompt](assets/preview.png)
+
 Options:
 
 - `visible`: shows the band (what `/hitokoto off` / `on` sets).

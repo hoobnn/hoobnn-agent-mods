@@ -2,6 +2,8 @@
 
 claude-hud 0.10.0 rebuilt as a Claude Code mod: the same lines, drawn below the prompt (beside the hint line, where the statusline sat) or in the band above it.
 
+![hud, neon theme](assets/themes/neon.png)
+
 ## Layout
 
 - `hooks/register.tsx`: the hooks, and everything that calls `$` (the engine follows `$` only within this file): the session's start, the turn's events, `/hud`, the refresh loop, alerts, spend and summary, and the render hooks. The other modules get closures over `$` (`Io`, `SessionApi`).
@@ -55,6 +57,8 @@ claude-hud's own files: `~/.claude/plugins/claude-hud/config.json` and `~/.claud
 | `matrix` | green on black, `▮▯` bars, ` ┊ ` separators |
 | `nerd` | Nerd Font symbols (needs a Nerd Font) |
 | `powerline` | Nerd Font symbols on powerline segments (needs a Nerd Font) |
+
+Every theme on the same sample session: [assets/themes/gallery.png](assets/themes/gallery.png); one still per theme in `assets/themes/<theme>.png`.
 
 - Palette: the theme's colors go over claude-hud's `colors`; a color set in claude-hud's own config (off its default) stays.
 - Mascot (`showMascot`, on): the anime themes put a face first in the extras row: calm, busy while a tool runs, worried from 70% context (or 90% quota), panicking from 85%, knocked out when a limit is reached.
