@@ -1,7 +1,7 @@
 {
   "name": "spinner",
   "version": "0.5.0",
-  "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt (a shoot-em-up, Clawd, pixel homages and more), a finale and a pet that levels up, in fourteen themes",
+  "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt (a shoot-em-up, Clawd, pixel homages and more), a finale and a pet that levels up, in fifteen themes, one of them a visualizer of the sound the computer plays",
   "author": {
     "name": "hoobnn",
     "url": "https://github.com/hoobnn"
@@ -33,7 +33,7 @@
     "theme": {
       "type": "string",
       "title": "Theme",
-      "description": "The animations' look: clawd (Claude's mascot), thunder (a shoot-em-up), chomp, sparky, bluecat, nyan (pixel homages), cat, bunny, sakura, mecha, neon, dino, ocean, matrix, or random for a new one each session. /spinner <theme> switches it live",
+      "description": "The animations' look: clawd (Claude's mascot), thunder (a shoot-em-up), chomp, sparky, bluecat, nyan (pixel homages), cat, bunny, sakura, mecha, neon, dino, ocean, matrix, audio (this Mac's sound as a spectrum, macOS 14.2+; never drawn at random), or random for a new one each session. /spinner <theme> switches it live",
       "options": [
         "random",
         "clawd",
@@ -49,7 +49,8 @@
         "neon",
         "dino",
         "ocean",
-        "matrix"
+        "matrix",
+        "audio"
       ],
       "default": "random"
     },

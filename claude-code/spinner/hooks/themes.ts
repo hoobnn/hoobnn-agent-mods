@@ -4,6 +4,8 @@
 import { blank, frame, hsl, mod, noise, padTo, put, textWidth } from './cells'
 import type { Grid, Style } from './cells'
 import { SCENE_ROWS, bluecatScene, chompScene, clawdScene, nyanScene, sparkyScene, thunderScene } from './scenes'
+import { AUDIO_BANDS, demoView } from './audio'
+import type { AudioFeed } from './audio'
 
 export * from './cells'
 
@@ -22,8 +24,11 @@ export const THEME_NAMES = [
   'dino',
   'ocean',
   'matrix',
+  'audio',
 ] as const
 export type ThemeName = (typeof THEME_NAMES)[number]
+/** Themes that start a process of their own: chosen by name, never drawn at random. */
+const OPT_IN: readonly ThemeName[] = ['audio']
 
 export type Mode = 'requesting' | 'responding' | 'thinking' | 'tool-input' | 'tool-use'
 export type Pose = 'think' | 'tool' | 'say' | 'wait'
@@ -51,8 +56,8 @@ export type Theme = {
   palette: string[]
   /** Rows the scene takes in the band. */
   rows: number
-  /** The band's scene while a turn runs: `rows` rows of `w` cells. */
-  scene: (t: number, w: number, act: Act) => Grid
+  /** The band's scene while a turn runs: `rows` rows of `w` cells; `audio` feeds the audio theme. */
+  scene: (t: number, w: number, act: Act, audio?: AudioFeed) => Grid
 }
 
 /** Milliseconds per frame: the mascot's, the band's, the companion's between turns. */
@@ -75,7 +80,8 @@ export function isThemeName(name: unknown): name is ThemeName {
 
 /** A theme drawn from `seed`, for the `random` choice. */
 export function pickRandom(seed: number): ThemeName {
-  return THEME_NAMES[Math.floor(noise(seed) * THEME_NAMES.length)]!
+  const pool = THEME_NAMES.filter(n => !OPT_IN.includes(n))
+  return pool[Math.floor(noise(seed) * pool.length)]!
 }
 
 // ---- scenes --------------------------------------------------------------
@@ -227,6 +233,73 @@ function matrixScene(t: number, w: number): Grid {
       const ch = glyphs[Math.floor(noise(x * 31 + y + Math.floor(t / 3)) * glyphs.length)]!
       put(g, x, y, ch, age === 0 ? { c: '#d8f3dc', b: true } : { c: age < 3 ? '#52b788' : '#2d6a4f', d: age >= 3 })
     }
+  }
+  return g
+}
+
+/**
+ * The computer's sound as a spectrum: a bar per band, its peak falling above
+ * it, and a dancer on the left who moves on the beat. Without a tap (`null`)
+ * the bars lie flat and say so; with no feed at all, a made-up signal plays.
+ */
+function audioScene(t: number, w: number, act: Act, audio?: AudioFeed): Grid {
+  const rows = SCENE_ROWS
+  const g = blank(w, rows)
+  const view = audio === undefined ? demoView(t) : audio
+  const isLive = view !== null && view.b.some(v => v > 0)
+
+  // The dancer: on the beat while sound plays, else as the turn goes.
+  const hasDancer = w >= 32
+  const x0 = hasDancer ? 13 : 0
+  if (hasDancer) {
+    const beat = view?.beat ?? 0
+    const pose =
+      view === null
+        ? '(－ω－) zZ'
+        : isLive
+          ? frame(['♪┏(・o・)┛', '♫┗(・o・)┓'], beat)
+          : act === 'ask'
+            ? '(・ω・)?'
+            : act === 'tool'
+              ? frame(['(・ω・)ノ', '(・ω・)ﾉ'], t >> 2)
+              : frame(['(・ω・) ', '(・ω・).'], t >> 3)
+    put(g, 0, rows - 1, pose, { c: '#e0aaff', b: true })
+    if (isLive) {
+      // Notes float up from the dancer, one per beat.
+      for (let i = 0; i < 3; i++) {
+        const age = mod(t + i * 4, 12)
+        if (age < 9) put(g, 2 + i * 3 + (age >> 2), rows - 2 - (age >> 2), frame(['♪', '♫', '♬'], beat + i), { c: frame(['#c77dff', '#4cc9f0', '#ff8fab'], i), d: age > 5 })
+      }
+    }
+  }
+
+  const span = w - x0
+  if (view === null) {
+    for (let x = 0; x < span; x += 2) put(g, x0 + x, rows - 1, '·', { c: '#6c757d', d: true })
+    return g
+  }
+  // Wide enough: bars two cells wide with a gap; narrower, one band per column.
+  const per = span / AUDIO_BANDS
+  const blocks = ' ▁▂▃▄▅▆▇█'
+  const full = rows * 8
+  for (let x = 0; x < span; x++) {
+    const band = Math.min(AUDIO_BANDS - 1, Math.floor(x / per))
+    if (per >= 3 && x - Math.floor(band * per) >= Math.floor(per) - 1) continue
+    const h = Math.round(((view.b[band] ?? 0) * full) / 99)
+    const peak = Math.round(((view.p[band] ?? 0) * full) / 99)
+    const hue = 290 - (band / AUDIO_BANDS) * 200
+    if (h === 0 && peak === 0) {
+      put(g, x0 + x, rows - 1, '▁', { c: '#3c3c44' })
+      continue
+    }
+    for (let r = 0; r < rows; r++) {
+      const y = rows - 1 - r
+      const fill = Math.max(0, Math.min(8, h - r * 8))
+      if (fill > 0) put(g, x0 + x, y, blocks[fill]!, { c: hsl(hue, 0.85, 0.5 + r * 0.06), b: r === rows - 1 })
+    }
+    // The peak's cap, where nothing of the bar is.
+    const pr = Math.min(rows - 1, Math.floor(Math.max(0, peak - 1) / 8))
+    if (peak > h && peak - pr * 8 > Math.max(0, h - pr * 8)) put(g, x0 + x, rows - 1 - pr, '▔', { c: '#f8f9fa', d: true })
   }
   return g
 }
@@ -506,6 +579,25 @@ export const THEMES: Record<ThemeName, Theme> = {
     confetti: ['*', '+', '·', '✦', '✧'],
     palette: RAINBOW,
     scene: nyanScene,
+  },
+  audio: {
+    name: 'audio',
+    rows: SCENE_ROWS,
+    color: '#c77dff',
+    accent: '#4cc9f0',
+    sprite: {
+      think: ['♪(・ω・)  ', '♪(・ω・) ?', '♫(・ω・) ?'],
+      tool: ['♪┏(・o・)┛', '♫┗(・o・)┓'],
+      say: ['(・▽・)ノ♪ ', '(・▽・)ノ ♫'],
+      wait: ['(・ω・) .  ', '(・ω・) .. ', '(・ω・) ...'],
+    },
+    happy: '♪ヽ(・▽・)ノ♫',
+    sad: '(・へ・)',
+    dead: '(×_×)',
+    sleep: '(－ω－) zZ',
+    confetti: ['♪', '♫', '♬', '·', '✦'],
+    palette: ['#c77dff', '#4cc9f0', '#ff8fab', '#ffd60a'],
+    scene: audioScene,
   },
 }
 

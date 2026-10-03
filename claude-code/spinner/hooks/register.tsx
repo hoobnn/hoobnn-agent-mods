@@ -16,6 +16,9 @@ import { FINALE_MS, THEMES, THEME_NAMES, isThemeName, pickRandom, textWidth } fr
 import type { Act, Mood, ThemeName } from './themes'
 import { PET_ROWS, dockPetOf, petArtOf } from './pets'
 import type { PetState } from './pets'
+import { AUDIO_BANDS, AudioMeter, lineSplitter } from './audio'
+import type { AudioView } from './audio'
+import type { StageProps } from './stage'
 
 // The theme drawn this session ('' until session.start picks one).
 const theme = atom({ plugin: 'spinner', key: 'theme' } as const, '')
@@ -37,6 +40,8 @@ const dock = atom({ plugin: 'spinner', key: 'dock' } as const, null as DockPet |
 const isTurn = atom({ plugin: 'spinner', key: 'isTurn' } as const, false)
 // True while a picker is open above the band (see kit/band).
 const isPicking = atom({ plugin: 'spinner', key: 'isPicking' } as const, false)
+// The audio theme's tap: whether anything plays, and why it could not run.
+const tapState = atom({ plugin: 'spinner', key: 'tap' } as const, { isAudible: false, error: null as string | null })
 // hud's say: true while it draws the pet beside its rows.
 const hudDock = atom({ plugin: 'hud', key: 'dock' } as const, false)
 
@@ -163,6 +168,89 @@ async function publishPet($: EngineInterface): Promise<void> {
   await update($, dock, () => next)
 }
 
+// ---- the audio theme's tap ----------------------------------------------------
+
+/** The tap's levels, read by the band each frame. */
+const meter = new AudioMeter()
+/** The running tap, while the audio theme is drawn. */
+let tap: { stop: () => void } | null = null
+/** The props each band instance was last drawn with, by its key: a frame's answer carries them. */
+const stageProps = new Map<string, StageProps>()
+
+/** The tap's binary, built from its source beside it on first use (and again when the source is newer). */
+async function buildTap($: EngineInterface): Promise<string> {
+  const src = `${$.plugin.root}/hooks/audio-tap.swift`
+  const bin = `${$.plugin.root}/hooks/audio-tap`
+  const [built, source] = await Promise.all([$.fs.stat(bin).catch(() => null), $.fs.stat(src)])
+  if (built && built.mtimeMs >= source.mtimeMs) return bin
+  let out
+  try {
+    out = await $.process.run(['swiftc', '-O', src, '-o', bin], { timeoutMs: 120_000 })
+  } catch (err) {
+    // The engine's word first (no processes on this surface, or no swiftc), then the usual fix.
+    throw new Error(`${err instanceof Error ? err.message : String(err)}; swiftc comes with xcode-select --install`)
+  }
+  if (out.exitCode !== 0) throw new Error(`swiftc: ${out.stderr.trim().split('\n')[0] || `exit ${out.exitCode}`}`)
+  return bin
+}
+
+/** Starts the tap: its lines into the meter, `spinner.tap` told when sound starts or stops, or why it ended. */
+function startTap($: EngineInterface): { stop: () => void } {
+  let isStopped = false
+  let stream: AsyncIterator<unknown> | undefined
+  const fail = (error: string) => (isStopped ? undefined : update($, tapState, () => ({ isAudible: false, error })))
+  void (async () => {
+    let said = ''
+    try {
+      const bin = await buildTap($)
+      if (isStopped) return
+      const child = $.process.spawn({ argv: [bin, String(AUDIO_BANDS)] })
+      stream = child[Symbol.asyncIterator]()
+      const split = lineSplitter()
+      let wasAudible = false
+      for await (const chunk of child) {
+        if (isStopped) break
+        if (chunk.stream === 'stderr') {
+          said = chunk.text.trim()
+          continue
+        }
+        for (const line of split(chunk.text)) meter.push(line)
+        if (meter.isAudible !== wasAudible) {
+          wasAudible = meter.isAudible
+          await update($, tapState, () => ({ isAudible: wasAudible, error: null }))
+        }
+      }
+      await fail(said || 'the tap stopped')
+    } catch (err) {
+      await fail(said || (err instanceof Error ? err.message : String(err)))
+    }
+  })()
+  return {
+    stop: () => {
+      isStopped = true
+      void stream?.return?.()
+    },
+  }
+}
+
+/** Runs the tap exactly while the audio theme's band can show. */
+async function syncTap($: EngineInterface): Promise<void> {
+  const wants = (await read($, theme)) === 'audio' && !(await read($, isHidden)) && !(await read($, isStageOff))
+  if (wants && !tap) {
+    await update($, tapState, () => ({ isAudible: false, error: null }))
+    tap = startTap($)
+  } else if (!wants && tap) {
+    tap.stop()
+    tap = null
+    await update($, tapState, () => ({ isAudible: false, error: null }))
+  }
+}
+
+/** What the band draws for the audio theme now: the meter's view, or null when the tap could not run. */
+async function feedOf($: EngineInterface): Promise<AudioView | null> {
+  return (await read($, tapState)).error ? null : meter.view()
+}
+
 /** Busy with the latest tool still running (subagents counted), else back to thinking. */
 async function settle($: EngineInterface, running: Map<string, string>): Promise<void> {
   const last = busyLabel([...running.values()])
@@ -184,6 +272,7 @@ async function setSwitch($: EngineInterface, field: 'visible' | 'stage' | 'compa
   else if (field === 'stage') await update($, isStageOff, () => !isOn)
   else await update($, isCompanionOff, () => !isOn)
   await publishPet($)
+  await syncTap($)
   await persist(prefsOf($), field, isOn)
 }
 
@@ -198,6 +287,10 @@ async function status($: EngineInterface): Promise<string> {
   if (await read($, isHidden)) lines.push(m('cmd.hidden'))
   if (await read($, isStageOff)) lines.push(m('cmd.stageOff'))
   if (await read($, isCompanionOff)) lines.push(m('cmd.companionOff'))
+  if (current === 'audio') {
+    const { error } = await read($, tapState)
+    lines.push(error ? m('cmd.audioOff', { reason: error }) : m('cmd.audioOn'))
+  }
   lines.push(m('cmd.themes', { list: THEME_NAMES.map(n => `${n} ${THEMES[n].happy}`).join(' · ') }), m('cmd.usage'))
   return lines.join('\n')
 }
@@ -237,6 +330,7 @@ export const register: Register = (on, options) => {
     const stats = await keptPet($)
     await update($, pet, () => stats)
     await publishPet($)
+    await syncTap($)
     const result = await next(e)
     await migrateStore(prefsOf($), STORE_MOVES)
     return result
@@ -330,9 +424,13 @@ export const register: Register = (on, options) => {
   })
 
   // A click on the pet, where this plugin draws it.
+  // The audio band asking for this frame's levels: its props again, with them.
   on('ui.message', async ($, e, next) => {
-    if ((e.data as { pat?: unknown } | null)?.pat === true) await patPet($)
-    return next(e)
+    const data = e.data as { pat?: unknown; audio?: unknown } | null
+    if (data?.pat === true) await patPet($)
+    const drawn = data?.audio === true ? stageProps.get(e.element) : undefined
+    const heard = await next(e)
+    return drawn ? { ...heard, props: { ...drawn, audio: await feedOf($) } } : heard
   })
 
   // A click on the pet where hud draws it: hud counts it in `hud.petPats`.
@@ -384,11 +482,13 @@ export const register: Register = (on, options) => {
         }
         if (answer !== 'random' && !isThemeName(answer)) return { text: m('cmd.unknown', { name: answer, list }) }
         const name = await choose($, answer, true)
+        await syncTap($)
         await persist(prefsOf($), 'theme', answer)
         return { text: answer === 'random' ? m('cmd.random', { theme: name }) : m('cmd.switched', { theme: name }) }
       }
       case 'theme': {
         const name = await choose($, command.theme, true)
+        await syncTap($)
         await persist(prefsOf($), 'theme', command.theme)
         return { text: command.theme === 'random' ? m('cmd.random', { theme: name }) : m('cmd.switched', { theme: name }) }
       }
@@ -463,14 +563,28 @@ export const register: Register = (on, options) => {
     const columns = e.props.bodyColumns - 2 - petColumns
     const sceneFits = (rows: number) => e.props.maxRows >= Math.max(rows, pet ? PET_ROWS : 0)
     let scene = null
+    // The audio theme's band, fed by the tap each frame; its props kept for the frames' answers.
+    const heard = await read($, tapState)
+    const live = name === 'audio' && tap !== null
+    stageProps.clear()
+    const audioStage = async (key: string, props: StageProps) => {
+      const fed: StageProps = live ? { ...props, audio: await feedOf($), feed: !isStill } : props
+      stageProps.set(key, fed)
+      return <Client key={key} module="./stage.tsx" width={columns} props={fed} />
+    }
 
     if (shown && isThemeName(shown.theme)) {
-      scene = <Client key={`preview-${shown.id}`} module="./stage.tsx" width={columns} props={{ theme: shown.theme, columns, act: 'think', still: isStill }} />
+      const props: StageProps = { theme: shown.theme, columns, act: 'think', still: isStill }
+      scene = shown.theme === 'audio' ? await audioStage(`preview-${shown.id}`, props) : <Client key={`preview-${shown.id}`} module="./stage.tsx" width={columns} props={props} />
     } else if (!(await read($, isHidden)) && !(await read($, isStageOff)) && sceneFits(THEMES[name].rows)) {
       const ended: FinaleState | null = await read($, finale)
       const now: Activity = await read($, activity)
       if (e.props.isWorking) {
-        scene = <Client key="work" module="./stage.tsx" width={columns} props={{ theme: name, columns, act: now.act, still: isStill }} />
+        const props: StageProps = { theme: name, columns, act: now.act, still: isStill }
+        scene = live ? await audioStage('work', props) : <Client key="work" module="./stage.tsx" width={columns} props={props} />
+      } else if (live && !ended && heard.isAudible) {
+        // Between turns the audio theme stays up while something plays.
+        scene = await audioStage('listen', { theme: name, columns, act: 'wait', still: isStill })
       } else if (ended) {
         const props = { theme: name, columns, act: now.act, finale: ended.kind, label: ended.label, still: isStill }
         scene = <Client key={`finale-${ended.id}`} module="./stage.tsx" width={columns} props={props} />

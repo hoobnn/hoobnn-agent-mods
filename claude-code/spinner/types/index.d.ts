@@ -49,6 +49,8 @@ declare module 'claude-code' {
       isTurn: boolean
       /** True while a `/` or `@` picker is open above the band. */
       isPicking: boolean
+      /** The audio theme's tap: whether anything played in the last seconds, and why it could not run. */
+      tap: { isAudible: boolean; error: string | null }
     }
     /** hud's side of the pet's place (read only). */
     hud: {

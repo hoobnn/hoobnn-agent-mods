@@ -274,6 +274,20 @@ export const NYAN_PET: PetArt = {
   spark: '#ffff00',
 }
 
+/** A round listener in big headphones, swaying to whatever plays. */
+export const AUDIO_PET: PetArt = {
+  body: ['..HHHHHHHH..', '.H.BBBBBB.H.', 'CCBBBBBBBBCC', 'CCBBBBBBBBCC', '.B.B....B.B.'],
+  step: ['..HHHHHHHH..', '.H.BBBBBB.H.', 'CCBBBBBBBBCC', 'CCBBBBBBBBCC', '..B.B..B.B..'],
+  colors: { H: '#5a189a', C: '#c77dff', B: '#e0aaff' },
+  eyes: [4, 7],
+  eyeRow: 1,
+  eye: '#240046',
+  lid: '#e0aaff',
+  mouth: [5, 3],
+  blush: '#ff8fab',
+  spark: '#4cc9f0',
+}
+
 const PETS: Record<string, PetArt> = {
   clawd: CLAWD_PET,
   thunder: THUNDER_PET,
@@ -281,6 +295,7 @@ const PETS: Record<string, PetArt> = {
   sparky: SPARKY_PET,
   bluecat: BLUECAT_PET,
   nyan: NYAN_PET,
+  audio: AUDIO_PET,
 }
 
 /** A theme's pet; a theme without one of its own borrows Clawd's shape in its color. */

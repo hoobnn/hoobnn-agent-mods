@@ -21,7 +21,7 @@ reach() {
   for call in $(grep ' calls: ' <<<"$1" | grep -oE '\$\.[A-Za-z]+\.[A-Za-z]+' | sort -u); do
     case $call in
       '$.http.fetch' | '$.mcp.call') n=3 label=network ;;
-      '$.process.run') n=2 label='runs processes' ;;
+      '$.process.run' | '$.process.spawn') n=2 label='runs processes' ;;
       '$.fs.write') n=2 label='writes files' ;;
       '$.env.set') n=2 label='sets env vars' ;;
       '$.config.set') n=2 label='changes config' ;;

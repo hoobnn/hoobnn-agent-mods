@@ -36,6 +36,8 @@ export type Key =
   | 'cmd.petStats'
   | 'cmd.companionOff'
   | 'cmd.companionOn'
+  | 'cmd.audioOn'
+  | 'cmd.audioOff'
 
 export const MESSAGES: Record<Lang, Record<Key, string>> = {
   en: {
@@ -70,6 +72,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Lv.{level} · {xp} xp · ♥{love}',
     'cmd.companionOff': 'Companion between turns hidden',
     'cmd.companionOn': 'Companion between turns shown',
+    'cmd.audioOn': 'Audio: showing this computer\'s sound output (only levels, nothing kept or sent)',
+    'cmd.audioOff': 'Audio: nothing to show ({reason}). Needs macOS 14.2+, swiftc (Xcode Command Line Tools) and System Audio Recording allowed for your terminal',
   },
   'zh-Hans': {
     'cmd.description': '运行动画：切换主题、宠物伴侣、预览、off / on（跨会话保持）',
@@ -103,6 +107,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Lv.{level} · 经验 {xp} · ♥{love}',
     'cmd.companionOff': '空闲时的宠物已隐藏',
     'cmd.companionOn': '空闲时的宠物已显示',
+    'cmd.audioOn': '音频：正在显示本机的声音输出（只取电平，不保存、不外传）',
+    'cmd.audioOff': '音频：无法显示（{reason}）。需要 macOS 14.2 及以上、swiftc（Xcode 命令行工具），并在系统设置里允许终端“录制系统音频”',
   },
   'zh-Hant': {
     'cmd.description': '執行動畫：切換主題、寵物夥伴、預覽、off / on（跨工作階段保留）',
@@ -136,6 +142,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Lv.{level} · 經驗 {xp} · ♥{love}',
     'cmd.companionOff': '閒置時的寵物已隱藏',
     'cmd.companionOn': '閒置時的寵物已顯示',
+    'cmd.audioOn': '音訊：正在顯示本機的聲音輸出（只取音量，不儲存、不外傳）',
+    'cmd.audioOff': '音訊：無法顯示（{reason}）。需要 macOS 14.2 以上、swiftc（Xcode 命令列工具），並在系統設定允許終端機「錄製系統音訊」',
   },
   ja: {
     'cmd.description': '実行中アニメーション：テーマ、ペット、プレビュー、off / on（セッションをまたいで保持）',
@@ -169,6 +177,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Lv.{level} · 経験値 {xp} · ♥{love}',
     'cmd.companionOff': '待機中のペットを非表示にしました',
     'cmd.companionOn': '待機中のペットを表示しました',
+    'cmd.audioOn': 'オーディオ：このコンピュータの音声出力を表示中（レベルのみ、保存・送信なし）',
+    'cmd.audioOff': 'オーディオ：表示できません（{reason}）。macOS 14.2 以降、swiftc（Xcode コマンドラインツール）、ターミナルへの「システムオーディオ録音」の許可が必要です',
   },
   ko: {
     'cmd.description': '실행 애니메이션: 테마, 펫, 미리 보기, off / on(세션 간 유지)',
@@ -202,6 +212,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Lv.{level} · 경험치 {xp} · ♥{love}',
     'cmd.companionOff': '대기 중 펫을 숨겼습니다',
     'cmd.companionOn': '대기 중 펫을 표시했습니다',
+    'cmd.audioOn': '오디오: 이 컴퓨터의 소리 출력을 표시 중 (레벨만, 저장·전송 없음)',
+    'cmd.audioOff': '오디오: 표시할 수 없음 ({reason}). macOS 14.2 이상, swiftc(Xcode 명령줄 도구), 터미널의 \'시스템 오디오 녹음\' 허용이 필요합니다',
   },
   es: {
     'cmd.description': 'Animaciones del spinner: temas, mascota, vista previa, off / on (se mantiene entre sesiones)',
@@ -235,6 +247,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Nv.{level} · {xp} xp · ♥{love}',
     'cmd.companionOff': 'Mascota entre turnos oculta',
     'cmd.companionOn': 'Mascota entre turnos visible',
+    'cmd.audioOn': 'Audio: mostrando la salida de sonido del equipo (solo niveles; nada se guarda ni se envía)',
+    'cmd.audioOff': 'Audio: nada que mostrar ({reason}). Requiere macOS 14.2+, swiftc (Xcode Command Line Tools) y permitir Grabación de audio del sistema a tu terminal',
   },
   fr: {
     'cmd.description': 'Animations du spinner : thèmes, compagnon, aperçu, off / on (réglage conservé entre les sessions)',
@@ -268,6 +282,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · niv.\u00a0{level} · {xp}\u00a0xp · ♥{love}',
     'cmd.companionOff': 'Compagnon entre les tours masqué',
     'cmd.companionOn': 'Compagnon entre les tours affiché',
+    'cmd.audioOn': 'Audio : affiche la sortie son de l’ordinateur (niveaux seulement, rien n’est gardé ni envoyé)',
+    'cmd.audioOff': 'Audio : rien à afficher ({reason}). Il faut macOS 14.2+, swiftc (outils en ligne de commande Xcode) et autoriser l’enregistrement audio du système pour votre terminal',
   },
   de: {
     'cmd.description': 'Spinner-Animationen: Themen, Begleiter, Vorschau, off / on (bleibt über Sitzungen erhalten)',
@@ -301,6 +317,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Lv.{level} · {xp} EP · ♥{love}',
     'cmd.companionOff': 'Begleiter zwischen den Runden ausgeblendet',
     'cmd.companionOn': 'Begleiter zwischen den Runden eingeblendet',
+    'cmd.audioOn': 'Audio: zeigt die Tonausgabe dieses Computers (nur Pegel, nichts wird gespeichert oder gesendet)',
+    'cmd.audioOff': 'Audio: nichts anzuzeigen ({reason}). Benötigt macOS 14.2+, swiftc (Xcode Command Line Tools) und die Freigabe „Systemaudioaufnahme“ für dein Terminal',
   },
   'pt-BR': {
     'cmd.description': 'Animações do spinner: temas, mascote, prévia, off / on (configuração mantida entre sessões)',
@@ -334,6 +352,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · Nv.{level} · {xp} xp · ♥{love}',
     'cmd.companionOff': 'Mascote entre turnos oculto',
     'cmd.companionOn': 'Mascote entre turnos visível',
+    'cmd.audioOn': 'Áudio: mostrando a saída de som do computador (só níveis; nada é guardado nem enviado)',
+    'cmd.audioOff': 'Áudio: nada para mostrar ({reason}). Requer macOS 14.2+, swiftc (Xcode Command Line Tools) e permitir Gravação de áudio do sistema ao seu terminal',
   },
   ru: {
     'cmd.description': 'Анимации спиннера: темы, питомец, предпросмотр, off / on (сохраняется между сессиями)',
@@ -367,6 +387,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'cmd.petStats': '{theme} · ур.{level} · {xp} оп. · ♥{love}',
     'cmd.companionOff': 'Питомец между ходами скрыт',
     'cmd.companionOn': 'Питомец между ходами показан',
+    'cmd.audioOn': 'Аудио: показывает звук, который выводит компьютер (только уровни, ничего не сохраняется и не отправляется)',
+    'cmd.audioOff': 'Аудио: нечего показать ({reason}). Нужны macOS 14.2+, swiftc (Xcode Command Line Tools) и разрешение «Запись системного аудио» для терминала',
   },
 }
 
