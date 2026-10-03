@@ -1,32 +1,55 @@
-# todo-bar
+# todo-bar：Claude Code 任务进度条
 
-The task list's progress in a band above the prompt. It shows once Claude writes a task list and follows it as the work moves on:
+**简体中文** · [English](README.en.md)
 
-![todo-bar: the running task, its time, the bar and what comes next](assets/preview.png)
+Claude 列出任务清单后，输入框上方会出现一条进度条：现在做到哪一项、这一项做了多久、总共完成了多少，一眼就能看到。它只读 Claude 本来就会发出的工具调用，不额外消耗 token。
 
+![todo-bar：正在进行的任务、已用时间、进度条和接下来的任务](assets/preview.png)
+
+## 功能
+
+- **进度一目了然**：第一行是正在做的任务、进度条、完成数和百分比，第二行列出接下来的一两项。
+- **任务计时**：一项任务做满 1 分钟后，后面会显示已用时间（如 `3m 12s`）；超过 `slowMinutes`（默认 10 分钟）变成黄色，卡住的步骤一眼就能看出来。
+- **完成提示**：全部完成后进度条变绿，显示整份清单的总用时，8 秒后自动收起；Claude 再列新清单时会重新出现。
+- **零 token、零干扰**：只在 `TodoWrite`、`TaskCreate`、`TaskUpdate` 执行完之后读取结果，不注册工具，不往系统提示词里加内容，也不拦截任何调用。被拒绝或失败的调用不计入，子代理自己的清单也不显示。
+- **恢复会话不丢进度**：每个会话的清单都会保存，恢复会话后进度条还在。
+- 输入框弹出 `/` 或 `@` 选择器时，进度条会暂时让开。
+
+![todo-bar：全部任务完成](assets/done.png)
+
+## 安装
+
+```sh
+claude plugin marketplace add hoobnn/hoobnn-agent-mods
+claude plugin install todo-bar@hoobnn-agent-mods
 ```
-● Writing the tests        ━━━━━━━━──────────────────  2/7  29%
-  Next: Run the build · Publish
-```
 
-Once the running task has run a minute its time shows after it (`3m 12s`), dim, then yellow from `slowMinutes` (default 10; 0 never), so a step that drags stands out.
+## 命令
 
-Once every task is done the band turns green with the time the list took, `✓ All done ━━━━━━━━ 7/7 took 3m 12s`, and folds away after 8 seconds; the next list brings it back.
+- `/todos`：列出全部任务和状态（`✓` 已完成、`●` 进行中、`○` 等待中），以及每项的用时和期间的工具调用次数，例如 `✓ 编写测试  5m 20s · 工具调用 14 次`。
+- `/todos off`、`/todos on`：隐藏或显示进度条。这个设置会写回 `/config`，以后的会话也会沿用。
 
-![todo-bar: every task done](assets/done.png)
+## 选项
 
-It costs no tokens. It reads the calls Claude already makes, after they have run: `TodoWrite` (the whole list each call), and `TaskCreate` / `TaskUpdate` (one task a call). It registers no tool, adds nothing to the system prompt, and refuses or holds no call. A call that was refused or failed changes nothing; a subagent's own list is left out.
+在 `/config` 里修改，或写在 `~/.claude/settings.json` 的 `pluginConfigs` 里：
 
-`/todos` lists every task with its mark (`✓` done, `●` running, `○` waiting), how long it ran and the tool calls the main thread made while it ran (`✓ Write the tests  5m 20s · tool calls: 14`); `/todos off` and `/todos on` hide or show the band by writing the `visible` option, so `/config` shows the choice and it is kept across sessions. The band steps aside while a `/` or `@` picker is open, as the other mods' bands do. Each session's list is kept in the plugin's store, so a resumed session finds its band where it left it.
+| 选项 | 作用 | 默认 |
+| --- | --- | --- |
+| `visible` | 显示进度条（`/todos off` / `on` 改的就是它） | 开 |
+| `showNext` | 第二行显示接下来的一两项任务 | 开 |
+| `slowMinutes` | 当前任务做了多少分钟后时间变黄；0 表示不变色 | 10 |
+| `language` | 界面语言：`auto`、`en`、`zh-Hans`、`zh-Hant`、`ja`、`ko`、`es`、`fr`、`de`、`pt-BR`、`ru` | `auto` |
 
-Options: `visible` shows the band (what `/todos` sets); `showNext` draws the dim second row with the next one or two tasks; `slowMinutes` is when the running task's time turns yellow.
+`language` 为 `auto` 时，依次跟随 Claude Code 的 `language` 设置和系统语言环境，都没有时用英语。
 
-Language: `language` (`auto`, `en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`, `pt-BR`, `ru`); `auto` follows Claude Code's `language` setting, then the system locale (`LC_ALL`, `LC_MESSAGES`, `LANG`), then English.
+## 同系列 mod
 
-## Layout
+[hoobnn-agent-mods](../../README.md) 里还有状态栏 HUD（`hud`）、回合回执（`receipt`）、运行动画和宠物（`spinner`）、Tailscale 节点状态（`ts-band`）和一言（`hitokoto`），可以搭配使用。
 
-- `hooks/register.tsx`: the hooks: the session's start (language, `/todos`, a resumed board), the tool calls it reads, the command and the band.
-- `hooks/board.ts`: the list as the band draws it, built from what each call carried.
-- `hooks/config.ts`: the options, read once into a typed `Config`.
-- `hooks/i18n.ts`: the messages.
-- `hooks/kit/`: copies of `claude-code/kit` (language, option readers, band stacking, `/config` writes); edit the source and run `scripts/sync-kit.sh`.
+## 开发
+
+- `hooks/register.tsx`：钩子（会话开始时的语言、`/todos` 和已保存的清单，读取工具调用，命令和横条）。
+- `hooks/board.ts`：根据每次调用的内容生成进度条要画的清单。
+- `hooks/config.ts`：选项，一次性读成类型化的 `Config`。
+- `hooks/i18n.ts`：各语言文案。
+- `hooks/kit/`：`claude-code/kit` 的副本；改源文件后运行 `scripts/sync-kit.sh`。
