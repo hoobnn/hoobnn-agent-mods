@@ -57,7 +57,7 @@
     "stage": {
       "type": "boolean",
       "title": "Animation band",
-      "description": "A two-row animated scene above the prompt while the model works (/spinner stage off|on overrides it)",
+      "description": "An animated scene above the prompt (two to four rows, by theme) while the model works (/spinner stage off|on overrides it)",
       "default": true
     },
     "celebrate": {
