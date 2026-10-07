@@ -138,6 +138,12 @@
       "description": "Once the prompt cache has expired, show how many tokens the next message writes to it again, when the context holds at least this many; 0 turns it off",
       "default": 20000
     },
+    "turnGrowthTokens": {
+      "type": "number",
+      "title": "Context growth per turn",
+      "description": "When a turn grows the context by at least this many tokens, show by how much, beside the recent turns' growth; 0 turns it off",
+      "default": 20000
+    },
     "gitDirtyWarn": {
       "type": "number",
       "title": "Uncommitted changes warning",

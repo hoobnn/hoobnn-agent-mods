@@ -16,6 +16,7 @@ When a Claude turn ends, a one-line receipt stays above the prompt: the files it
 - **Subagents count too**: a subagent's edits and commands count toward the turn that started it.
 - **Stays out of the way**: a chat-only turn leaves no receipt, the row leaves when the next turn starts, and it steps aside while a `/` or `@` picker is open.
 - **Unverified changes flagged**: when code changed after the turn's last test, build, lint or type check, or with none run, the receipt ends with a yellow `unverified`, and `/receipt` says so. Edits to prose (Markdown, plain text) do not count. It knows `npm test`, `pytest`, `go test`, `cargo check`, `tsc`, `eslint`, `make`, `bash scripts/check.sh` and the like, behind runners such as `uv run` and `npx`.
+- **Replay the edits**: a `Replay` button ends the receipt (`ctrl+x` `Tab` to focus the band, then `r`), or type `/receipt replay`: a pane steps through each of the turn's edits with its diff: the file, lines added and removed, the line each change starts at; `n` and `p` move, `c` or `Esc` closes. The diffs come from the edits' results once they ran, so a refused or failed edit is not there; a subagent's edits are. A turn keeps its first 50 edits, each up to 120 lines.
 - **Going-in-circles alerts**: while the turn runs, a toast (once per streak) when the main thread
   - runs the same call and it fails `repeatFailures` times in a row (default 3) with nothing changed in between. An edit, or a shell command the tool did not hold read-only (`sed -i`, `npm install`), is work, not a loop, and starts the count over; `cat` or `ls` does not.
   - edits a file back to what an earlier edit took out of it, the `flipFlops`th time (default 2).
@@ -31,6 +32,7 @@ claude plugin install receipt@hoobnn-agent-mods
 ## Commands
 
 - `/receipt` lists the last receipt in full: every file with its lines (`new` for a file the turn made), every failed command, every warning.
+- `/receipt replay` opens the replay pane, one edit of the last turn at a time.
 - `/receipt off` and `/receipt on` hide or show the receipt. They write the `visible` option, so `/config` shows the choice and later sessions keep it.
 
 ## Options

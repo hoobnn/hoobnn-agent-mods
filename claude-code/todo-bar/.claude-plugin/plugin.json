@@ -30,6 +30,12 @@
       "description": "A dim second row with the next one or two tasks",
       "default": true
     },
+    "showAgents": {
+      "type": "boolean",
+      "title": "Show running subagents",
+      "description": "A row under the running task for each subagent still at work: its task, the tool it is on and how long it has run",
+      "default": true
+    },
     "slowMinutes": {
       "type": "number",
       "title": "Slow task (minutes)",

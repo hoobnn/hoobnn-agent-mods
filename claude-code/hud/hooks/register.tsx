@@ -13,7 +13,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import type { DockPet, Fired, HudLine, Remote, StepInfo, ToolStats, TurnCost } from '../types'
 import { readConfig } from './config.js'
 import { drawPane, drawRows } from './draw.js'
-import { addSample, appendExtras, chimeWav, crossThresholds, exhaustAt, extrasLine, formatDuration, lastDays, localDay, paceAt, pruneHistory, streak } from './extras.js'
+import { addSample, appendExtras, chimeWav, crossThresholds, exhaustAt, extrasLine, formatDuration, growthOf, lastDays, localDay, paceAt, pruneHistory, streak } from './extras.js'
 import type { Samples } from './extras.js'
 import { loadConfig, setConfigPatch } from './hud/config.js'
 import { setLanguage } from './hud/i18n/index.js'
@@ -268,6 +268,7 @@ export const register: Register = (on, options) => {
           week: config.hasHistory ? { values: lastDays(days, today, 7), streak: streak(days, today) } : null,
           compactLeft,
           coldCache: coldCacheOf(stdin, config.coldCacheTokens),
+          growth: growthOf(await read($, turnLog), config.turnGrowthTokens),
           git: config.gitDirtyWarn > 0 || config.gitAheadWarn > 0 ? await gitCounts(io, stdin.cwd ?? '') : null,
           gitDirtyWarn: config.gitDirtyWarn,
           gitAheadWarn: config.gitAheadWarn,

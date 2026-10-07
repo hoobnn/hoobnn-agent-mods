@@ -4,7 +4,7 @@
 import { atom, read, update } from 'claude-code'
 import type { Elements, EngineInterface, Register, RenderElement } from 'claude-code'
 
-import type { Receipt } from '../types'
+import type { Receipt, Step } from '../types'
 import { readConfig } from './config'
 import { m, setLang } from './i18n'
 import { isPickerOpen, stackAbove } from './kit/band'
@@ -22,6 +22,13 @@ const isShown = atom({ plugin: 'receipt', key: 'isShown' } as const, false)
 const isHidden = atom({ plugin: 'receipt', key: 'isHidden' } as const, false)
 // True while a picker is open above the band (see kit/band).
 const isPicking = atom({ plugin: 'receipt', key: 'isPicking' } as const, false)
+// The replay pane: the edit it shows, and whether it is open (the band steps aside meanwhile).
+const replayAt = atom({ plugin: 'receipt', key: 'replayAt' } as const, 0)
+const isReplaying = atom({ plugin: 'receipt', key: 'isReplaying' } as const, false)
+
+const PANE = 'receipt-replay'
+// Rows the pane takes besides the diff: the header, the file, the buttons and the gaps.
+const PANE_CHROME = 6
 
 const SEP = ' · '
 
@@ -77,7 +84,25 @@ async function listing($: EngineInterface, flagUnverified: boolean): Promise<str
   if (r.failed.length > 0) lines.push('', m('list.failed'), ...r.failed.map(c => `  ✗ ${c}`))
   if (r.warnings.length > 0) lines.push('', m('list.warnings'), ...r.warnings.map(w => `  ⚠ ${w}`))
   if (flagUnverified && r.isUnverified) lines.push('', `⚠ ${m('list.unverified')}`)
+  if ((r.steps ?? []).length > 0) lines.push('', m('list.replay'))
   return lines.join('\n')
+}
+
+/** Opens the replay on the turn's first edit; false when the last turn changed no file. */
+async function openReplay($: EngineInterface): Promise<boolean> {
+  const r = await read($, receipt)
+  if (!r || (r.steps ?? []).length === 0) return false
+  await update($, replayAt, () => 0)
+  // A band Button pressed holds the keys: the band steps aside first, so the pane can take them.
+  await update($, isReplaying, () => true)
+  await $.clock.sleep(150)
+  try {
+    await $.ui.open({ id: PANE, title: m('replay.title'), focus: true, closeOnEscape: true })
+  } catch (err) {
+    await update($, isReplaying, () => false)
+    throw err
+  }
+  return true
 }
 
 export const register: Register = (on, options) => {
@@ -92,7 +117,7 @@ export const register: Register = (on, options) => {
       $.env.get('LANG').catch(() => undefined),
     ])
     setLang(resolveLanguage(config.language, settings.language, locale))
-    await $.command.register({ name: 'receipt', description: m('cmd.description'), argumentHint: '[off|on]' })
+    await $.command.register({ name: 'receipt', description: m('cmd.description'), argumentHint: '[replay|off|on]' })
     await update($, isHidden, () => !config.isVisible)
     return next(e)
   })
@@ -142,6 +167,10 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'receipt' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase()
+    if (arg === 'replay') {
+      if (!(await openReplay($))) return { text: m('cmd.noEdits') }
+      return { text: m('cmd.replaying', { n: ((await read($, receipt))?.steps ?? []).length }) }
+    }
     if (arg !== 'off' && arg !== 'on') return { text: await listing($, config.flagUnverified) }
     const was = await read($, isHidden)
     const hidden = await update($, isHidden, v => switchArg(arg, v))
@@ -164,14 +193,96 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const r = await read($, receipt)
     if (e.props.hasSurvey || r === null || !(await read($, isShown)) || (await read($, isHidden)) || (await read($, isPicking))) return next(e)
+    if (await read($, isReplaying)) return next(e)
     const ui = $.ui.resolve(e)
-    return stackAbove(ui, drawReceipt(ui, r, config.flagUnverified), await next(e))
+    return stackAbove(ui, drawReceipt(ui, r, config.flagUnverified, () => void openReplay($)), await next(e))
+  })
+
+  on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
+    const steps = (await read($, receipt))?.steps ?? []
+    const total = steps.length
+    const k = Math.max(0, Math.min(await read($, replayAt), total - 1))
+    const go = (to: number) => void update($, replayAt, () => Math.max(0, Math.min(to, total - 1)))
+    const close = () => void $.ui.close({ id: PANE })
+    const rows = Math.max(4, Math.min(30, e.props.scroll.bodyRows - PANE_CHROME))
+    return drawReplay($.ui.resolve(e), steps, k, rows, e.props.bodyColumns, { go, close })
+  })
+
+  // However the pane closes (its button, Escape, the person's close mark), the band comes back.
+  on('ui.close', async ($, e, next) => {
+    if (e.id === PANE) await update($, isReplaying, () => false)
+    return next(e)
   })
 }
 
-/** One row: a mark for how the turn ended, the headline, then the counts. */
-function drawReceipt(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, r: Receipt, flagUnverified: boolean): RenderElement {
-  const { Box, Text } = ui
+const DIFF_COLOR: Record<string, string> = { '+': 'green', '-': 'red' }
+
+/** One edit: where it stands among the turn's, its file and counts, its diff, and the buttons that move. */
+function drawReplay(
+  ui: Pick<Elements['terminal'], 'Box' | 'Text' | 'Button'>,
+  steps: Step[],
+  k: number,
+  rows: number,
+  columns: number,
+  act: { go: (to: number) => void; close: () => void },
+): RenderElement {
+  const { Box, Text, Button } = ui
+  const step = steps[k]
+  if (!step) return <Text dimColor>{m('cmd.noEdits')}</Text>
+  const shown = step.lines.slice(0, rows)
+  const more = step.lines.length - shown.length + step.more
+  // A strip of the steps, the one shown inverted, while they fit on a row.
+  const strip = steps.length > 1 && steps.length * 4 <= columns ? steps : []
+  return (
+    <Box flexDirection="column">
+      <Box flexDirection="row" columnGap={2}>
+        <Text bold color="magenta">{`▶ ${m('replay.step', { k: k + 1, n: steps.length })}`}</Text>
+        {strip.length > 0 ? (
+          <Text>
+            {strip.map((_, i) => (
+              <Text key={String(i)} inverse={i === k} dimColor={i !== k}>{` ${i + 1} `}</Text>
+            ))}
+          </Text>
+        ) : null}
+      </Box>
+      <Box flexDirection="row" columnGap={1}>
+        <Box flexShrink={1}>
+          <Text bold color="cyan" wrap="truncate-start">{step.path}</Text>
+        </Box>
+        <Box flexShrink={0}>
+          <Text>
+            <Text dimColor>{`${step.tool}${step.isNew ? ` · ${m('list.new')}` : ''} `}</Text>
+            <Text color="green">{`+${step.added}`}</Text>
+            <Text> </Text>
+            <Text color="red">{`−${step.removed}`}</Text>
+          </Text>
+        </Box>
+      </Box>
+      <Box flexDirection="column" marginTop={1}>
+        {shown.length === 0 ? <Text dimColor>{m('replay.empty')}</Text> : null}
+        {shown.map((line, i) =>
+          line.startsWith('@') ? (
+            <Text key={String(i)} dimColor>{`⋯ ${m('replay.line', { n: line.slice(1) })}`}</Text>
+          ) : (
+            <Text key={String(i)} color={DIFF_COLOR[line[0] ?? '']} dimColor={!DIFF_COLOR[line[0] ?? '']} wrap="truncate-end">
+              {`${line[0] ?? ' '} ${line.slice(1)}`}
+            </Text>
+          ),
+        )}
+        {more > 0 ? <Text dimColor>{m('replay.more', { n: more })}</Text> : null}
+      </Box>
+      <Box flexDirection="row" columnGap={2} marginTop={1}>
+        <Button key="prev" label={`◀ ${m('replay.prev')}`} hotkey="p" dimColor={k === 0} onPress={() => act.go(k - 1)} />
+        <Button key="next" label={`${m('replay.next')} ▶`} hotkey="n" autoFocus variant="primary" onPress={() => act.go(k + 1)} />
+        <Button key="close" label={m('replay.close')} hotkey="c" role="dismiss" onPress={act.close} />
+      </Box>
+    </Box>
+  )
+}
+
+/** One row: a mark for how the turn ended, the headline, the counts, then a button to replay the edits. */
+function drawReceipt(ui: Pick<Elements['terminal'], 'Box' | 'Text' | 'Button'>, r: Receipt, flagUnverified: boolean, replay: () => void): RenderElement {
+  const { Box, Text, Button } = ui
   const mark = r.reason === 'answer' ? { glyph: '✓', color: 'green' } : r.reason === 'aborted' ? { glyph: '◼', color: 'yellow' } : { glyph: '✗', color: 'red' }
   return (
     <Box flexDirection="row" columnGap={1}>
@@ -189,6 +300,11 @@ function drawReceipt(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, r: Receipt,
           ))}
         </Text>
       </Box>
+      {(r.steps ?? []).length > 0 ? (
+        <Box flexShrink={0}>
+          <Button key="replay" label={m('band.replay')} hotkey="r" dimColor onPress={replay} />
+        </Box>
+      ) : null}
     </Box>
   )
 }

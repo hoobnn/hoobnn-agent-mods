@@ -4,7 +4,7 @@ import type { Lang } from './kit/lang'
 
 export { parseLanguage, resolveLanguage } from './kit/lang'
 
-export type Key = 'cmd.description' | 'cmd.hidden' | 'cmd.shown' | 'cmd.none' | 'cmd.header' | 'band.next' | 'band.done' | 'band.took' | 'cmd.calls'
+export type Key = 'cmd.description' | 'cmd.hidden' | 'cmd.shown' | 'cmd.none' | 'cmd.header' | 'band.next' | 'band.done' | 'band.took' | 'cmd.calls' | 'cmd.agents' | 'band.moreAgents'
 
 export const MESSAGES: Record<Lang, Record<Key, string>> = {
   en: {
@@ -17,6 +17,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.done': 'All done',
     'band.took': 'took {d}',
     'cmd.calls': 'tool calls: {n}',
+    'cmd.agents': 'subagents: {n}',
+    'band.moreAgents': '+{n} more subagents',
   },
   'zh-Hans': {
     'cmd.description': '列出任务与进度；off / on 隐藏或显示进度条（跨会话保持）',
@@ -28,6 +30,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.done': '全部完成',
     'band.took': '用时 {d}',
     'cmd.calls': '工具调用 {n} 次',
+    'cmd.agents': '子代理 {n} 个',
+    'band.moreAgents': '还有 {n} 个子代理',
   },
   'zh-Hant': {
     'cmd.description': '列出任務與進度；off / on 隱藏或顯示進度條（跨工作階段保留）',
@@ -39,6 +43,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.done': '全部完成',
     'band.took': '用時 {d}',
     'cmd.calls': '工具呼叫 {n} 次',
+    'cmd.agents': '子代理 {n} 個',
+    'band.moreAgents': '還有 {n} 個子代理',
   },
   ja: {
     'cmd.description': 'タスクと進捗を一覧表示。off / on でバーを非表示・表示（セッションをまたいで保持）',
@@ -50,6 +56,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.done': 'すべて完了',
     'band.took': '所要 {d}',
     'cmd.calls': 'ツール呼び出し {n} 回',
+    'cmd.agents': 'サブエージェント {n} 個',
+    'band.moreAgents': 'ほかサブエージェント {n} 個',
   },
   ko: {
     'cmd.description': '작업과 진행 상황 보기. off / on으로 막대 숨기기·표시(세션 간 유지)',
@@ -61,6 +69,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.done': '모두 완료',
     'band.took': '소요 {d}',
     'cmd.calls': '도구 호출 {n}회',
+    'cmd.agents': '하위 에이전트 {n}개',
+    'band.moreAgents': '하위 에이전트 {n}개 더',
   },
   es: {
     'cmd.description': 'Lista las tareas y su avance; off / on oculta o muestra la barra (se mantiene entre sesiones)',
@@ -72,6 +82,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.done': 'Todo listo',
     'band.took': 'en {d}',
     'cmd.calls': 'llamadas a herramientas: {n}',
+    'cmd.agents': 'subagentes: {n}',
+    'band.moreAgents': '+{n} subagentes más',
   },
   fr: {
     'cmd.description': 'Liste les tâches et leur avancement ; off / on masque ou affiche la barre (conservé entre les sessions)',
@@ -83,6 +95,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.done': 'Tout est fait',
     'band.took': 'en {d}',
     'cmd.calls': "appels d'outils : {n}",
+    'cmd.agents': 'sous-agents : {n}',
+    'band.moreAgents': '+{n} autres sous-agents',
   },
   de: {
     'cmd.description': 'Aufgaben und Fortschritt auflisten; off / on blendet die Leiste aus oder ein (bleibt über Sitzungen erhalten)',
@@ -94,6 +108,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.done': 'Alles erledigt',
     'band.took': 'in {d}',
     'cmd.calls': 'Werkzeugaufrufe: {n}',
+    'cmd.agents': 'Subagenten: {n}',
+    'band.moreAgents': '+{n} weitere Subagenten',
   },
   'pt-BR': {
     'cmd.description': 'Lista as tarefas e o progresso; off / on oculta ou mostra a barra (mantido entre sessões)',
@@ -105,6 +121,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.done': 'Tudo pronto',
     'band.took': 'em {d}',
     'cmd.calls': 'chamadas de ferramentas: {n}',
+    'cmd.agents': 'subagentes: {n}',
+    'band.moreAgents': '+{n} subagentes',
   },
   ru: {
     'cmd.description': 'Список задач и прогресс; off / on скрывает или показывает панель (сохраняется между сессиями)',
@@ -116,6 +134,8 @@ export const MESSAGES: Record<Lang, Record<Key, string>> = {
     'band.done': 'Всё готово',
     'band.took': 'за {d}',
     'cmd.calls': 'вызовов инструментов: {n}',
+    'cmd.agents': 'субагентов: {n}',
+    'band.moreAgents': 'ещё субагентов: {n}',
   },
 }
 

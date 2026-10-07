@@ -21,6 +21,8 @@ const SURFACES = ['terminal', 'desktop'] as const
 let rows: [string, unknown][] = []
 // Calls the host refuses, by tool name.
 let refused = new Set<string>()
+// The agents the engine lists as running.
+let listed: { id: string; status: string }[] = []
 // The next id TaskCreate hands out.
 let taskId = 0
 
@@ -28,6 +30,7 @@ function host(on: On, stored: Record<string, unknown> = {}) {
   rows = []
   refused = new Set()
   taskId = 0
+  listed = []
   const clock = mock.clock(on, { now: 1_000_000 })
   const store = mock.store(on, stored)
   mock.env(on, { LANG: 'zh_CN.UTF-8' })
@@ -47,6 +50,9 @@ function host(on: On, stored: Record<string, unknown> = {}) {
     if (e.tool === 'TaskUpdate') return { result: { success: true, taskId: input.taskId, updatedFields: ['status'] }, text: 'ok' }
     return { result: 'ok', text: 'ok' }
   })
+  on('agent.spawn', ($, e) => ({ model: 'haiku', agentId: `ag-${e.description}` }))
+  on('agent.list', () => ({ value: listed as never }))
+  on('turn.complete', ($, e) => ({ text: e.answer }))
   on('ui.render', ($, e) => {
     const { Box } = $.ui.resolve(e)
     return <Box key="core" />
@@ -204,4 +210,40 @@ test('the running task shows its time, yellow once slow; /todos counts its tool 
   expect(await band($)).toContain('yellow')
   await $.tool.call({ tool: 'TodoWrite', todos: [todo('A', 'completed'), todo('B', 'in_progress')] } as never)
   expect((await $.command.run({ ...RUN, command: 'todos', args: '' })).text).toBe('任务 1/2\n✓ A  5m 20s · 工具调用 2 次\n● B  0s')
+})
+
+test('subagents at work show under the running task, each with its tool and time', async ($, on) => {
+  const { clock } = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.tool.call({ tool: 'TodoWrite', todos: [todo('A', 'in_progress'), todo('B', 'pending')] } as never)
+  for (const d of ['查鉴权', '查路由', '查测试', '查文档']) await $.agent.spawn({ prompt: 'go', description: d, subagentType: 'Explore' } as never)
+  await $.tool.call({ tool: 'Grep', pattern: 'x', agentId: 'ag-查鉴权' } as never)
+  await clock.advance(90_000)
+  let shown = await band($)
+  expect(shown).toContain('"text":"Explore"')
+  expect(shown).toContain('"text":"查鉴权"')
+  expect(shown).toContain('"text":"Grep"')
+  expect(shown).toContain('"text":"1m 30s"')
+  // Two rows, then the rest counted on one.
+  expect(shown).toContain('还有 2 个子代理')
+  expect(shown).not.toContain('查测试')
+  // An agent's own turn ends its row; the main turn's end drops those the engine no longer runs.
+  await $.turn.complete({ answer: 'ok', durationMs: 1, isAborted: false, turnId: 'x', reason: 'answer', agentId: 'ag-查鉴权' } as never)
+  expect(await band($)).not.toContain('查鉴权')
+  listed = [{ id: 'ag-查路由', status: 'running' }, { id: 'ag-查测试', status: 'completed' }]
+  await $.turn.complete({ answer: 'ok', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' } as never)
+  shown = await band($)
+  expect(shown).toContain('查路由')
+  expect(shown).not.toContain('查文档')
+  expect((await $.command.run({ ...RUN, command: 'todos', args: '' })).text).toContain('● A  1m 30s · 子代理 4 个')
+})
+
+test('showAgents off keeps the band to the tasks', { options: { showAgents: false } }, async ($, on) => {
+  const { clock } = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.tool.call({ tool: 'TodoWrite', todos: [todo('A', 'in_progress')] } as never)
+  await $.agent.spawn({ prompt: 'go', description: '查鉴权', subagentType: 'Explore' } as never)
+  expect(await band($)).not.toContain('查鉴权')
 })

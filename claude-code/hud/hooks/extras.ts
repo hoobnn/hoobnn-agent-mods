@@ -1,7 +1,7 @@
 // What the mod adds to claude-hud's lines: alerts, a usage forecast, today's
 // spend against a budget, the spend history, a git nag and the task summary.
 // Pure helpers; register.tsx feeds them from `$` and draws the row.
-import type { HudLine } from '../types'
+import type { HudLine, TurnCost } from '../types'
 import { textWidth } from './hud/render/ansi.js'
 import { formatTokens } from './hud/utils/format.js'
 import { m, money } from './i18n.js'
@@ -127,6 +127,13 @@ export function sparkline(values: number[]): string {
     .join('')
 }
 
+/** The last turn's context growth and the recent turns', once the last grew it by at least `min` tokens. */
+export function growthOf(log: readonly TurnCost[], min: number): { last: number; recent: number[] } | null {
+  const last = log[log.length - 1]?.tokens ?? null
+  if (min <= 0 || last === null || last < min) return null
+  return { last, recent: log.map(t => Math.max(0, t.tokens ?? 0)) }
+}
+
 /** Spend per day, `YYYY-MM-DD` → USD. */
 export type History = Record<string, number>
 
@@ -200,6 +207,8 @@ export type ExtrasInput = {
   compactLeft?: number | null
   /** The context tokens the next message writes to the cache again, once it has expired; null hides it. */
   coldCache?: number | null
+  /** How far the last turn grew the context, and the recent turns' growth, oldest first; null hides it. */
+  growth?: { last: number; recent: number[] } | null
   gitDirtyWarn: number
   gitAheadWarn: number
   /** The row's width; parts that do not fit leave it, least important first. */
@@ -239,6 +248,16 @@ export function extrasLine(x: ExtrasInput): HudLine {
   }
   if (typeof x.coldCache === 'number') {
     parts.push({ spans: [{ text: m('cache.cold', { tokens: formatTokens(x.coldCache) }), color: style.warningColor ?? 'yellow' }], rank: 2 })
+  }
+  if (x.growth) {
+    const color = style.forecastColor ?? 'magenta'
+    parts.push({
+      spans: [
+        { text: `${m('turn.growth', { tokens: formatTokens(x.growth.last) })} `, color },
+        { text: sparkline(x.growth.recent), color },
+      ],
+      rank: 1,
+    })
   }
   if (x.budgetUsd > 0 && x.todayUsd !== null) parts.push({ spans: budgetSpans(x.todayUsd, x.budgetUsd), rank: 1 })
   if (x.week && x.week.values.some(v => v > 0)) {

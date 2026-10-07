@@ -25,6 +25,7 @@ function stamp(prev: Board | null, source: Board['source'], items: Item[], now: 
     if (startedAt !== undefined) stamped.startedAt = startedAt
     if (doneAt !== undefined) stamped.doneAt = doneAt
     if (was?.calls) stamped.calls = was.calls
+    if (was?.agents) stamped.agents = was.agents
     return stamped
   })
 }
@@ -86,6 +87,13 @@ export function countCall(board: Board): Board {
   const running = board.items.find(i => i.status === 'in_progress')
   if (!running) return board
   return { ...board, items: board.items.map(i => (i === running ? { ...i, calls: (i.calls ?? 0) + 1 } : i)) }
+}
+
+/** The board with one more subagent counted on the running item; the same board when none runs. */
+export function countAgent(board: Board): Board {
+  const running = board.items.find(i => i.status === 'in_progress')
+  if (!running) return board
+  return { ...board, items: board.items.map(i => (i === running ? { ...i, agents: (i.agents ?? 0) + 1 } : i)) }
 }
 
 /** How long an item ran: until it was done, else until now; null when it was never seen running. */

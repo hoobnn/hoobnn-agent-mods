@@ -2,6 +2,14 @@
 export type FileChange = { path: string; added: number; removed: number; isNew: boolean }
 
 /**
+ * One edit as `/receipt replay` steps through it: the file, the tool, what it
+ * added and removed, and its diff as the edit's result carried it: lines that
+ * start `+`, `-` or a space, and `@<n>` where a hunk starts at line n.
+ * `more` counts the diff's lines past what was kept.
+ */
+export type Step = { path: string; tool: string; isNew: boolean; added: number; removed: number; lines: string[]; more: number }
+
+/**
  * What one main-thread turn did, from its tool calls (its subagents' included):
  * the files it changed, the commands it ran and those that failed, the reads,
  * the subagents it started, the loops it was warned about, and whether code
@@ -24,6 +32,8 @@ export type Receipt = {
   checks: number
   /** A code file (not prose) changed after the last check, or with none run. */
   isUnverified: boolean
+  /** Each edit in order, for `/receipt replay`; absent in a receipt kept from before 0.2. */
+  steps?: Step[]
 }
 
 /** The main thread's recent calls, as the loop rules read them. */
@@ -39,6 +49,6 @@ export type Watch = {
 
 declare module 'claude-code' {
   interface PluginState {
-    receipt: { receipt: Receipt | null; watch: Watch; isHidden: boolean; isPicking: boolean; isShown: boolean }
+    receipt: { receipt: Receipt | null; watch: Watch; isHidden: boolean; isPicking: boolean; isShown: boolean; replayAt: number; isReplaying: boolean }
   }
 }

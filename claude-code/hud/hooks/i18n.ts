@@ -21,6 +21,7 @@ type Key =
   | 'git.ahead'
   | 'compact.left'
   | 'cache.cold'
+  | 'turn.growth'
   | 'alert.context'
   | 'alert.fiveHour'
   | 'alert.sevenDay'
@@ -71,6 +72,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'git.ahead': { one: '{n} unpushed commit', other: '{n} unpushed commits' },
     'compact.left': '{tokens} to auto-compact',
     'cache.cold': 'cache cold: next message re-caches {tokens}',
+    'turn.growth': 'last turn +{tokens}',
     'alert.context': 'Context is {p}% full — consider /compact',
     'alert.fiveHour': '5-hour limit at {p}%',
     'alert.sevenDay': '7-day limit at {p}%',
@@ -116,6 +118,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'git.ahead': '{n} 个提交未推送',
     'compact.left': '距自动压缩 {tokens}',
     'cache.cold': '缓存已过期，下条消息重写 {tokens}',
+    'turn.growth': '上一轮 +{tokens}',
     'alert.context': '上下文已用 {p}%，可以考虑 /compact',
     'alert.fiveHour': '5 小时额度已用 {p}%',
     'alert.sevenDay': '7 天额度已用 {p}%',
@@ -161,6 +164,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'git.ahead': '{n} 個提交尚未推送',
     'compact.left': '距自動壓縮 {tokens}',
     'cache.cold': '快取已過期，下則訊息重寫 {tokens}',
+    'turn.growth': '上一輪 +{tokens}',
     'alert.context': '上下文已使用 {p}%，可以考慮執行 /compact',
     'alert.fiveHour': '5 小時額度已使用 {p}%',
     'alert.sevenDay': '7 天額度已使用 {p}%',
@@ -206,6 +210,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'git.ahead': '未プッシュのコミット {n} 件',
     'compact.left': '自動圧縮まで {tokens}',
     'cache.cold': 'キャッシュ切れ：次の送信で {tokens} を再キャッシュ',
+    'turn.growth': '直前のターン +{tokens}',
     'alert.context': 'コンテキストの使用率が {p}% に達しました。/compact の実行を検討してください',
     'alert.fiveHour': '5時間枠の使用率が {p}% に達しました',
     'alert.sevenDay': '7日間枠の使用率が {p}% に達しました',
@@ -251,6 +256,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'git.ahead': '푸시하지 않은 커밋 {n}개',
     'compact.left': '자동 압축까지 {tokens}',
     'cache.cold': '캐시 만료: 다음 메시지가 {tokens} 재캐시',
+    'turn.growth': '직전 턴 +{tokens}',
     'alert.context': '컨텍스트 사용량이 {p}%에 도달했습니다. /compact 실행을 고려해 보세요',
     'alert.fiveHour': '5시간 한도의 {p}%를 사용했습니다',
     'alert.sevenDay': '7일 한도의 {p}%를 사용했습니다',
@@ -296,6 +302,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'git.ahead': { one: '{n} commit sin enviar', other: '{n} commits sin enviar' },
     'compact.left': '{tokens} hasta la compactación',
     'cache.cold': 'caché fría: el próximo mensaje recachea {tokens}',
+    'turn.growth': 'último turno +{tokens}',
     'alert.context': `Contexto al {p}${NB}%: conviene ejecutar /compact`,
     'alert.fiveHour': `Límite de 5 horas al {p}${NB}%`,
     'alert.sevenDay': `Límite de 7 días al {p}${NB}%`,
@@ -341,6 +348,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'git.ahead': { one: '{n} commit non poussé', other: '{n} commits non poussés' },
     'compact.left': '{tokens} avant la compaction',
     'cache.cold': 'cache froid : le prochain message recache {tokens}',
+    'turn.growth': 'dernier tour +{tokens}',
     'alert.context': `Contexte rempli à {p}${NB}%${NB}: pensez à /compact`,
     'alert.fiveHour': `Limite de 5 heures utilisée à {p}${NB}%`,
     'alert.sevenDay': `Limite de 7 jours utilisée à {p}${NB}%`,
@@ -386,6 +394,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'git.ahead': { one: '{n} nicht gepushter Commit', other: '{n} nicht gepushte Commits' },
     'compact.left': '{tokens} bis zur Komprimierung',
     'cache.cold': 'Cache kalt: nächste Nachricht cacht {tokens} neu',
+    'turn.growth': 'letzte Runde +{tokens}',
     'alert.context': `Kontext zu {p}${NB}% belegt – /compact empfohlen`,
     'alert.fiveHour': `5-Stunden-Limit zu {p}${NB}% ausgeschöpft`,
     'alert.sevenDay': `7-Tage-Limit zu {p}${NB}% ausgeschöpft`,
@@ -431,6 +440,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     'git.ahead': { one: '{n} commit sem push', other: '{n} commits sem push' },
     'compact.left': '{tokens} até a compactação',
     'cache.cold': 'cache frio: a próxima mensagem recacheia {tokens}',
+    'turn.growth': 'último turno +{tokens}',
     'alert.context': 'Contexto em {p}%: considere usar /compact',
     'alert.fiveHour': 'Limite de 5 horas em {p}%',
     'alert.sevenDay': 'Limite de 7 dias em {p}%',
@@ -486,6 +496,7 @@ export const MESSAGES: Record<CanonicalLanguage, Record<Key, Text>> = {
     },
     'compact.left': '{tokens} до автосжатия',
     'cache.cold': 'кэш остыл: следующее сообщение перекэширует {tokens}',
+    'turn.growth': 'прошлый ход +{tokens}',
     'alert.context': `Контекст заполнен на {p}${NB}% — стоит выполнить /compact`,
     'alert.fiveHour': `Лимит на 5 часов израсходован на {p}${NB}%`,
     'alert.sevenDay': `Лимит на 7 дней израсходован на {p}${NB}%`,

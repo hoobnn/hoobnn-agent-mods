@@ -1,6 +1,6 @@
 // What a turn did, from the calls it made once they have run, and the loop
 // rules over the main thread's calls. Pure: register.tsx hands in each call.
-import type { FileChange, Receipt, Watch } from '../types'
+import type { FileChange, Receipt, Step, Watch } from '../types'
 
 /** One call as it ran: the tool, its arguments, what it answered; `isReadOnly` when the tool held it read-only. */
 export type Call = { tool: string; input: Record<string, unknown>; result: unknown; isError: boolean; isReadOnly?: boolean }
@@ -39,6 +39,9 @@ const PROSE = /\.(?:md|mdx|markdown|txt|rst|adoc)$/i
 const KEEP_EDITS = 20
 // Cells a call's label keeps, in a toast and in /receipt.
 const LABEL_CELLS = 80
+// What /receipt replay keeps of a turn: its first edits, each diff's first lines.
+export const KEEP_STEPS = 50
+const KEEP_LINES = 120
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim()
@@ -59,6 +62,7 @@ export function newReceipt(turnId: string, now: number): Receipt {
     warnings: [],
     checks: 0,
     isUnverified: false,
+    steps: [],
   }
 }
 
@@ -102,6 +106,24 @@ export function changeOf(call: Call, cwd: string): FileChange | null {
   return { path: relative(path, cwd), added, removed, isNew }
 }
 
+/**
+ * The edit's diff for `/receipt replay`, from the hunks its result carried
+ * (`structuredPatch`), else a new file's content.
+ */
+export function stepOf(call: Call, change: FileChange): Step {
+  const result = (call.result ?? {}) as Record<string, unknown>
+  const lines: string[] = []
+  for (const hunk of Array.isArray(result.structuredPatch) ? (result.structuredPatch as Record<string, unknown>[]) : []) {
+    const at = typeof hunk.newStart === 'number' ? hunk.newStart : typeof hunk.oldStart === 'number' ? hunk.oldStart : 0
+    lines.push(`@${at}`)
+    for (const line of Array.isArray(hunk.lines) ? hunk.lines : []) if (typeof line === 'string') lines.push(line)
+  }
+  if (lines.length === 0 && change.isNew && str(result.content)) {
+    lines.push('@1', ...str(result.content).replace(/\n$/, '').split('\n').map(l => `+${l}`))
+  }
+  return { ...change, tool: call.tool, lines: lines.slice(0, KEEP_LINES), more: Math.max(0, lines.length - KEEP_LINES) }
+}
+
 /** Whether a shell command checks the code: a test, build, lint or type check. */
 export function isCheck(command: string): boolean {
   return CHECK.test(command)
@@ -118,6 +140,8 @@ export function addCall(receipt: Receipt, call: Call, cwd: string, isMain: boole
       ? receipt.files.map(f => (f === had ? { ...f, added: f.added + change.added, removed: f.removed + change.removed } : f))
       : [...receipt.files, change]
     if (!PROSE.test(change.path)) next.isUnverified = true
+    const steps = receipt.steps ?? []
+    if (steps.length < KEEP_STEPS) next.steps = [...steps, stepOf(call, change)]
   } else if (SHELLS.has(call.tool)) {
     next.commands++
     if (call.isError) next.failed = [...receipt.failed, labelOf(call, cwd)]

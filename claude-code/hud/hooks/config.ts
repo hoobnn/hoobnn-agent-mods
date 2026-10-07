@@ -31,6 +31,8 @@ export type Config = {
   compactWarnPercent: number
   /** Once the prompt cache has expired, show what the next message re-caches from this many context tokens; 0 is off. */
   coldCacheTokens: number
+  /** Show the last turn's context growth once it reaches this many tokens; 0 off. */
+  turnGrowthTokens: number
   gitDirtyWarn: number
   gitAheadWarn: number
   hasAgents: boolean
@@ -55,6 +57,7 @@ export function readConfig(options: PluginOptions): Config {
     summaryEvery: count(options.summaryEveryTurns, 5, { min: 0, isInteger: true }),
     compactWarnPercent: count(options.compactWarnPercent, 60, { min: 0 }),
     coldCacheTokens: count(options.coldCacheTokens, 20_000, { min: 0, isInteger: true }),
+    turnGrowthTokens: count(options.turnGrowthTokens, 20_000, { min: 0, isInteger: true }),
     gitDirtyWarn: count(options.gitDirtyWarn, 20, { min: 0 }),
     gitAheadWarn: count(options.gitAheadWarn, 5, { min: 0 }),
     hasAgents: flag(options.showAgents, false),

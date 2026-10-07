@@ -20,11 +20,14 @@ let rows: [string, unknown][] = []
 let toasts: string[] = []
 // Commands the host fails, by command line.
 let failing = new Set<string>()
+// Panes opened, by id.
+let panes: string[] = []
 
 function host(on: On) {
   rows = []
   toasts = []
   failing = new Set()
+  panes = []
   const clock = mock.clock(on, { now: 1_000_000 })
   mock.store(on, {})
   mock.env(on, { LANG: 'zh_CN.UTF-8' })
@@ -36,6 +39,10 @@ function host(on: On) {
   on('ui.toast', ($, e) => {
     toasts.push(e.text)
     return { value: undefined }
+  })
+  on('ui.open', ($, e) => {
+    panes.push(e.id)
+    return { value: { isPlaced: true } }
   })
   on('session.cwd', () => ({ value: CWD }))
   on('session.start', ($, e) => ({ cwd: e.cwd }))
@@ -176,6 +183,47 @@ test('flagUnverified off leaves the receipt unmarked', { options: { flagUnverifi
   await $.tool.call(edit('src/a.ts', 'a', 'b'))
   await $.turn.complete(DONE)
   expect(await band($)).toBe('✓上一轮 2m 13s · 改动 1 个文件 +2 −1')
+})
+
+test('/receipt replay steps through the turn\'s edits, one diff at a time', async ($, on) => {
+  const { clock } = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  expect((await $.command.run({ ...RUN, command: 'receipt', args: 'replay' })).text).toBe('上一轮没有改动文件')
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  await $.tool.call(edit('src/a.ts', 'a', 'b'))
+  await $.tool.call({ tool: 'Write', file_path: `${CWD}/src/new.ts`, content: 'x\ny\nz' } as never)
+  await $.turn.complete(DONE)
+  const ui = await $.ui.mount({ plugin: 'receipt', surface: 'terminal', ...BAND })
+  expect(await ui.find({ type: 'Button', key: 'replay' })).toBeDefined()
+  await ui.unmount()
+  expect(await $.command.run({ ...RUN, command: 'receipt', args: '' }).then(r => r.text)).toContain('/receipt replay')
+  const opened = $.command.run({ ...RUN, command: 'receipt', args: 'replay' })
+  await clock.settle()
+  await clock.advance(200)
+  expect((await opened).text).toBe('回放 2 处改动')
+  expect(panes).toEqual(['receipt-replay'])
+  // The band steps aside while the pane is open.
+  expect(await band($)).toBe('')
+  const pane = await $.ui.mount({
+    plugin: 'receipt',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'receipt-replay',
+    props: { title: '改动回放', isFocused: true, bodyColumns: 80, placement: 'inline', scroll: { offset: 0, bodyRows: 20 }, view: {} },
+  } as never)
+  const texts = async () => ((await pane.findAll({ type: 'Text' })) as { text?: string }[]).map(t => t.text ?? '')
+  let shown = await texts()
+  expect(shown).toContain('▶ 第 1/2 处')
+  expect(shown).toContain('src/a.ts')
+  expect(shown).toContain('- a')
+  expect(shown).toContain('+ c')
+  await pane.press({ key: 'next' })
+  shown = await texts()
+  expect(shown).toContain('▶ 第 2/2 处')
+  expect(shown).toContain('⋯ 第 1 行')
+  expect(shown).toContain('+ z')
+  await pane.unmount()
 })
 
 test('/receipt off and on write the visible row', { options: { repeatFailures: 0 } }, async ($, on) => {

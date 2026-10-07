@@ -11,6 +11,7 @@ import {
   dimSeparators,
   exhaustAt,
   extrasLine,
+  growthOf,
   lastDays,
   paceAt,
   parseGitStatus,
@@ -289,6 +290,12 @@ test('extras fit the width: low parts drop, the row joins the last line when it 
   expect(text(extrasLine({ ...x, columns: 12 }))).toBe('✎ Fix login')
   expect(text(extrasLine({ ...x, summary: null, budgetUsd: 0, week: null, compactLeft: 42_000 }))).toMatch(/42k/)
   expect(text(extrasLine({ ...x, summary: null, budgetUsd: 0, week: null, coldCache: 120_000 }))).toMatch(/120k/)
+  // A turn that grew the context past the threshold shows by how much, beside the recent turns.
+  const log = [5_000, -40_000, 98_300].map((tokens, i) => ({ n: i + 1, durationMs: 1, usd: null, tokens }))
+  expect(growthOf(log, 20_000)).toEqual({ last: 98_300, recent: [5_000, 0, 98_300] })
+  expect(growthOf(log, 0)).toBeNull()
+  expect(growthOf(log.slice(0, 2), 20_000)).toBeNull()
+  expect(text(extrasLine({ ...x, summary: null, budgetUsd: 0, week: null, growth: growthOf(log, 20_000) }))).toMatch(/\+98k ▂▁█$/)
   const rows = [[{ text: 'a' }], [{ text: '◐ Read' }]]
   const extra = [{ text: '✎ x' }]
   expect(appendExtras(rows, extra, 80)).toEqual([[{ text: 'a' }], [{ text: '◐ Read' }, { text: ' │ ', dimColor: true }, { text: '✎ x' }]])

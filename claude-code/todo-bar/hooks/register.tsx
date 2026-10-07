@@ -4,8 +4,8 @@
 import { atom, read, update } from 'claude-code'
 import type { Elements, EngineInterface, Register, RenderElement } from 'claude-code'
 
-import type { Board } from '../types'
-import { addTask, bar, countCall, elapsed, formatDuration, fromTodos, progress, updateTask } from './board'
+import type { Agent, Board } from '../types'
+import { addTask, bar, countAgent, countCall, elapsed, formatDuration, fromTodos, progress, updateTask } from './board'
 import { readConfig } from './config'
 import type { Config } from './config'
 import { m, setLang } from './i18n'
@@ -19,6 +19,8 @@ const board = atom({ plugin: 'todo-bar', key: 'board' } as const, null as Board 
 const isHidden = atom({ plugin: 'todo-bar', key: 'isHidden' } as const, false)
 // True while a picker is open above the band (see kit/band).
 const isPicking = atom({ plugin: 'todo-bar', key: 'isPicking' } as const, false)
+// The main thread's subagents still at work, oldest first.
+const agents = atom({ plugin: 'todo-bar', key: 'agents' } as const, [] as Agent[])
 // The clock as the band last read it: moved on while a task runs, so its time keeps up.
 const tick = atom({ plugin: 'todo-bar', key: 'tick' } as const, 0)
 
@@ -31,6 +33,10 @@ const TOOLS = new Set(['TodoWrite', 'TaskCreate', 'TaskUpdate'])
 const MARK = { pending: '○', in_progress: '●', completed: '✓' } as const
 /** How often the running task's time is redrawn. */
 const TICK_MS = 30_000
+/** Where an agent's loop no longer runs. */
+const DONE = new Set(['completed', 'failed', 'killed'])
+/** Subagent rows under the running task; the rest are counted on one more. */
+const AGENT_ROWS = 3
 
 /** The kit's hold on this mod's store and `/config` rows. */
 function prefsOf($: EngineInterface): Prefs {
@@ -69,7 +75,11 @@ async function listing($: EngineInterface): Promise<string> {
   const at = await $.clock.now()
   const line = (i: Board['items'][number]) => {
     const ran = elapsed(i, at)
-    const facts = [ran === null ? '' : formatDuration(ran), i.calls ? m('cmd.calls', { n: i.calls }) : ''].filter(Boolean)
+    const facts = [
+      ran === null ? '' : formatDuration(ran),
+      i.calls ? m('cmd.calls', { n: i.calls }) : '',
+      i.agents ? m('cmd.agents', { n: i.agents }) : '',
+    ].filter(Boolean)
     return `${MARK[i.status]} ${i.title}${facts.length > 0 ? `  ${facts.join(' · ')}` : ''}`
   }
   return [m('cmd.header', { done, total }), ...now.items.map(line)].join('\n')
@@ -96,7 +106,8 @@ export const register: Register = (on, options) => {
     await update($, tick, () => 0)
     $.clock.every(TICK_MS, async () => {
       const now = await read($, board)
-      if (now && now.doneAt === null && now.items.some(i => i.status === 'in_progress')) {
+      const isBusy = now && now.doneAt === null && now.items.some(i => i.status === 'in_progress')
+      if (isBusy || (await read($, agents)).length > 0) {
         const at = await $.clock.now()
         await update($, tick, () => at)
       }
@@ -104,10 +115,50 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // A subagent the main thread starts: a row under the running task, which counts it.
+  on('agent.spawn', async ($, e, next) => {
+    const started = await next(e)
+    if (!started.agentId || e.parentAgentId !== undefined || (e as { workflow?: unknown }).workflow !== undefined) return started
+    const id = started.agentId
+    const now = await $.clock.now()
+    const agent = { id, title: oneLine(e.description) || e.subagentType, type: e.subagentType, startedAt: now, tool: null, calls: 0 }
+    await update($, agents, list => [...list.filter(a => a.id !== id), agent])
+    const was = await read($, board)
+    if (was && was.doneAt === null) {
+      const counted = countAgent(was)
+      if (counted !== was) await setBoard($, counted)
+    }
+    return started
+  })
+
+  // A subagent's row ends with its turn. At the main turn's end, a row whose agent
+  // the engine no longer runs (killed, interrupted, ended across a reload) goes too.
+  on('turn.complete', async ($, e, next) => {
+    if (e.agentId !== undefined) {
+      const id = e.agentId
+      if ((await read($, agents)).some(a => a.id === id)) await update($, agents, list => list.filter(a => a.id !== id))
+    } else if ((await read($, agents)).length > 0) {
+      const listed = await $.agent.list().catch(() => null)
+      if (listed) {
+        const live = new Set(listed.filter(a => !DONE.has(a.status)).map(a => a.id))
+        await update($, agents, list => list.filter(a => live.has(a.id)))
+      }
+    }
+    return next(e)
+  })
+
   // The main thread's list, once the call has run; a refused or failed call changes nothing.
   on('tool.call', async ($, e, next) => {
+    // A subagent's call names the tool on its row, as it starts.
+    if (e.agentId !== undefined) {
+      const id = e.agentId
+      if ((await read($, agents)).some(a => a.id === id)) {
+        await update($, agents, list => list.map(a => (a.id === id ? { ...a, tool: e.tool, calls: a.calls + 1 } : a)))
+      }
+      return next(e)
+    }
     const ran = await next(e)
-    if (e.agentId || ran.deny !== undefined) return ran
+    if (ran.deny !== undefined) return ran
     // Another tool's call counts toward the running task; the count is saved with the board's next change.
     if (!TOOLS.has(e.tool)) {
       const was = await read($, board)
@@ -169,12 +220,15 @@ export const register: Register = (on, options) => {
     const ui = $.ui.resolve(e)
     // Two cells in, as kit/band indents the band.
     await read($, tick)
-    return stackAbove(ui, drawBoard(ui, now, e.props.bodyColumns - 2, config, await $.clock.now()), await next(e))
+    const running = config.hasAgents ? await read($, agents) : []
+    return stackAbove(ui, drawBoard(ui, now, running, e.props.bodyColumns - 2, config, await $.clock.now()), await next(e))
   })
 }
 
-/** The band: the running task, a bar, the count; then what comes next. Finished: a check and the time it took. */
-function drawBoard(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, now: Board, columns: number, config: Config, at: number): RenderElement {
+const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim()
+
+/** The band: the running task, a bar, the count; its subagents at work; then what comes next. Finished: a check and the time it took. */
+function drawBoard(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, now: Board, running: Agent[], columns: number, config: Config, at: number): RenderElement {
   const { Box, Text } = ui
   const { done, total, current, isRunning, next } = progress(now)
   const pct = total === 0 ? 0 : Math.round((done / total) * 100)
@@ -219,6 +273,35 @@ function drawBoard(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, now: Board, c
           <Text>{count}</Text>
         </Box>
       </Box>
+      {running.slice(0, running.length > AGENT_ROWS ? AGENT_ROWS - 1 : AGENT_ROWS).map(a => {
+        const ran = at - a.startedAt
+        return (
+          <Box key={a.id} flexDirection="row" columnGap={1} paddingLeft={2}>
+            <Text color="magenta">↳</Text>
+            <Box flexShrink={0}>
+              <Text color="magenta">{a.type}</Text>
+            </Box>
+            <Box flexGrow={1} flexShrink={1}>
+              <Text wrap="truncate-end">{a.title}</Text>
+            </Box>
+            {a.tool ? (
+              <Box flexShrink={0}>
+                <Text dimColor>{a.tool}</Text>
+              </Box>
+            ) : null}
+            {ran >= 60_000 ? (
+              <Box flexShrink={0}>
+                <Text dimColor>{formatDuration(ran)}</Text>
+              </Box>
+            ) : null}
+          </Box>
+        )
+      })}
+      {running.length > AGENT_ROWS ? (
+        <Box paddingLeft={2}>
+          <Text dimColor>{`↳ ${m('band.moreAgents', { n: running.length - (AGENT_ROWS - 1) })}`}</Text>
+        </Box>
+      ) : null}
       {config.hasNext && next.length > 0 ? (
         <Box paddingLeft={2}>
           <Text dimColor wrap="truncate-end">{m('band.next') + next.slice(0, 2).map(i => i.title).join(' · ')}</Text>
