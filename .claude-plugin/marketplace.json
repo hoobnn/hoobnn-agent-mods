@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Mods for Claude Code: a claude-hud port, a Tailscale band, a Hitokoto band, spinner animations, a task progress band and a turn receipt",
-    "version": "0.7.0"
+    "version": "0.8.0"
   },
   "plugins": [
     {
       "name": "hud",
       "source": "./claude-code/hud",
       "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt, plus alerts, budget, history, a task summary, a detail pane and switchable themes",
-      "version": "0.10.1",
+      "version": "0.11.0",
       "category": "monitoring",
       "tags": [
         "hud",
@@ -62,7 +62,7 @@
       "name": "todo-bar",
       "source": "./claude-code/todo-bar",
       "description": "The task list's progress in a band above the prompt, read from the todo and task tools' own calls: no tool, no prompt, no tokens",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "category": "productivity",
       "tags": [
         "todo",
@@ -75,7 +75,7 @@
       "name": "receipt",
       "source": "./claude-code/receipt",
       "description": "What each turn did, in a band above the prompt once it ends: files and lines changed, commands and failures, reads, subagents; a toast when the model goes in circles. No tool, no prompt, no tokens",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "monitoring",
       "tags": [
         "receipt",
