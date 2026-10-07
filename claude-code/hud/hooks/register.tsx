@@ -104,14 +104,34 @@ async function alert($: EngineInterface, gauges: Gauges, contextAlerts: number[]
   if (context.alert !== null) $.ui.toast(m('alert.context', { p: context.alert }))
   if (fiveHour.alert !== null) $.ui.toast(m('alert.fiveHour', { p: fiveHour.alert }))
   if (sevenDay.alert !== null) $.ui.toast(m('alert.sevenDay', { p: sevenDay.alert }))
-  const now = { context: context.fired, fiveHour: fiveHour.fired, sevenDay: sevenDay.fired }
+  const now = { ...was, context: context.fired, fiveHour: fiveHour.fired, sevenDay: sevenDay.fired }
   if (JSON.stringify(now) !== JSON.stringify(was)) await update($, fired, () => now)
+}
+
+/** The same for the model-scoped weekly windows (Fable's), which `session.measure` does not carry. */
+async function alertScoped($: EngineInterface, windows: readonly { name: string; percent: number }[], usageAlerts: number[]): Promise<void> {
+  if (usageAlerts.length === 0 || windows.length === 0) return
+  const was = await read($, fired)
+  const scoped = { ...was.scoped }
+  for (const { name, percent } of windows) {
+    const crossed = crossThresholds(percent, usageAlerts, scoped[name] ?? [])
+    if (crossed.alert !== null) $.ui.toast(m('alert.scoped', { name, p: crossed.alert }))
+    scoped[name] = crossed.fired
+  }
+  if (JSON.stringify(scoped) !== JSON.stringify(was.scoped ?? {})) await update($, fired, f => ({ ...f, scoped }))
 }
 
 /** The gauges a usage reading carries (`$.session.usage()`, or a pushed `session.measure`). */
 function gaugesOf(usage: { context: { percent?: number }; rateLimits: readonly { kind: string; percentUsed: number }[] }): Gauges {
   const percent = (kind: string) => usage.rateLimits.find(r => r.kind === kind)?.percentUsed
   return { context: usage.context.percent, fiveHour: percent('five_hour'), sevenDay: percent('seven_day') }
+}
+
+/** The context the next message re-caches, once a cache this session used has expired and holds at least `min` tokens. */
+function coldCacheOf(stdin: StdinData, min: number): number | null {
+  const cache = stdin.prompt_cache
+  const tokens = stdin.context_window?.total_input_tokens ?? 0
+  return min > 0 && cache?.caching_observed && !cache.warm && tokens >= min ? tokens : null
 }
 
 /** Draws `picked` (the redraw scheduled) and writes the theme row. */
@@ -226,11 +246,18 @@ export const register: Register = (on, options) => {
         if (five && typeof five.used_percentage === 'number' && five.resets_at) {
           fiveHour = addSample(fiveHour, five.used_percentage, five.resets_at, now)
         }
+        const scoped = (stdin.model_scoped ?? []).flatMap(w =>
+          w.display_name && typeof w.utilization === 'number'
+            ? [{ name: w.display_name, percent: w.utilization, resetsAt: w.resets_at ? Math.floor(Date.parse(w.resets_at) / 1000) : null }]
+            : [],
+        )
+        await alertScoped($, scoped, config.usageAlerts)
         // The 7-day window keeps the pace since it began: an hour of work says little about a week.
         const exhaust = config.hasForecast
           ? [
               { label: m('limit.fiveHour'), at: paceAt(fiveHour, five?.used_percentage, five?.resets_at, FIVE_HOUR_WINDOW_MS, now) },
               { label: m('limit.sevenDay'), at: exhaustAt(limits?.seven_day?.used_percentage, limits?.seven_day?.resets_at, SEVEN_DAY_WINDOW_MS, now) },
+              ...scoped.map(w => ({ label: m('limit.scoped', { name: w.name }), at: exhaustAt(w.percent, w.resetsAt, SEVEN_DAY_WINDOW_MS, now) })),
             ].flatMap(({ label, at }) => (at === null ? [] : [{ label, at }]))
           : []
         const extra = extrasLine({
@@ -240,6 +267,7 @@ export const register: Register = (on, options) => {
           budgetUsd: config.budgetUsd,
           week: config.hasHistory ? { values: lastDays(days, today, 7), streak: streak(days, today) } : null,
           compactLeft,
+          coldCache: coldCacheOf(stdin, config.coldCacheTokens),
           git: config.gitDirtyWarn > 0 || config.gitAheadWarn > 0 ? await gitCounts(io, stdin.cwd ?? '') : null,
           gitDirtyWarn: config.gitDirtyWarn,
           gitAheadWarn: config.gitAheadWarn,

@@ -21,6 +21,7 @@ import {
 import { setLanguage } from '../hooks/hud/i18n/index'
 import { MESSAGES, m, money } from '../hooks/i18n'
 import { rcSpans } from '../hooks/remote'
+import { currentScoped, usageCacheOf } from '../hooks/stdin'
 import { cleanSummary } from '../hooks/summary'
 import { DEFAULT_CONFIG, mergeConfig } from '../hooks/hud/config'
 import { applyPalette, applyTheme, findTheme, gradientAt, moodOf, THEMES } from '../hooks/themes'
@@ -287,6 +288,7 @@ test('extras fit the width: low parts drop, the row joins the last line when it 
   expect(narrow).not.toMatch(/▁/)
   expect(text(extrasLine({ ...x, columns: 12 }))).toBe('✎ Fix login')
   expect(text(extrasLine({ ...x, summary: null, budgetUsd: 0, week: null, compactLeft: 42_000 }))).toMatch(/42k/)
+  expect(text(extrasLine({ ...x, summary: null, budgetUsd: 0, week: null, coldCache: 120_000 }))).toMatch(/120k/)
   const rows = [[{ text: 'a' }], [{ text: '◐ Read' }]]
   const extra = [{ text: '✎ x' }]
   expect(appendExtras(rows, extra, 80)).toEqual([[{ text: 'a' }], [{ text: '◐ Read' }, { text: ' │ ', dimColor: true }, { text: '✎ x' }]])
@@ -386,6 +388,64 @@ test('context crossing a threshold toasts once', { options: { contextAlerts: '80
     expect(toasts).toEqual(['上下文已用 80%，可以考虑 /compact'])
   } finally {
     contextPercent = 23
+  }
+})
+
+// Claude Code's own cache of its usage endpoint, as .claude.json keeps it.
+const claudeJson = (fetchedAtMs: number, fablePercent: number, resetsAt = '2027-01-01T00:00:00.754523+00:00') =>
+  JSON.stringify({
+    numStartups: 3,
+    cachedUsageUtilization: {
+      fetchedAtMs,
+      utilization: {
+        five_hour: { utilization: 25, resets_at: '2026-10-02T09:00:00.1+00:00' },
+        seven_day_opus: { utilization: 12, resets_at: resetsAt },
+        seven_day_sonnet: null,
+        limits: [
+          { kind: 'session', percent: 25, resets_at: '2026-10-02T09:00:00+00:00', scope: null },
+          { kind: 'weekly_scoped', percent: fablePercent, resets_at: resetsAt, scope: { model: { id: null, display_name: 'Fable' }, surface: null } },
+        ],
+      },
+    },
+  })
+
+test('model-scoped weekly windows come from Claude Code\'s usage cache', async () => {
+  const now = Date.parse('2026-10-02T06:00:00Z')
+  const cache = usageCacheOf(claudeJson(now - 60_000, 33))
+  expect(currentScoped(cache, now)).toEqual([
+    { display_name: 'Fable', utilization: 33, resets_at: '2027-01-01T00:00:00.754Z' },
+    { display_name: 'Opus', utilization: 12, resets_at: '2027-01-01T00:00:00.754Z' },
+  ])
+  // Over an hour old, Claude Code itself no longer trusts it; a window past its reset is gone.
+  expect(currentScoped(cache, now + 2 * 3600_000)).toEqual([])
+  expect(currentScoped(usageCacheOf(claudeJson(now, 33, '2026-10-01T00:00:00Z')), now)).toEqual([])
+  expect(usageCacheOf('{"numStartups":1}')).toBe(null)
+  expect(usageCacheOf('not json')).toBe(null)
+})
+
+test('the Fable window shows beside the 5-hour one and toasts at a threshold', { options: { usageAlerts: '30' } }, async ($, on) => {
+  const path = `${HOME}/.claude.json`
+  FILES[path] = claudeJson(Date.now(), 33)
+  try {
+    const clock = host(on)
+    const toasts: string[] = []
+    on('ui.toast', ($, e) => {
+      toasts.push(e.text)
+      return { value: undefined }
+    })
+    on('ui.render', ($, e) => {
+      const { Box } = $.ui.resolve(e)
+      return <Box key="core" />
+    })
+    await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+    for (let i = 0; i < 30; i++) await clock.settle()
+    const ui = await $.ui.mount({ plugin: 'hud', surface: 'terminal', ...BAND })
+    const shown = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
+    expect(/Fable[^│]*33%/.test(shown)).toBe(true)
+    expect(toasts).toEqual(['Fable 周额度已用 30%'])
+    await ui.unmount()
+  } finally {
+    delete FILES[path]
   }
 })
 

@@ -9,7 +9,7 @@
 ## Features
 
 - **Everything claude-hud shows**: model and effort, project and git branch with its changes, context and usage gauges, the running tools, subagents and todos.
-- **Warnings before you hit a wall**: toasts at the context and quota levels you pick, when a limit runs out at the current pace, the tokens left before auto-compaction, and too many uncommitted changes or unpushed commits.
+- **Warnings before you hit a wall**: toasts at the context and quota levels you pick, when a limit runs out at the current pace, per-model weekly limits such as Fable's, the tokens left before auto-compaction, what the next message re-caches once the prompt cache has expired, and too many uncommitted changes or unpushed commits.
 - **Spend**: today's spend against a daily budget, and the last 7 days as a sparkline.
 - **A one-line task summary**, and `/hud detail` for per-tool times, the last turns' cost and context growth, subagents and todos.
 - **Twelve themes**: neon, rainbow, emoji, anime themes with a kaomoji mascot (sakura, kawaii, mecha, shonen), Tokyo Night, Matrix, Nerd Font and powerline.
@@ -61,6 +61,7 @@ Every theme on the same sample session: [assets/themes/gallery.png](assets/theme
 Claude Code's statusline stdin carries these; the mod API does not, so the mod works them out:
 
 - `prompt_cache`: the clock restarts at the last main-thread request (from `turn.step`, else the last main-thread response in the transcript) and runs for the TTL the last cache write used (`1h` when it wrote the 1-hour tier, else `5m`). `hit_ratio` is cache-read input over all main-thread input, across the session.
+- `model_scoped` (the model-scoped weekly limits, such as Fable's): neither the mod API nor the statusline carries them, so they come from Claude Code's own cache of its usage endpoint, `cachedUsageUtilization` in `.claude.json` (read again only when the file changes, nothing once it is over an hour old, as Claude Code's own reader). No request is made. claude-hud draws them beside the 5-hour and 7-day windows, with their pace.
 - `session_name`: the transcript's `/rename` title, else its generated title, else its slug.
 - `workspace.repo`: parsed from `$.session.repo()`'s remote URL.
 - `output_style`: `outputStyle` from settings.
@@ -73,12 +74,13 @@ Claude Code's statusline stdin carries these; the mod API does not, so the mod w
 
 - An extras row: appended to claude-hud's last line when both fit the width, else a line of its own under it; parts that do not fit leave it, a theme's mascot first, then the 7-day sparkline, and the `⚠` git warning last. Each part shows only when it has something to say:
   - `✎` the task in one line: a `$.model.fork` of the conversation (served from the prompt cache) after the first turn and every `summaryEveryTurns` turns (default 5; 0 off). Skipped while the transcript holds a task list with work left (the list already says what the model is doing), and an older line steps aside meanwhile.
-  - Usage forecast (`showForecast`): when the 5-hour or 7-day limit runs out, if that comes before it resets: the 5-hour limit at the last hour's pace once the session has ten minutes of readings, the 7-day limit at the rate since its window began.
+  - Usage forecast (`showForecast`): when the 5-hour, 7-day or a model-scoped weekly limit runs out, if that comes before it resets: the 5-hour limit at the last hour's pace once the session has ten minutes of readings, the weekly ones at the rate since their window began.
   - Tokens left before auto-compaction (`距自动压缩 42k`), once the context is `compactWarnPercent` of the way there (default 60; 0 off). The threshold is Claude Code's own (`$.session.usage({ breakdown: 'summary' })`), read again when the context window changes.
+  - Expired prompt cache (`缓存已过期，下条消息重写 120k`): once a cache the session used has expired, the context the next message writes to it again, when that is at least `coldCacheTokens` (default 20000; 0 off).
   - Today's spend across sessions against `dailyBudgetUsd` (0 off), from claude-hud's daily-cost ledger; yellow from 80%, red past it.
   - The last 7 days' spend as a sparkline and the streak of days in use (`showHistory`, off by default); the spend is kept in the mod's store for 60 days either way.
   - `⚠` uncommitted paths at or past `gitDirtyWarn` (default 20) and unpushed commits at or past `gitAheadWarn` (default 5); 0 turns either off.
-- Alerts (off by default): a toast when context use reaches each of `contextAlerts` (e.g. `80,90`), and the 5-hour or 7-day limit each of `usageAlerts`; once per threshold, again only after the gauge drops 5 points below it (a `/compact`, a reset).
+- Alerts (off by default): a toast when context use reaches each of `contextAlerts` (e.g. `80,90`), and the 5-hour, 7-day or a model-scoped weekly limit each of `usageAlerts`; once per threshold, again only after the gauge drops 5 points below it (a `/compact`, a reset).
 - Turn done: a turn of the main thread that ran `notifyAfterSeconds` or longer (default 0, off; e.g. 60) ends with a toast and, with `notifySound`, a short chime (macOS).
 - Subagent lines: off by default (`showAgents`), since Claude Code lists running subagents itself, with their time and tokens; the detail pane still lists them.
 - `/hud detail` opens (and closes) a pane: each tool's calls, total and average time and failures this session; the last 8 turns with their time, cost and context growth; subagents; todos; today's and the week's spend. `/hud` runs mid-turn too.

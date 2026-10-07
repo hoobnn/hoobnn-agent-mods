@@ -37,6 +37,12 @@
       "description": "Toast when edits to a file put back what an earlier edit took out this many times; 0 off",
       "default": 2
     },
+    "flagUnverified": {
+      "type": "boolean",
+      "title": "Flag unverified changes",
+      "description": "Mark the receipt when code changed after the turn's last test, build, lint or type check, or with none run",
+      "default": true
+    },
     "language": {
       "type": "string",
       "title": "Language",

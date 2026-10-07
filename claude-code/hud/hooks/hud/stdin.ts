@@ -1,5 +1,6 @@
 import type { StdinData, UsageData, TranscriptData } from './types.js';
 import type { ModelFormatMode } from './config.js';
+import { parseScopedWindows } from './external-usage.js';
 import { sanitizeTranscriptModel } from './model-source.js';
 import { sanitizeDisplayText } from './utils/sanitize.js';
 
@@ -175,11 +176,14 @@ export function getUsageFromStdin(stdin: StdinData): UsageData | null {
   if (fiveHour === null && sevenDay === null) {
     return null;
   }
+  // hud mod: the model-scoped windows come in with the stdin.
+  const scopedWindows = parseScopedWindows(stdin.model_scoped);
   return {
     fiveHour,
     sevenDay,
     fiveHourResetAt: parseResetAt(limits?.five_hour?.resets_at),
     sevenDayResetAt: parseResetAt(limits?.seven_day?.resets_at),
+    ...(scopedWindows.length > 0 && { scopedWindows }),
   };
 }
 

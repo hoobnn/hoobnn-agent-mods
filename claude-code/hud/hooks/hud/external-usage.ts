@@ -42,7 +42,7 @@ function parseDate(value: unknown): Date | null {
 
 // model_scoped windows ({ display_name, utilization 0-100, resets_at ISO-8601 }). The
 // snapshot is untrusted, so entries are bounded and malformed ones dropped.
-function parseScopedWindows(value: unknown): ScopedUsageWindow[] {
+export function parseScopedWindows(value: unknown): ScopedUsageWindow[] {
   if (!Array.isArray(value)) {
     return [];
   }

@@ -4,7 +4,8 @@ export type FileChange = { path: string; added: number; removed: number; isNew: 
 /**
  * What one main-thread turn did, from its tool calls (its subagents' included):
  * the files it changed, the commands it ran and those that failed, the reads,
- * the subagents it started, and the loops it was warned about.
+ * the subagents it started, the loops it was warned about, and whether code
+ * changed after the last command that checks it (a test, build, lint or type check).
  * `durationMs` and `reason` are set when the turn ends.
  */
 export type Receipt = {
@@ -19,6 +20,10 @@ export type Receipt = {
   reads: number
   agents: number
   warnings: string[]
+  /** Commands that check the code: tests, builds, linters, type checkers. */
+  checks: number
+  /** A code file (not prose) changed after the last check, or with none run. */
+  isUnverified: boolean
 }
 
 /** The main thread's recent calls, as the loop rules read them. */

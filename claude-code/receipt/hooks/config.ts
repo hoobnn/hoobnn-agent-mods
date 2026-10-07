@@ -9,6 +9,8 @@ export type Config = {
   repeatFailures: number
   /** A file edited back to what it was this many times toasts; 0 off. */
   flipFlops: number
+  /** Mark a turn that changed code after its last test, build or check. */
+  flagUnverified: boolean
   /** `auto` or a language; the kit resolves it (kit/lang.ts). */
   language: string
 }
@@ -18,6 +20,7 @@ export function readConfig(options: PluginOptions): Config {
     isVisible: flag(options.visible, true),
     repeatFailures: count(options.repeatFailures, 3, { min: 0, isInteger: true }),
     flipFlops: count(options.flipFlops, 2, { min: 0, isInteger: true }),
+    flagUnverified: flag(options.flagUnverified, true),
     language: text(options.language, 'auto'),
   }
 }

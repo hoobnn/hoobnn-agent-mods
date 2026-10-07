@@ -13,8 +13,9 @@ import type { GitRepoIdentity } from './hud/git.js'
 import type { StdinData } from './hud/types.js'
 import { live } from './live.js'
 import { processShim } from './shims/globals.js'
+import { getClaudeConfigJsonPath } from './hud/claude-config-dir.js'
 import { type Io, markStable } from './shims/host.js'
-import { sysinfo } from './shims/os.js'
+import { homedir, sysinfo } from './shims/os.js'
 import { basename, setCwdProvider } from './shims/path.js'
 import { pullTranscript, transcriptMeta } from './transcript-feed.js'
 
@@ -35,6 +36,75 @@ export type SessionApi = {
   }>
   remotes: () => Promise<Remote[]>
   exists: (path: string) => Promise<boolean>
+}
+
+type ModelScoped = NonNullable<StdinData['model_scoped']>[number]
+
+// Claude Code's own reader drops its cached usage after an hour.
+const USAGE_CACHE_TTL_MS = 60 * 60 * 1000
+// The legacy per-model weekly windows, before the endpoint listed them in `limits`.
+const LEGACY_SCOPED: Record<string, string> = { seven_day_opus: 'Opus', seven_day_sonnet: 'Sonnet' }
+
+/** `2026-10-09T15:59:59.754523+00:00` (the endpoint writes microseconds) → ISO with milliseconds. */
+function isoOf(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const ms = Date.parse(value.replace(/(\.\d{3})\d+/, '$1'))
+  return Number.isNaN(ms) ? null : new Date(ms).toISOString()
+}
+
+/** Claude Code's own cache of its usage endpoint: when it was fetched and the model-scoped weekly windows. */
+type UsageCache = { fetchedAtMs: number; windows: ModelScoped[] }
+
+/**
+ * The model-scoped weekly windows (Fable's) in `cachedUsageUtilization` in
+ * .claude.json, which Claude Code keeps from its usage endpoint: `$` reports
+ * only the 5-hour and 7-day windows.
+ */
+export function usageCacheOf(text: string): UsageCache | null {
+  let cached: { fetchedAtMs?: unknown; utilization?: Record<string, unknown> } | undefined
+  try {
+    cached = (JSON.parse(text) as { cachedUsageUtilization?: typeof cached }).cachedUsageUtilization
+  } catch {
+    return null
+  }
+  if (typeof cached?.fetchedAtMs !== 'number') return null
+  const usage = cached.utilization ?? {}
+  const windows = new Map<string, ModelScoped>()
+  const add = (name: unknown, percent: unknown, resetsAt: unknown) => {
+    if (typeof name !== 'string' || !name || typeof percent !== 'number' || windows.has(name)) return
+    windows.set(name, { display_name: name, utilization: percent, resets_at: isoOf(resetsAt) })
+  }
+  for (const limit of Array.isArray(usage.limits) ? usage.limits : []) {
+    const l = limit as { kind?: unknown; percent?: unknown; resets_at?: unknown; scope?: { model?: { display_name?: unknown } } | null }
+    if (l?.kind === 'weekly_scoped') add(l.scope?.model?.display_name, l.percent, l.resets_at)
+  }
+  for (const [key, name] of Object.entries(LEGACY_SCOPED)) {
+    const w = usage[key] as { utilization?: unknown; resets_at?: unknown } | null | undefined
+    if (w) add(name, w.utilization, w.resets_at)
+  }
+  return { fetchedAtMs: cached.fetchedAtMs, windows: [...windows.values()] }
+}
+
+/** The windows still current: none once the cache is over an hour old, none whose reset has passed. */
+export function currentScoped(cache: UsageCache | null, now: number): ModelScoped[] {
+  if (!cache || now - cache.fetchedAtMs > USAGE_CACHE_TTL_MS) return []
+  return cache.windows.filter(w => !w.resets_at || Date.parse(w.resets_at) > now)
+}
+
+// .claude.json is large and changes often for other reasons: parsed again only when it changed.
+let usageCache: { path: string; mtimeMs: number; cache: UsageCache | null } | null = null
+
+async function modelScoped(io: Io, now: number): Promise<ModelScoped[]> {
+  const path = getClaudeConfigJsonPath(homedir())
+  try {
+    const { mtimeMs } = await io.stat(path)
+    if (usageCache?.path !== path || usageCache.mtimeMs !== mtimeMs) {
+      usageCache = { path, mtimeMs, cache: usageCacheOf(await io.read(path)) }
+    }
+    return currentScoped(usageCache.cache, now)
+  } catch {
+    return []
+  }
 }
 
 const MODEL_FAMILIES: Record<string, string> = { opus: 'Opus', sonnet: 'Sonnet', haiku: 'Haiku', fable: 'Fable' }
@@ -178,6 +248,7 @@ export async function buildStdin(io: Io, session: SessionApi): Promise<StdinData
       total_lines_removed: null,
     },
     rate_limits: { five_hour: window('five_hour'), seven_day: window('seven_day'), spend_limit: window('spend_limit') },
+    model_scoped: usage.rateLimits.length > 0 ? await modelScoped(io, Date.now()) : [],
     prompt_cache: {
       caching_observed: meta.cachingObserved,
       warm: expiresAt !== null && expiresAt * 1000 > Date.now(),

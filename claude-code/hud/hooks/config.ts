@@ -29,6 +29,8 @@ export type Config = {
   summaryEvery: number
   /** Show the tokens left before auto-compaction from this percent of the way there; 0 is off. */
   compactWarnPercent: number
+  /** Once the prompt cache has expired, show what the next message re-caches from this many context tokens; 0 is off. */
+  coldCacheTokens: number
   gitDirtyWarn: number
   gitAheadWarn: number
   hasAgents: boolean
@@ -52,6 +54,7 @@ export function readConfig(options: PluginOptions): Config {
     hasHistory: flag(options.showHistory, false),
     summaryEvery: count(options.summaryEveryTurns, 5, { min: 0, isInteger: true }),
     compactWarnPercent: count(options.compactWarnPercent, 60, { min: 0 }),
+    coldCacheTokens: count(options.coldCacheTokens, 20_000, { min: 0, isInteger: true }),
     gitDirtyWarn: count(options.gitDirtyWarn, 20, { min: 0 }),
     gitAheadWarn: count(options.gitAheadWarn, 5, { min: 0 }),
     hasAgents: flag(options.showAgents, false),

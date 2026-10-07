@@ -15,6 +15,7 @@ When a Claude turn ends, a one-line receipt stays above the prompt: the files it
 - **One-line receipt**: how the turn ended (`✓` answered, `◼` interrupted, `✗` an error) and how long it took, then only the counts that have something to say: files changed with lines added and removed, commands run and failed, reads (`Read`, `Grep`, `Glob`), subagents started and warnings raised.
 - **Subagents count too**: a subagent's edits and commands count toward the turn that started it.
 - **Stays out of the way**: a chat-only turn leaves no receipt, the row leaves when the next turn starts, and it steps aside while a `/` or `@` picker is open.
+- **Unverified changes flagged**: when code changed after the turn's last test, build, lint or type check, or with none run, the receipt ends with a yellow `unverified`, and `/receipt` says so. Edits to prose (Markdown, plain text) do not count. It knows `npm test`, `pytest`, `go test`, `cargo check`, `tsc`, `eslint`, `make`, `bash scripts/check.sh` and the like, behind runners such as `uv run` and `npx`.
 - **Going-in-circles alerts**: while the turn runs, a toast (once per streak) when the main thread
   - runs the same call and it fails `repeatFailures` times in a row (default 3) with nothing changed in between. An edit, or a shell command the tool did not hold read-only (`sed -i`, `npm install`), is work, not a loop, and starts the count over; `cat` or `ls` does not.
   - edits a file back to what an earlier edit took out of it, the `flipFlops`th time (default 2).
@@ -41,6 +42,7 @@ Set them in `/config`, or under `pluginConfigs` in `~/.claude/settings.json`:
 | `visible` | Show the receipt above the prompt between turns | on |
 | `repeatFailures` | Toast after the same call fails this many times in a row; 0 off | 3 |
 | `flipFlops` | Toast after a file is edited back and forth this many times; 0 off | 2 |
+| `flagUnverified` | Mark the receipt `unverified` when code changed after the last test, build or check | on |
 | `language` | `auto`, `en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`, `pt-BR`, `ru` | `auto` |
 
 `auto` follows Claude Code's `language` setting, then the system locale (`LC_ALL`, `LC_MESSAGES`, `LANG`), then English.

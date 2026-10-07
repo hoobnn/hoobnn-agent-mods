@@ -198,6 +198,8 @@ export type ExtrasInput = {
   git: { dirty: number; ahead: number } | null
   /** Tokens left before auto-compaction runs, once the context is far enough in; null hides it. */
   compactLeft?: number | null
+  /** The context tokens the next message writes to the cache again, once it has expired; null hides it. */
+  coldCache?: number | null
   gitDirtyWarn: number
   gitAheadWarn: number
   /** The row's width; parts that do not fit leave it, least important first. */
@@ -234,6 +236,9 @@ export function extrasLine(x: ExtrasInput): HudLine {
   }
   if (typeof x.compactLeft === 'number') {
     parts.push({ spans: [{ text: m('compact.left', { tokens: formatTokens(Math.max(0, x.compactLeft)) }), color: style.forecastColor ?? 'magenta' }], rank: 2 })
+  }
+  if (typeof x.coldCache === 'number') {
+    parts.push({ spans: [{ text: m('cache.cold', { tokens: formatTokens(x.coldCache) }), color: style.warningColor ?? 'yellow' }], rank: 2 })
   }
   if (x.budgetUsd > 0 && x.todayUsd !== null) parts.push({ spans: budgetSpans(x.todayUsd, x.budgetUsd), rank: 1 })
   if (x.week && x.week.values.some(v => v > 0)) {

@@ -3,7 +3,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 
 import { MESSAGES } from '../hooks/i18n'
-import { NO_WATCH, addCall, changeOf, labelOf, newReceipt, totals, watchCall } from '../hooks/ledger'
+import { NO_WATCH, addCall, changeOf, isCheck, labelOf, newReceipt, totals, watchCall } from '../hooks/ledger'
 
 const CWD = '/repo'
 const START = { cwd: CWD, surface: 'terminal', isInteractive: true } as const
@@ -110,10 +110,12 @@ test('a turn ends with its receipt above the prompt; the next turn clears it', a
   await $.tool.call({ ...(edit('src/b.ts', 'a', 'b') as object), agentId: 'a1' } as never)
   expect(await band($)).toBe('')
   await $.turn.complete(DONE)
-  expect(await band($)).toBe('✓上一轮 2m 13s · 改动 3 个文件 +7 −2 · 命令 2 · 1 失败 · 读取 1')
+  // The subagent's edit came after the test: the turn ends unverified.
+  expect(await band($)).toBe('✓上一轮 2m 13s · 改动 3 个文件 +7 −2 · 命令 2 · 1 失败 · 读取 1 · 未验证')
   const listed = (await $.command.run({ ...RUN, command: 'receipt', args: '' })).text
   expect(listed).toContain('  src/new.ts  +3 −0  新建')
   expect(listed).toContain('失败的命令\n  ✗ npm test')
+  expect(listed).toContain('⚠ 最后一次改代码之后没有跑过测试、构建或检查。')
   await $.turn.start({ text: 'again', turnId: 't2' })
   expect(await band($)).toBe('')
 })
@@ -145,6 +147,35 @@ test('the same call failing again and again toasts once; so does an edit undone 
   expect(toasts[1]).toBe('⚠ src/a.ts：来回改了 2 次')
   await $.turn.complete(DONE)
   expect(await band($)).toContain('⚠ 2')
+})
+
+test('commands that check the code', async () => {
+  for (const command of ['npm test', 'cd web && pnpm run build', 'bash scripts/check.sh claude-code/hud', 'uv run pytest -q', 'npx tsc --noEmit', 'CI=1 go test ./...', 'cargo clippy', 'make', 'claude plugin test .'])
+    expect([command, isCheck(command)]).toEqual([command, true])
+  for (const command of ['ls', 'git commit -m test', 'cat test.sh', 'npm install', 'echo pytest'])
+    expect([command, isCheck(command)]).toEqual([command, false])
+})
+
+test('code checked after its last edit, or prose alone, is not flagged', async ($, on) => {
+  const { clock } = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  await $.tool.call(edit('src/a.ts', 'a', 'b'))
+  await $.tool.call(bash('npm test'))
+  await $.tool.call(edit('README.md', 'a', 'b'))
+  await $.turn.complete(DONE)
+  expect(await band($)).toBe('✓上一轮 2m 13s · 改动 2 个文件 +4 −2 · 命令 1')
+})
+
+test('flagUnverified off leaves the receipt unmarked', { options: { flagUnverified: false } }, async ($, on) => {
+  const { clock } = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  await $.tool.call(edit('src/a.ts', 'a', 'b'))
+  await $.turn.complete(DONE)
+  expect(await band($)).toBe('✓上一轮 2m 13s · 改动 1 个文件 +2 −1')
 })
 
 test('/receipt off and on write the visible row', { options: { repeatFailures: 0 } }, async ($, on) => {

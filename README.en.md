@@ -16,12 +16,12 @@ Six mods that make Claude Code's terminal more useful and more fun: a statusline
 
 | Mod | What it does |
 | --- | --- |
-| [`hud`](claude-code/hud/README.en.md) | A statusline HUD: model, git, context, usage, tools and todos at a glance, with quota alerts, a usage forecast, a daily budget, a task summary, a `/hud detail` pane and 12 themes to switch live |
+| [`hud`](claude-code/hud/README.en.md) | A statusline HUD: model, git, context, usage, tools and todos at a glance, with quota alerts (per-model weekly limits such as Fable's included), a usage forecast, an expired-cache hint, a daily budget, a task summary, a `/hud detail` pane and 12 themes to switch live |
 | [`ts-band`](claude-code/ts-band/README.en.md) | Tailscale node status: one small mark while every node is direct, the relayed or offline ones listed otherwise, with a toast when a node comes up or goes down |
 | [`hitokoto`](claude-code/hitokoto/README.en.md) | A [Hitokoto (一言)](https://hitokoto.cn) quote and its source above the prompt, refreshed on a timer, once a day, per session or per prompt |
 | [`spinner`](claude-code/spinner/README.en.md) | Animations and a companion pet: pixel-art scenes (a shoot-em-up, Clawd, a dot-eater, a rainbow cat, a spectrum of the sound your Mac plays; 15 themes), a pet that follows what Claude does and levels up, and confetti when a turn ends |
 | [`todo-bar`](claude-code/todo-bar/README.en.md) | A task progress bar: the task running, how long it has run and how much is done; reads the TodoWrite / Task tools' results, no tokens |
-| [`receipt`](claude-code/receipt/README.en.md) | A turn receipt: one row saying what the turn changed (files, lines), ran and how much failed, plus an alert when Claude goes in circles; no tokens |
+| [`receipt`](claude-code/receipt/README.en.md) | A turn receipt: one row saying what the turn changed (files, lines), ran and how much failed, flagging code changed with no test run after it, plus an alert when Claude goes in circles; no tokens |
 
 Install them from this repo's marketplace:
 

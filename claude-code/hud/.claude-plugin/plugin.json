@@ -132,6 +132,12 @@
       "description": "Show the tokens left before auto-compaction once the context is this percent of the way there; 0 turns it off",
       "default": 60
     },
+    "coldCacheTokens": {
+      "type": "number",
+      "title": "Expired cache warning",
+      "description": "Once the prompt cache has expired, show how many tokens the next message writes to it again, when the context holds at least this many; 0 turns it off",
+      "default": 20000
+    },
     "gitDirtyWarn": {
       "type": "number",
       "title": "Uncommitted changes warning",

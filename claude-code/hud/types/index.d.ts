@@ -33,7 +33,13 @@ export type StepInfo = {
 export type Remote = { id: string; surface: string }
 
 /** Alert thresholds (percent) already toasted, per gauge. */
-export type Fired = { context: number[]; fiveHour: number[]; sevenDay: number[] }
+export type Fired = {
+  context: number[]
+  fiveHour: number[]
+  sevenDay: number[]
+  /** Per model-scoped weekly window (`Fable`); absent in state kept from before 0.11. */
+  scoped?: Record<string, number[]>
+}
 
 /** Each tool's calls this session: how many, their total time, how many failed. */
 export type ToolStats = Record<string, { count: number; totalMs: number; errors: number }>

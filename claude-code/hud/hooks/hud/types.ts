@@ -47,6 +47,8 @@ export interface StdinData {
     seven_day?: RateLimitWindow | null;
     spend_limit?: RateLimitWindow | null;
   } | null;
+  // hud mod: the model-scoped weekly windows (e.g. Fable), as the external snapshot's model_scoped.
+  model_scoped?: ExternalUsageSnapshot['model_scoped'];
   prompt_cache?: {
     warm?: boolean;
     caching_observed?: boolean;

@@ -48,7 +48,7 @@ function headline(r: Receipt, now: number): string {
 type Segment = { text: string; color?: string }
 
 /** The counts after the headline, each only when it has something to say; a count may be several segments. */
-function counts(r: Receipt): Segment[][] {
+function counts(r: Receipt, flagUnverified: boolean): Segment[][] {
   const parts: Segment[][] = []
   if (r.files.length > 0) {
     const { added, removed } = totals(r)
@@ -59,22 +59,24 @@ function counts(r: Receipt): Segment[][] {
   if (r.reads > 0) parts.push([{ text: m('band.reads', { n: r.reads }) }])
   if (r.agents > 0) parts.push([{ text: m('band.agents', { n: r.agents }) }])
   if (r.warnings.length > 0) parts.push([{ text: `⚠ ${r.warnings.length}`, color: 'yellow' }])
+  if (flagUnverified && r.isUnverified) parts.push([{ text: m('band.unverified'), color: 'yellow' }])
   return parts
 }
 
 const plain = (part: Segment[]) => part.map(s => s.text).join('')
 
 /** `/receipt` alone: the headline, then every file, failed command and warning. */
-async function listing($: EngineInterface): Promise<string> {
+async function listing($: EngineInterface, flagUnverified: boolean): Promise<string> {
   const r = await read($, receipt)
   if (!r) return m('cmd.none')
-  const lines = [[headline(r, await $.clock.now()), ...counts(r).map(plain)].join(SEP)]
+  const lines = [[headline(r, await $.clock.now()), ...counts(r, flagUnverified).map(plain)].join(SEP)]
   if (r.files.length > 0) {
     lines.push('', m('list.files'))
     for (const f of r.files) lines.push(`  ${f.path}  +${f.added} −${f.removed}${f.isNew ? `  ${m('list.new')}` : ''}`)
   }
   if (r.failed.length > 0) lines.push('', m('list.failed'), ...r.failed.map(c => `  ✗ ${c}`))
   if (r.warnings.length > 0) lines.push('', m('list.warnings'), ...r.warnings.map(w => `  ⚠ ${w}`))
+  if (flagUnverified && r.isUnverified) lines.push('', `⚠ ${m('list.unverified')}`)
   return lines.join('\n')
 }
 
@@ -140,7 +142,7 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'receipt' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase()
-    if (arg !== 'off' && arg !== 'on') return { text: await listing($) }
+    if (arg !== 'off' && arg !== 'on') return { text: await listing($, config.flagUnverified) }
     const was = await read($, isHidden)
     const hidden = await update($, isHidden, v => switchArg(arg, v))
     if (hidden !== was) await persist(prefsOf($), 'visible', !hidden)
@@ -163,12 +165,12 @@ export const register: Register = (on, options) => {
     const r = await read($, receipt)
     if (e.props.hasSurvey || r === null || !(await read($, isShown)) || (await read($, isHidden)) || (await read($, isPicking))) return next(e)
     const ui = $.ui.resolve(e)
-    return stackAbove(ui, drawReceipt(ui, r), await next(e))
+    return stackAbove(ui, drawReceipt(ui, r, config.flagUnverified), await next(e))
   })
 }
 
 /** One row: a mark for how the turn ended, the headline, then the counts. */
-function drawReceipt(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, r: Receipt): RenderElement {
+function drawReceipt(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, r: Receipt, flagUnverified: boolean): RenderElement {
   const { Box, Text } = ui
   const mark = r.reason === 'answer' ? { glyph: '✓', color: 'green' } : r.reason === 'aborted' ? { glyph: '◼', color: 'yellow' } : { glyph: '✗', color: 'red' }
   return (
@@ -177,7 +179,7 @@ function drawReceipt(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, r: Receipt)
       <Box flexGrow={1} flexShrink={1}>
         <Text wrap="truncate-end">
           <Text dimColor>{headline(r, 0)}</Text>
-          {counts(r).map((p, i) => (
+          {counts(r, flagUnverified).map((p, i) => (
             <Text key={String(i)}>
               <Text dimColor>{SEP}</Text>
               {p.map((seg, j) => (

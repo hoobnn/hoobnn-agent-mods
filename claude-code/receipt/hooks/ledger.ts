@@ -15,6 +15,26 @@ const EDITS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit'])
 const READS = new Set(['Read', 'Grep', 'Glob', 'LS', 'NotebookRead'])
 const SHELLS = new Set(['Bash', 'PowerShell'])
 const AGENTS = new Set(['Agent', 'Task'])
+// A command that checks the code, at the head of the line or after `&&`, `;`, `|`, `(`,
+// past env assignments and a runner (`uv run`, `npx`, `bash`): a test runner, a type
+// checker or linter, a build, or a project's own check script.
+const CHECK = new RegExp(
+  String.raw`(?:^|[;&|(]\s*)(?:\S+=\S*\s+)*(?:(?:bash|sh|zsh|time|npx|bunx|uv\s+run|poetry\s+run|pnpm\s+exec|bundle\s+exec)\s+)*(?:` +
+    [
+      String.raw`(?:npm|pnpm|yarn|bun|deno)\s+(?:run\s+)?(?:test|build|lint|check|typecheck|tsc)\b`,
+      String.raw`(?:jest|vitest|mocha|pytest|rspec|phpunit|tox|nox|tsc|eslint|biome|ruff|mypy|pyright|rubocop|golangci-lint|shellcheck|make|playwright\s+test)\b`,
+      String.raw`python3?\s+-m\s+(?:pytest|unittest|mypy)\b`,
+      String.raw`go\s+(?:test|build|vet)\b`,
+      String.raw`cargo\s+(?:test|check|build|clippy)\b`,
+      String.raw`(?:swift|dotnet|mix|mvn|gradle|\.\/gradlew|zig|xcodebuild)\s+(?:test|build)\b`,
+      String.raw`claude\s+plugin\s+(?:test|validate)\b`,
+      String.raw`\S*(?:check|test|verify)\S*\.sh\b`,
+    ].join('|') +
+    ')',
+)
+// Files whose edits nothing runs to check: prose.
+const PROSE = /\.(?:md|mdx|markdown|txt|rst|adoc)$/i
+
 // Edits kept per file for the back-and-forth rule.
 const KEEP_EDITS = 20
 // Cells a call's label keeps, in a toast and in /receipt.
@@ -25,7 +45,21 @@ const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim()
 const clip = (s: string) => (s.length > LABEL_CELLS ? `${s.slice(0, LABEL_CELLS - 1)}…` : s)
 
 export function newReceipt(turnId: string, now: number): Receipt {
-  return { turnId, startedAt: now, durationMs: null, reason: null, files: [], commands: 0, failed: [], errors: 0, reads: 0, agents: 0, warnings: [] }
+  return {
+    turnId,
+    startedAt: now,
+    durationMs: null,
+    reason: null,
+    files: [],
+    commands: 0,
+    failed: [],
+    errors: 0,
+    reads: 0,
+    agents: 0,
+    warnings: [],
+    checks: 0,
+    isUnverified: false,
+  }
 }
 
 export const NO_WATCH: Watch = { failKey: null, failCount: 0, edits: {}, flips: {} }
@@ -68,6 +102,11 @@ export function changeOf(call: Call, cwd: string): FileChange | null {
   return { path: relative(path, cwd), added, removed, isNew }
 }
 
+/** Whether a shell command checks the code: a test, build, lint or type check. */
+export function isCheck(command: string): boolean {
+  return CHECK.test(command)
+}
+
 /** The receipt with one more call counted. */
 export function addCall(receipt: Receipt, call: Call, cwd: string, isMain: boolean): Receipt {
   const next = { ...receipt }
@@ -78,9 +117,15 @@ export function addCall(receipt: Receipt, call: Call, cwd: string, isMain: boole
     next.files = had
       ? receipt.files.map(f => (f === had ? { ...f, added: f.added + change.added, removed: f.removed + change.removed } : f))
       : [...receipt.files, change]
+    if (!PROSE.test(change.path)) next.isUnverified = true
   } else if (SHELLS.has(call.tool)) {
     next.commands++
     if (call.isError) next.failed = [...receipt.failed, labelOf(call, cwd)]
+    // A check that ran counts whatever it found: its failure is on the receipt already.
+    if (isCheck(str(call.input.command))) {
+      next.checks = (receipt.checks ?? 0) + 1
+      next.isUnverified = false
+    }
   } else if (READS.has(call.tool)) {
     next.reads++
   } else if (AGENTS.has(call.tool) && isMain) {

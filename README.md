@@ -16,12 +16,12 @@
 
 | Mod | 作用 |
 | --- | --- |
-| [`hud`](claude-code/hud) | 状态栏 HUD：模型、git、上下文、用量、工具和待办一目了然；额度预警、耗尽预测、每日预算、任务摘要、`/hud detail` 详情面板，12 套主题随时切换 |
+| [`hud`](claude-code/hud) | 状态栏 HUD：模型、git、上下文、用量、工具和待办一目了然；额度预警（含 Fable 等按模型的周额度）、耗尽预测、缓存过期提醒、每日预算、任务摘要、`/hud detail` 详情面板，12 套主题随时切换 |
 | [`ts-band`](claude-code/ts-band) | Tailscale 节点状态：全部直连时只占一个小标记，有节点走中继或离线时才列出来，上线 / 掉线弹提示 |
 | [`hitokoto`](claude-code/hitokoto) | 输入框上方的一句[一言](https://hitokoto.cn)和出处，可以定时换、每天一句、每个会话或每次发消息换一句 |
 | [`spinner`](claude-code/spinner) | 运行动画和宠物伴侣：像素风小剧场（雷霆战机、Clawd、吃豆人、彩虹猫、系统音频频谱等 15 套主题），宠物跟着 Claude 的动作变换姿势、会升级，一轮结束放彩带 |
 | [`todo-bar`](claude-code/todo-bar) | 任务进度条：正在做哪一项、做了多久、完成了多少；只读 TodoWrite / Task 工具的结果，不花 token |
-| [`receipt`](claude-code/receipt) | 回合回执：一轮结束后用一行说明改了几个文件、增删多少行、跑了几条命令、几条失败；Claude 原地打转时提醒，不花 token |
+| [`receipt`](claude-code/receipt) | 回合回执：一轮结束后用一行说明改了几个文件、增删多少行、跑了几条命令、几条失败，改了代码没跑测试会标出来；Claude 原地打转时提醒，不花 token |
 
 从本仓库的插件市场安装：
 
