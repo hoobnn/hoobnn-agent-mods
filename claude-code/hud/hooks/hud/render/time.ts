@@ -7,6 +7,15 @@ interface WallClockOptions {
   showSeconds: boolean;
 }
 
+// The host's region and 12/24-hour preference, which `auto` follows. The engine's
+// own locale comes from LANG, not from the system's region settings.
+const hostClock: { locale?: string; hourCycle: HourCycleMode } = { hourCycle: 'auto' };
+
+export function setHostClock(locale: string | undefined, hourCycle: HourCycleMode): void {
+  hostClock.locale = locale;
+  hostClock.hourCycle = hourCycle;
+}
+
 export function wallClock(display: Partial<HudConfig['display']> | undefined): WallClockOptions {
   return { hourCycle: display?.hourCycle ?? 'auto', showSeconds: display?.showClockSeconds ?? false };
 }
@@ -32,10 +41,12 @@ export function formatAbsoluteTime(
 ): string {
   const timeOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
   if (opts.showSeconds) timeOpts.second = '2-digit';
-  if (opts.hourCycle !== 'auto') timeOpts.hourCycle = opts.hourCycle;
-  const time = at.toLocaleTimeString([], timeOpts);
+  const hourCycle = opts.hourCycle !== 'auto' ? opts.hourCycle : hostClock.hourCycle;
+  if (hourCycle !== 'auto') timeOpts.hourCycle = hourCycle;
+  const locales = hostClock.locale ? [hostClock.locale] : [];
+  const time = at.toLocaleTimeString(locales, timeOpts);
   const sameDay = at.toDateString() === now.toDateString();
-  const value = sameDay ? time : `${at.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
+  const value = sameDay ? time : `${at.toLocaleDateString(locales, { month: 'short', day: 'numeric' })} ${time}`;
   return interpolate(t(pattern), { time: value });
 }
 

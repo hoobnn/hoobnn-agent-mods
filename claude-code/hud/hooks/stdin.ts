@@ -14,6 +14,7 @@ import type { StdinData } from './hud/types.js'
 import { live } from './live.js'
 import { processShim } from './shims/globals.js'
 import { getClaudeConfigJsonPath } from './hud/claude-config-dir.js'
+import { setHostClock } from './hud/render/time.js'
 import { type Io, markStable } from './shims/host.js'
 import { homedir, sysinfo } from './shims/os.js'
 import { basename, setCwdProvider } from './shims/path.js'
@@ -282,4 +283,36 @@ export async function loadHostFacts(io: Io, extraCmd: string): Promise<void> {
   processShim.argv = extraCmd ? ['node', 'claude-hud', '--extra-cmd', extraCmd] : ['node', 'claude-hud']
   markStable(['/usr/sbin/sysctl', '-n', 'hw.memsize'])
   setCwdProvider(() => processShim.cwdPath)
+  await loadHostClock(io, platform)
+}
+
+/** `zh_CN.UTF-8`, `en_US@calendar=gregorian` → `zh-CN`, `en-US`; undefined when Intl doesn't know it. */
+export function localeTag(raw: string | undefined): string | undefined {
+  const tag = raw?.trim().split(/[.@]/)[0]?.replace(/_/g, '-')
+  if (!tag || tag === 'C' || tag === 'POSIX') return undefined
+  try {
+    return Intl.DateTimeFormat.supportedLocalesOf([tag])[0]
+  } catch {
+    return undefined
+  }
+}
+
+// macOS keeps the region and the 24-hour switch in its preferences, not in LANG.
+async function loadHostClock(io: Io, platform: string): Promise<void> {
+  const env = processShim.env
+  if (platform !== 'darwin') {
+    setHostClock(localeTag(env.LC_ALL || env.LC_TIME || env.LANG), 'auto')
+    return
+  }
+  const read = (key: string) =>
+    io.run(['/usr/bin/defaults', 'read', '-g', key]).then(
+      out => (out.exitCode === 0 ? out.stdout.trim() : undefined),
+      () => undefined,
+    )
+  const [locale, force24, force12] = await Promise.all([
+    read('AppleLocale'),
+    read('AppleICUForce24HourTime'),
+    read('AppleICUForce12HourTime'),
+  ])
+  setHostClock(localeTag(locale), force24 === '1' ? 'h23' : force12 === '1' ? 'h12' : 'auto')
 }
