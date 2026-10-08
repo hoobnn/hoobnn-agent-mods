@@ -239,9 +239,9 @@ function drawBoard(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, now: Board, r
   if (now.doneAt !== null) {
     return (
       <Box flexDirection="row" columnGap={1}>
-        <Text color="green" bold>✓</Text>
-        <Text color="green">{m('band.done')}</Text>
-        <Text color="green">{filled}</Text>
+        <Text color="success" bold>✓</Text>
+        <Text color="success">{m('band.done')}</Text>
+        <Text color="success">{filled}</Text>
         <Text>{`${done}/${total}`}</Text>
         <Text dimColor>{m('band.took', { d: formatDuration(now.doneAt - now.startedAt) })}</Text>
       </Box>
@@ -254,18 +254,18 @@ function drawBoard(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, now: Board, r
   return (
     <Box flexDirection="column">
       <Box flexDirection="row" columnGap={1}>
-        <Text color={isRunning ? 'cyan' : undefined} dimColor={!isRunning}>{isRunning ? MARK.in_progress : MARK.pending}</Text>
+        <Text color={isRunning ? 'ide' : undefined} dimColor={!isRunning}>{isRunning ? MARK.in_progress : MARK.pending}</Text>
         <Box flexGrow={1} flexShrink={1}>
           <Text wrap="truncate-end" dimColor={!isRunning}>{label}</Text>
         </Box>
         {ran !== null && ran >= 60_000 ? (
           <Box flexShrink={0}>
-            <Text color={isSlow ? 'yellow' : undefined} dimColor={!isSlow}>{formatDuration(ran)}</Text>
+            <Text color={isSlow ? 'warning' : undefined} dimColor={!isSlow}>{formatDuration(ran)}</Text>
           </Box>
         ) : null}
         <Box flexShrink={0}>
           <Text>
-            <Text color="cyan">{filled}</Text>
+            <Text color="ide">{filled}</Text>
             <Text dimColor>{empty}</Text>
           </Text>
         </Box>
@@ -277,9 +277,9 @@ function drawBoard(ui: Pick<Elements['terminal'], 'Box' | 'Text'>, now: Board, r
         const ran = at - a.startedAt
         return (
           <Box key={a.id} flexDirection="row" columnGap={1} paddingLeft={2}>
-            <Text color="magenta">↳</Text>
+            <Text color="merged">↳</Text>
             <Box flexShrink={0}>
-              <Text color="magenta">{a.type}</Text>
+              <Text color="merged">{a.type}</Text>
             </Box>
             <Box flexGrow={1} flexShrink={1}>
               <Text wrap="truncate-end">{a.title}</Text>
