@@ -22,6 +22,8 @@ const ENGINE = '#d77757'
 const PALETTE: Record<string, string> = {
   black: '#3a3a3e', red: '#ff7b72', green: '#7ee787', yellow: '#e3b341', blue: '#79c0ff', magenta: '#d2a8ff',
   cyan: '#56d4e8', white: WHITE, gray: DIM, grey: DIM,
+  // Theme keys, drawn as the dark theme's ANSI mapping draws them.
+  success: '#7ee787', warning: '#e3b341', error: '#ff7b72', ide: '#79c0ff', merged: '#d2a8ff',
 }
 
 type Node = { type: string; props?: Record<string, unknown>; children?: (Node | string)[] }
