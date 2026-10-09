@@ -1,6 +1,6 @@
 {
   "name": "receipt",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "What each turn did, in a band above the prompt once it ends (files changed with lines, commands and failures, reads, subagents), and a toast when the model goes in circles; read from the turn's own tool calls: no tool, no prompt, no tokens",
   "author": {
     "name": "hoobnn",

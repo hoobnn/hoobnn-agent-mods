@@ -1,6 +1,6 @@
 {
   "name": "todo-bar",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "The task list's progress in a band above the prompt, read from the todo and task tools' own calls: no tool, no prompt, no tokens",
   "author": {
     "name": "hoobnn",

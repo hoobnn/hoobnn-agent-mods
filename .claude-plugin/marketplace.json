@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Mods for Claude Code: a claude-hud port, a Tailscale band, a Hitokoto band, spinner animations, a task progress band and a turn receipt",
-    "version": "0.8.1"
+    "version": "0.8.2"
   },
   "plugins": [
     {
       "name": "hud",
       "source": "./claude-code/hud",
       "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt, plus alerts, budget, history, a task summary, a detail pane and switchable themes",
-      "version": "0.11.1",
+      "version": "0.11.2",
       "category": "monitoring",
       "tags": [
         "hud",
@@ -25,7 +25,7 @@
       "name": "ts-band",
       "source": "./claude-code/ts-band",
       "description": "Tailscale nodes' state in a band above the prompt",
-      "version": "0.8.0",
+      "version": "0.8.1",
       "category": "monitoring",
       "tags": [
         "tailscale",
@@ -37,7 +37,7 @@
       "name": "hitokoto",
       "source": "./claude-code/hitokoto",
       "description": "A line from Hitokoto (一言) in a band above the prompt, refreshed on a timer, per session, per prompt or once a day",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "category": "productivity",
       "tags": [
         "hitokoto",
@@ -49,7 +49,7 @@
       "name": "spinner",
       "source": "./claude-code/spinner",
       "description": "Animations and a companion pet while the model works: a mascot beside the spinner, a scene above the prompt (a shoot-em-up, Clawd, pixel homages and more), a finale and a pet that levels up, in fifteen themes, one of them a visualizer of the sound the computer plays",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "category": "productivity",
       "tags": [
         "spinner",
@@ -62,7 +62,7 @@
       "name": "todo-bar",
       "source": "./claude-code/todo-bar",
       "description": "The task list's progress in a band above the prompt, read from the todo and task tools' own calls: no tool, no prompt, no tokens",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "category": "productivity",
       "tags": [
         "todo",
@@ -75,7 +75,7 @@
       "name": "receipt",
       "source": "./claude-code/receipt",
       "description": "What each turn did, in a band above the prompt once it ends: files and lines changed, commands and failures, reads, subagents; a toast when the model goes in circles. No tool, no prompt, no tokens",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "category": "monitoring",
       "tags": [
         "receipt",
