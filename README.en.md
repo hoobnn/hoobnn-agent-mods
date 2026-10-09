@@ -2,7 +2,7 @@
 
 [简体中文](README.md) · **English**
 
-Six mods that make Claude Code's terminal more useful and more fun: a statusline HUD, a task progress bar, a turn receipt, spinner animations with a pet, a Tailscale node band and a Hitokoto quote band. Each installs on its own, works out of the box and keeps its settings in `/config`. The repo also holds extensions for other coding-agent harnesses, one folder per harness.
+Six mods for the Claude Code terminal: a statusline HUD, a task progress bar, a turn receipt, spinner animations with a pet, a Tailscale node band and a Hitokoto quote band. Each installs on its own, works out of the box and keeps its settings in `/config`. The repo also holds extensions for other coding-agent harnesses, one folder per harness.
 
 | Folder | Harness | What goes there |
 | --- | --- | --- |

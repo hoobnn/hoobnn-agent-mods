@@ -2,7 +2,7 @@
 
 **简体中文** · [English](README.en.md)
 
-让 Claude Code 的终端更好用、也更好看的六个 mod：状态栏 HUD、任务进度条、回合回执、运行动画和宠物、Tailscale 节点状态、一言。每个都能单独安装，装上就能用，设置都在 `/config` 里。仓库里也放了给其他编程 Agent 工具写的扩展，按工具分目录。
+为 Claude Code 终端提供的六个 mod：状态栏 HUD、任务进度条、回合回执、运行动画和宠物、Tailscale 节点状态、一言。每个 mod 都可单独安装、开箱即用，设置统一在 `/config` 中管理。仓库中还包含为其他编程 Agent 工具编写的扩展，按工具分目录存放。
 
 | 目录 | 对应工具 | 放什么 |
 | --- | --- | --- |
@@ -16,12 +16,12 @@
 
 | Mod | 作用 |
 | --- | --- |
-| [`hud`](claude-code/hud) | 状态栏 HUD：模型、git、上下文、用量、工具和待办一目了然；额度预警（含 Fable 等按模型的周额度）、耗尽预测、缓存过期提醒、单轮上下文涨幅、每日预算、任务摘要、`/hud detail` 详情面板，12 套主题随时切换 |
-| [`ts-band`](claude-code/ts-band) | Tailscale 节点状态：全部直连时只占一个小标记，有节点走中继或离线时才列出来，上线 / 掉线弹提示 |
-| [`hitokoto`](claude-code/hitokoto) | 输入框上方的一句[一言](https://hitokoto.cn)和出处，可以定时换、每天一句、每个会话或每次发消息换一句 |
-| [`spinner`](claude-code/spinner) | 运行动画和宠物伴侣：像素风小剧场（雷霆战机、Clawd、吃豆人、彩虹猫、系统音频频谱等 15 套主题），宠物跟着 Claude 的动作变换姿势、会升级，一轮结束放彩带 |
-| [`todo-bar`](claude-code/todo-bar) | 任务进度条：正在做哪一项、做了多久、完成了多少，派出的子代理在干什么；只读 TodoWrite / Task 工具的结果，不花 token |
-| [`receipt`](claude-code/receipt) | 回合回执：一轮结束后用一行说明改了几个文件、增删多少行、跑了几条命令、几条失败，改了代码没跑测试会标出来，还能逐处回放每次改动的 diff；Claude 原地打转时提醒，不花 token |
+| [`hud`](claude-code/hud) | 状态栏 HUD：集中显示模型、git、上下文、用量、工具和待办，并提供额度预警（含 Fable 等按模型的周额度）、耗尽预测、缓存过期提醒、单轮上下文涨幅、每日预算、任务摘要和 `/hud detail` 详情面板，支持 12 套主题切换 |
+| [`ts-band`](claude-code/ts-band) | Tailscale 节点状态：所有节点直连时仅显示一个小标记，有节点经中继连接或离线时才列出，节点上线或掉线时弹出提示 |
+| [`hitokoto`](claude-code/hitokoto) | 在输入框上方显示一句[一言](https://hitokoto.cn)及出处，支持定时、每日、每个会话或每条消息刷新 |
+| [`spinner`](claude-code/spinner) | 运行动画与宠物伴侣：像素风动画场景（雷霆战机、Clawd、吃豆人、彩虹猫、系统音频频谱等 15 套主题），宠物随 Claude 的操作变换姿态并可升级，每轮结束时播放彩带动画 |
+| [`todo-bar`](claude-code/todo-bar) | 任务进度条：显示当前任务、已用时长、完成进度以及各子代理的工作内容；仅读取 TodoWrite / Task 工具的结果，不消耗 token |
+| [`receipt`](claude-code/receipt) | 回合回执：每轮结束后用一行汇总改动的文件数、增删行数、执行的命令数和失败数，标出改了代码但未运行测试的情况，并可逐处回放每次改动的 diff；Claude 陷入重复操作时发出提醒，不消耗 token |
 
 从本仓库的插件市场安装：
 
@@ -35,7 +35,7 @@ claude plugin install todo-bar@hoobnn-agent-mods
 claude plugin install receipt@hoobnn-agent-mods
 ```
 
-选项（`hud` 的 `position`、`theme`、`dailyBudgetUsd`、`summaryEveryTurns`，`ts-band` 的 `nodes`、`hideOffline`，`hitokoto` 的 `refreshMode`、`categories`，`spinner` 的 `theme`、`stage`、`celebrate`、`companion` 等）都能在 `/config` 里改，也可以写在 `~/.claude/settings.json` 的 `pluginConfigs` 里。`/config` 是 mod 设置的唯一归处：斜杠命令改的设置（`/hud theme neon`、`/ts off`、`/spinner stage off`）都写回这里；每个 mod 都有 `visible` 选项，`/hud`、`/ts`、`/hitokoto`、`/spinner`、`/todos`、`/receipt` 的 `off` / `on` 改的就是它。每个 mod 的完整说明见各自目录下的 README。
+选项（`hud` 的 `position`、`theme`、`dailyBudgetUsd`、`summaryEveryTurns`，`ts-band` 的 `nodes`、`hideOffline`，`hitokoto` 的 `refreshMode`、`categories`，`spinner` 的 `theme`、`stage`、`celebrate`、`companion` 等）都能在 `/config` 里改，也可以写在 `~/.claude/settings.json` 的 `pluginConfigs` 里。所有 mod 设置统一保存在 `/config`，斜杠命令修改的设置（`/hud theme neon`、`/ts off`、`/spinner stage off`）也会写回这里；每个 mod 都有 `visible` 选项，`/hud`、`/ts`、`/hitokoto`、`/spinner`、`/todos`、`/receipt` 的 `off` / `on` 改的就是它。每个 mod 的完整说明见各自目录下的 README。
 
 `spinner` 的效果（`clawd` 主题跑完一轮，宠物伴侣的气泡跟着工具变化，最后放庆祝动画；15 套主题的动图见 [`claude-code/spinner`](claude-code/spinner)）：
 
@@ -43,7 +43,7 @@ claude plugin install receipt@hoobnn-agent-mods
 
 ![spinner 雷霆战机主题](claude-code/spinner/assets/thunder.gif)
 
-其他 mod 的效果（截图都由 mod 自己真实画出的内容渲染）：
+其他 mod 的效果（截图均由 mod 实际绘制的内容渲染）：
 
 | `hud`（`neon` 主题，12 套主题总览见 [gallery.png](claude-code/hud/assets/themes/gallery.png)） |
 | --- |
