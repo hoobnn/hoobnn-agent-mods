@@ -32,9 +32,9 @@ declare module 'claude-code' {
     spinner: {
       theme: string
       choice: string
-      isHidden: boolean
-      isStageOff: boolean
-      isCompanionOff: boolean
+      isHidden: boolean | null
+      isStageOff: boolean | null
+      isCompanionOff: boolean | null
       finale: FinaleState | null
       preview: Preview | null
       activity: Activity

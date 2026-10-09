@@ -568,3 +568,20 @@ test('the footer button turns the animations off and on, keeping the modes benea
   ])
   await footer.unmount()
 })
+
+// A session resumed or cleared gets no session.start, and starts with nothing written.
+test('a resumed session follows the rows', { options: { visible: false } }, async ($, on) => {
+  host(on)
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  const band = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  expect(await band.findAll({ type: 'Client' })).toHaveLength(0)
+  await band.unmount()
+})
+
+test('a resumed session picks its theme on its first turn', { options: { theme: 'dino' } }, async ($, on) => {
+  host(on)
+  await $.turn.start({ text: 'hi', turnId: 't1' })
+  const band = await $.ui.mount({ plugin: 'spinner', surface: 'terminal', ...BAND })
+  expect(await drawn(band, 'work')).toContain('HI 00000')
+  await band.unmount()
+})

@@ -1,4 +1,4 @@
-import { atom, read, update } from 'claude-code'
+import { atom, derive, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Quote } from '../types'
@@ -11,7 +11,12 @@ import type { Prefs } from './kit/prefs'
 import { attribution, localDate, parseQuote } from './parse'
 
 const quote = atom({ plugin: 'hitokoto', key: 'quote' } as const, null)
-const isHidden = atom({ plugin: 'hitokoto', key: 'isHidden' } as const, false)
+// Set this session by `/hitokoto` or session.start; null in a session resumed or
+// cleared, which gets no session.start: `isHidden` is the `visible` row's then.
+const hiddenSet = atom({ plugin: 'hitokoto', key: 'isHidden' } as const, null as boolean | null)
+// The `visible` row's, set in register.
+let isRowHidden = false
+const isHidden = derive([hiddenSet], set => set ?? isRowHidden)
 // True while a picker is open above the band (see kit/band).
 const isPicking = atom({ plugin: 'hitokoto', key: 'isPicking' } as const, false)
 
@@ -99,7 +104,7 @@ async function whenShown($: EngineInterface, fn: () => Promise<unknown>): Promis
 /** Shown or hidden; the `visible` row keeps it. */
 async function show($: EngineInterface, isShown: boolean): Promise<void> {
   if ((await read($, isHidden)) === !isShown) return
-  await update($, isHidden, () => !isShown)
+  await update($, hiddenSet, () => !isShown)
   await persist(prefsOf($), 'visible', isShown)
 }
 
@@ -108,6 +113,7 @@ const STORE_MOVES = { isHidden: (kept: unknown) => ['visible', kept !== true] as
 
 export const register: Register = (on, options) => {
   const config = readConfig(options)
+  isRowHidden = !config.isVisible
   const { url, mode } = config
   const isDaily = mode === 'daily'
 
@@ -127,7 +133,7 @@ export const register: Register = (on, options) => {
       argumentHint: '[off|on]',
     })
     const kept = await keptRows(prefsOf($), STORE_MOVES)
-    await update($, isHidden, () => !(kept.visible ?? config.isVisible))
+    await update($, hiddenSet, () => !(kept.visible ?? config.isVisible))
 
     // Not awaited: session.start holds the first prompt until it settles.
     if (isDaily) {

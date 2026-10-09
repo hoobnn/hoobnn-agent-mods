@@ -1,7 +1,7 @@
 // The task list's progress above the prompt, read from the calls the model
 // already makes (TodoWrite, TaskCreate, TaskUpdate) once they have run: no tool
 // of its own, nothing in the prompt, no call refused, no tokens.
-import { atom, read, update } from 'claude-code'
+import { atom, derive, read, update } from 'claude-code'
 import type { Elements, EngineInterface, Register, RenderElement } from 'claude-code'
 
 import type { Agent, Board } from '../types'
@@ -15,8 +15,12 @@ import { persist, switchArg } from './kit/prefs'
 import type { Prefs } from './kit/prefs'
 
 const board = atom({ plugin: 'todo-bar', key: 'board' } as const, null as Board | null)
-// The session's mirror of the `visible` row, so `/todos` shows at once.
-const isHidden = atom({ plugin: 'todo-bar', key: 'isHidden' } as const, false)
+// Set this session by `/todos` or session.start; null in a session resumed or
+// cleared, which gets no session.start: `isHidden` is the `visible` row's then.
+const hiddenSet = atom({ plugin: 'todo-bar', key: 'isHidden' } as const, null as boolean | null)
+// The `visible` row's, set in register.
+let isRowHidden = false
+const isHidden = derive([hiddenSet], set => set ?? isRowHidden)
 // True while a picker is open above the band (see kit/band).
 const isPicking = atom({ plugin: 'todo-bar', key: 'isPicking' } as const, false)
 // The main thread's subagents still at work, oldest first.
@@ -87,6 +91,7 @@ async function listing($: EngineInterface): Promise<string> {
 
 export const register: Register = (on, options) => {
   const config = readConfig(options)
+  isRowHidden = !config.isVisible
 
   on('session.start', async ($, e, next) => {
     const settings = (await $.settings.read().catch(() => ({}))) as { language?: unknown }
@@ -97,7 +102,7 @@ export const register: Register = (on, options) => {
     ])
     setLang(resolveLanguage(config.language, settings.language, locale))
     await $.command.register({ name: 'todos', description: m('cmd.description'), argumentHint: '[off|on]' })
-    await update($, isHidden, () => !config.isVisible)
+    await update($, hiddenSet, () => !config.isVisible)
     // A reload keeps the session's state; a resumed session finds its board in the store.
     if ((await read($, board)) === null) {
       const kept = (await $.store.get(SAVED + (await $.session.id()))) as Board | undefined
@@ -197,7 +202,7 @@ export const register: Register = (on, options) => {
     const arg = e.args.trim().toLowerCase()
     if (arg !== 'off' && arg !== 'on') return { text: await listing($) }
     const was = await read($, isHidden)
-    const hidden = await update($, isHidden, v => switchArg(arg, v))
+    const hidden = await update($, hiddenSet, () => switchArg(arg, was))
     if (hidden !== was) await persist(prefsOf($), 'visible', !hidden)
     return { text: m(hidden ? 'cmd.hidden' : 'cmd.shown') }
   })

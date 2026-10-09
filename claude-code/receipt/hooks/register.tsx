@@ -1,7 +1,7 @@
 // What the last turn did, in a band above the prompt once it ends, and a toast
 // when the main thread goes in circles. Read from the turn's own tool calls
 // once they have run: no tool of its own, nothing in the prompt, no tokens.
-import { atom, read, update } from 'claude-code'
+import { atom, derive, read, update } from 'claude-code'
 import type { Elements, EngineInterface, Register, RenderElement } from 'claude-code'
 
 import type { Receipt, Step } from '../types'
@@ -18,8 +18,12 @@ const receipt = atom({ plugin: 'receipt', key: 'receipt' } as const, null as Rec
 const watch = atom({ plugin: 'receipt', key: 'watch' } as const, NO_WATCH)
 // The band shows between turns, for a turn that used a tool.
 const isShown = atom({ plugin: 'receipt', key: 'isShown' } as const, false)
-// The session's mirror of the `visible` row, so `/receipt` shows at once.
-const isHidden = atom({ plugin: 'receipt', key: 'isHidden' } as const, false)
+// Set this session by `/receipt` or session.start; null in a session resumed or
+// cleared, which gets no session.start: `isHidden` is the `visible` row's then.
+const hiddenSet = atom({ plugin: 'receipt', key: 'isHidden' } as const, null as boolean | null)
+// The `visible` row's, set in register.
+let isRowHidden = false
+const isHidden = derive([hiddenSet], set => set ?? isRowHidden)
 // True while a picker is open above the band (see kit/band).
 const isPicking = atom({ plugin: 'receipt', key: 'isPicking' } as const, false)
 // The replay pane: the edit it shows, and whether it is open (the band steps aside meanwhile).
@@ -107,6 +111,7 @@ async function openReplay($: EngineInterface): Promise<boolean> {
 
 export const register: Register = (on, options) => {
   const config = readConfig(options)
+  isRowHidden = !config.isVisible
   const rules = { repeatFailures: config.repeatFailures, flipFlops: config.flipFlops }
 
   on('session.start', async ($, e, next) => {
@@ -118,7 +123,7 @@ export const register: Register = (on, options) => {
     ])
     setLang(resolveLanguage(config.language, settings.language, locale))
     await $.command.register({ name: 'receipt', description: m('cmd.description'), argumentHint: '[replay|off|on]' })
-    await update($, isHidden, () => !config.isVisible)
+    await update($, hiddenSet, () => !config.isVisible)
     return next(e)
   })
 
@@ -173,7 +178,7 @@ export const register: Register = (on, options) => {
     }
     if (arg !== 'off' && arg !== 'on') return { text: await listing($, config.flagUnverified) }
     const was = await read($, isHidden)
-    const hidden = await update($, isHidden, v => switchArg(arg, v))
+    const hidden = await update($, hiddenSet, () => switchArg(arg, was))
     if (hidden !== was) await persist(prefsOf($), 'visible', !hidden)
     return { text: m(hidden ? 'cmd.hidden' : 'cmd.shown') }
   })

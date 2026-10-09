@@ -25,6 +25,6 @@ export type Board = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'todo-bar': { board: Board | null; isHidden: boolean; isPicking: boolean; tick: number; agents: Agent[] }
+    'todo-bar': { board: Board | null; isHidden: boolean | null; isPicking: boolean; tick: number; agents: Agent[] }
   }
 }

@@ -74,7 +74,7 @@ declare module 'claude-code' {
   interface PluginState {
     hud: {
       lines: HudLine[]
-      isHidden: boolean
+      isHidden: boolean | null
       step: StepInfo
       /** Remote clients attached (a phone, the web), not the terminal. */
       remotes: Remote[]

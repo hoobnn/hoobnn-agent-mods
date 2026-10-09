@@ -7,7 +7,7 @@
 // file); the other modules get closures over it (`Io`, `SessionApi`).
 import './shims/globals.js'
 
-import { atom, read, update } from 'claude-code'
+import { atom, derive, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { DockPet, Fired, HudLine, Remote, StepInfo, ToolStats, TurnCost } from '../types'
@@ -36,8 +36,12 @@ import type { Theme } from './themes.js'
 import { transcriptData } from './transcript-feed.js'
 
 const lines = atom({ plugin: 'hud', key: 'lines' } as const, [] as HudLine[])
-// The session's mirror of the `visible` row, so `/hud` shows at once.
-const isHidden = atom({ plugin: 'hud', key: 'isHidden' } as const, false)
+// Set this session by `/hud` or session.start; null in a session resumed or
+// cleared, which gets no session.start: `isHidden` is the `visible` row's then.
+const hiddenSet = atom({ plugin: 'hud', key: 'isHidden' } as const, null as boolean | null)
+// The `visible` row's, set in register.
+let isRowHidden = false
+const isHidden = derive([hiddenSet], set => set ?? isRowHidden)
 // Session state, so a reload keeps what earlier requests reported.
 const steps = atom({ plugin: 'hud', key: 'step' } as const, {
   model: null,
@@ -145,7 +149,8 @@ async function setTheme($: EngineInterface, picked: Theme, schedule: () => void)
 /** `/hud [off|on]`: the HUD hidden or shown (no verb toggles), its row written when it changed. */
 async function setHidden($: EngineInterface, verb: string, schedule: () => void): Promise<boolean> {
   const was = await read($, isHidden)
-  const hidden = await update($, isHidden, v => switchArg(verb, v))
+  const hidden = switchArg(verb, was)
+  await update($, hiddenSet, () => hidden)
   if (hidden !== was) await persist(prefsOf($), 'visible', !hidden)
   schedule()
   return hidden
@@ -156,6 +161,7 @@ const STORE_MOVES = { theme: (kept: unknown) => (findTheme(kept) ? (['theme', fi
 
 export const register: Register = (on, options) => {
   const config = readConfig(options)
+  isRowHidden = !config.isVisible
   useTheme(config.theme)
   setConfigPatch(hud => {
     const themed = applyPalette(hud, live.theme)
@@ -324,7 +330,7 @@ export const register: Register = (on, options) => {
 
     const keptTheme = findTheme((await keptRows(prefsOf($), STORE_MOVES)).theme)
     if (keptTheme) useTheme(keptTheme)
-    await update($, isHidden, () => !config.isVisible)
+    await update($, hiddenSet, () => !config.isVisible)
 
     await loadHostFacts(io, config.extraCmd)
     // claude-hud sets its language in each pass; the command's description is read before the first.

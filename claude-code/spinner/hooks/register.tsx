@@ -1,10 +1,10 @@
-import { atom, read, update } from 'claude-code'
+import { atom, derive, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Activity, DockPet, FinaleState, PetStats, Preview } from '../types'
 import { USAGE, parseCommand } from './command'
 import { readConfig } from './config'
-import type { Choice } from './config'
+import type { Choice, Config } from './config'
 import { m, setLang } from './i18n'
 import { isPickerOpen, stackAbove } from './kit/band'
 import { drawPet, drawPetLine } from './kit/pet'
@@ -20,14 +20,21 @@ import { AUDIO_BANDS, AudioMeter, lineSplitter } from './audio'
 import type { AudioView } from './audio'
 import type { StageProps } from './stage'
 
-// The theme drawn this session ('' until session.start picks one).
+// The theme drawn this session ('' until session.start, or the first turn of a
+// session resumed or cleared, which gets no session.start, picks one).
 const theme = atom({ plugin: 'spinner', key: 'theme' } as const, '')
 // The `theme` row: a theme, or `random`.
 const choice = atom({ plugin: 'spinner', key: 'choice' } as const, 'random')
-// Session mirrors of the `visible`, `stage` and `companion` rows, so a command shows at once.
-const isHidden = atom({ plugin: 'spinner', key: 'isHidden' } as const, false)
-const isStageOff = atom({ plugin: 'spinner', key: 'isStageOff' } as const, false)
-const isCompanionOff = atom({ plugin: 'spinner', key: 'isCompanionOff' } as const, false)
+// Session mirrors of the `visible`, `stage` and `companion` rows, so a command shows at once;
+// null in a session resumed or cleared, which gets no session.start: the rows' then.
+const hiddenSet = atom({ plugin: 'spinner', key: 'isHidden' } as const, null as boolean | null)
+const stageOffSet = atom({ plugin: 'spinner', key: 'isStageOff' } as const, null as boolean | null)
+const companionOffSet = atom({ plugin: 'spinner', key: 'isCompanionOff' } as const, null as boolean | null)
+// The rows themselves, set in register.
+let rows: Config | null = null
+const isHidden = derive([hiddenSet], set => set ?? !(rows?.isVisible ?? true))
+const isStageOff = derive([stageOffSet], set => set ?? !(rows?.hasStage ?? true))
+const isCompanionOff = derive([companionOffSet], set => set ?? !(rows?.hasCompanion ?? true))
 const finale = atom({ plugin: 'spinner', key: 'finale' } as const, null)
 const preview = atom({ plugin: 'spinner', key: 'preview' } as const, null)
 const activity = atom({ plugin: 'spinner', key: 'activity' } as const, { act: 'think' as Act })
@@ -268,9 +275,9 @@ async function setSwitch($: EngineInterface, field: 'visible' | 'stage' | 'compa
         ? await read($, isStageOff)
         : await read($, isCompanionOff)
   if (wasOff === !isOn) return
-  if (field === 'visible') await update($, isHidden, () => !isOn)
-  else if (field === 'stage') await update($, isStageOff, () => !isOn)
-  else await update($, isCompanionOff, () => !isOn)
+  if (field === 'visible') await update($, hiddenSet, () => !isOn)
+  else if (field === 'stage') await update($, stageOffSet, () => !isOn)
+  else await update($, companionOffSet, () => !isOn)
   await publishPet($)
   await syncTap($)
   await persist(prefsOf($), field, isOn)
@@ -295,6 +302,18 @@ async function status($: EngineInterface): Promise<string> {
   return lines.join('\n')
 }
 
+/** The session's theme, switches and pet, from the rows. */
+async function seed($: EngineInterface, rows: Config): Promise<void> {
+  await choose($, rows.theme)
+  await update($, hiddenSet, () => !rows.isVisible)
+  await update($, stageOffSet, () => !rows.hasStage)
+  await update($, companionOffSet, () => !rows.hasCompanion)
+  const stats = await keptPet($)
+  await update($, pet, () => stats)
+  await publishPet($)
+  await syncTap($)
+}
+
 // What versions before 0.3 kept in the store, as `/config` rows.
 const STORE_MOVES = {
   theme: (kept: unknown) => (kept === 'random' || isThemeName(kept) ? (['theme', kept] as const) : null),
@@ -305,6 +324,7 @@ const STORE_MOVES = {
 
 export const register: Register = (on, options) => {
   const config = readConfig(options)
+  rows = config
   isStill = config.isStill
   // Tool calls running now: a pet stays busy until the last of parallel calls ends.
   const running = new Map<string, string>()
@@ -322,21 +342,15 @@ export const register: Register = (on, options) => {
     setLang(resolveLanguage(config.language, settings.language, locale))
     await $.command.register({ name: 'spinner', description: m('cmd.description'), argumentHint: USAGE })
 
-    const rows = readConfig({ ...options, ...(await keptRows(prefsOf($), STORE_MOVES)) })
-    await choose($, rows.theme)
-    await update($, isHidden, () => !rows.isVisible)
-    await update($, isStageOff, () => !rows.hasStage)
-    await update($, isCompanionOff, () => !rows.hasCompanion)
-    const stats = await keptPet($)
-    await update($, pet, () => stats)
-    await publishPet($)
-    await syncTap($)
+    await seed($, readConfig({ ...options, ...(await keptRows(prefsOf($), STORE_MOVES)) }))
     const result = await next(e)
     await migrateStore(prefsOf($), STORE_MOVES)
     return result
   })
 
   on('turn.start', async ($, e, next) => {
+    // A session resumed or cleared: no session.start came to pick its theme or read its pet.
+    if ((await read($, theme)) === '') await seed($, config)
     running.clear()
     sleepTimer?.cancel()
     await update($, activity, () => ({ act: 'think' as Act }))

@@ -1,4 +1,4 @@
-import { atom, read, update } from 'claude-code'
+import { atom, derive, read, update } from 'claude-code'
 import type { Elements, EngineInterface, Register, RenderElement } from 'claude-code'
 
 import type { Node, Snapshot } from '../types'
@@ -12,7 +12,12 @@ import type { Prefs } from './kit/prefs'
 import { parseStatus, selectNodes } from './parse'
 
 const snapshot = atom({ plugin: 'ts-band', key: 'snapshot' } as const, null)
-const isHidden = atom({ plugin: 'ts-band', key: 'isHidden' } as const, false)
+// Set this session by `/ts` or session.start; null in a session resumed or
+// cleared, which gets no session.start: `isHidden` is the `visible` row's then.
+const hiddenSet = atom({ plugin: 'ts-band', key: 'isHidden' } as const, null as boolean | null)
+// The `visible` row's, set in register.
+let isRowHidden = false
+const isHidden = derive([hiddenSet], set => set ?? isRowHidden)
 // True while a picker is open above the band (see kit/band).
 const isPicking = atom({ plugin: 'ts-band', key: 'isPicking' } as const, false)
 
@@ -125,6 +130,7 @@ const STORE_MOVES = { isHidden: (kept: unknown) => ['visible', kept !== true] as
 
 export const register: Register = (on, options) => {
   const config = readConfig(options)
+  isRowHidden = !config.isVisible
   // Set in session.start: a read now, for each prompt the person sends.
   let refreshNow: (isForced?: boolean) => Promise<void> | void = () => {}
 
@@ -140,7 +146,7 @@ export const register: Register = (on, options) => {
     setLang(resolveLanguage(config.language, settings.language, locale))
     await $.command.register({ name: 'ts', description: m('cmd.description'), argumentHint: '[off|on]' })
     const kept = await keptRows(prefsOf($), STORE_MOVES)
-    await update($, isHidden, () => !(kept.visible ?? config.isVisible))
+    await update($, hiddenSet, () => !(kept.visible ?? config.isVisible))
     refreshNow = startPolling($, config)
     const result = await next(e)
     await migrateStore(prefsOf($), STORE_MOVES)
@@ -149,7 +155,7 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'ts' }, async ($, e) => {
     const was = await read($, isHidden)
-    const hidden = await update($, isHidden, v => switchArg(e.args.trim().toLowerCase(), v))
+    const hidden = await update($, hiddenSet, () => switchArg(e.args.trim().toLowerCase(), was))
     if (hidden !== was) await persist(prefsOf($), 'visible', !hidden)
     return { text: m(hidden ? 'cmd.hidden' : 'cmd.shown') }
   })

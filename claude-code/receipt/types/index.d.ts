@@ -49,6 +49,6 @@ export type Watch = {
 
 declare module 'claude-code' {
   interface PluginState {
-    receipt: { receipt: Receipt | null; watch: Watch; isHidden: boolean; isPicking: boolean; isShown: boolean; replayAt: number; isReplaying: boolean }
+    receipt: { receipt: Receipt | null; watch: Watch; isHidden: boolean | null; isPicking: boolean; isShown: boolean; replayAt: number; isReplaying: boolean }
   }
 }

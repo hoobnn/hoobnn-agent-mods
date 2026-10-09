@@ -2,6 +2,6 @@ export type Quote = { text: string; from: string; fromWho: string }
 
 declare module 'claude-code' {
   interface PluginState {
-    hitokoto: { quote: Quote | null; isHidden: boolean; isPicking: boolean }
+    hitokoto: { quote: Quote | null; isHidden: boolean | null; isPicking: boolean }
   }
 }

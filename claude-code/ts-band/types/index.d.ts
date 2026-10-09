@@ -6,6 +6,6 @@ export type Snapshot = { nodes: Node[]; checkedAt: number; error: string | null 
 
 declare module 'claude-code' {
   interface PluginState {
-    'ts-band': { snapshot: Snapshot | null; isHidden: boolean; isPicking: boolean }
+    'ts-band': { snapshot: Snapshot | null; isHidden: boolean | null; isPicking: boolean }
   }
 }
