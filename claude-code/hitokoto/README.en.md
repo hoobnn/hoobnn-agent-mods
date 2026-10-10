@@ -1,6 +1,10 @@
+<div align="center">
+
 # hitokoto: a Hitokoto quote above the Claude Code prompt
 
 [简体中文](README.md) · **English**
+
+</div>
 
 A line from [Hitokoto (一言)](https://hitokoto.cn), a Chinese quote service of poetry, literature, anime lines and aphorisms, in a band above the prompt, with its author and source dimmed after it. Something to read while Claude works.
 
@@ -8,10 +12,10 @@ A line from [Hitokoto (一言)](https://hitokoto.cn), a Chinese quote service of
 
 ## Features
 
-- **A line and its source**, with a `↻` at the end that brings another when clicked (not in `daily` mode).
-- **Four refresh modes**: on a timer (every 30 minutes by default), one line a day (the same in every session, a new one after midnight), one per session, or a new one each prompt.
-- **Pick categories**: poetry, literature, philosophy and the rest, or any.
-- **Light and never empty**: nothing is fetched while the band is hidden; one request runs at a time, and one that has not answered in 10 s counts as failed. The last line is kept, so a new or offline session starts with it.
+- A line and its source, with a `↻` at the end that brings another when clicked (not in `daily` mode).
+- Four refresh modes: on a timer (every 30 minutes by default), one line a day (the same in every session, a new one after midnight), one per session, or a new one each prompt.
+- Pick categories: poetry, literature, philosophy and the rest, or any.
+- Light and never empty: nothing is fetched while the band is hidden; one request runs at a time, and one that has not answered in 10 s counts as failed. The last line is kept, so a new or offline session starts with it.
 - Nothing is fetched in `claude -p` or the SDK.
 
 ## Install

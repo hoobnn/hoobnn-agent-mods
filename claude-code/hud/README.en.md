@@ -1,6 +1,10 @@
+<div align="center">
+
 # hud: a statusline HUD for Claude Code
 
 [简体中文](README.md) · **English**
+
+</div>
 
 [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 rebuilt as a Claude Code mod: model, project, git, context, usage, tools, subagents and todos at a glance, below the prompt (beside the hint line, where the statusline sat) or in a band above it. On top of claude-hud it adds alerts, a usage forecast, a daily budget, a one-line task summary, a detail pane and twelve themes you switch live.
 
@@ -8,12 +12,12 @@
 
 ## Features
 
-- **Everything claude-hud shows**: model and effort, project and git branch with its changes, context and usage gauges, the running tools, subagents and todos.
-- **Warnings before you hit a wall**: toasts at the context and quota levels you pick, when a limit runs out at the current pace, per-model weekly limits such as Fable's, the tokens left before auto-compaction, what the next message re-caches once the prompt cache has expired, a turn that grew the context a lot (by how much, beside the recent turns), and too many uncommitted changes or unpushed commits.
-- **Spend**: today's spend against a daily budget, and the last 7 days as a sparkline.
-- **A one-line task summary**, and `/hud detail` for per-tool times, the last turns' cost and context growth, subagents and todos.
-- **Twelve themes**: neon, rainbow, emoji, anime themes with a kaomoji mascot (sakura, kawaii, mecha, shonen), Tokyo Night, Matrix, Nerd Font and powerline.
-- **Turn-done toast** (with an optional chime on macOS) for long turns, and the Remote Control state with the clients attached.
+- Everything claude-hud shows: model and effort, project and git branch with its changes, context and usage gauges, the running tools, subagents and todos.
+- Warnings before you hit a wall: toasts at the context and quota levels you pick; when a limit runs out at the current pace (the 5-hour limit at the last hour's pace); per-model weekly limits such as Fable's, with the same alerts and forecast; the tokens left before auto-compaction; what the next message re-caches once the prompt cache has expired; a turn that grew the context a lot, by how much and beside a sparkline of the recent turns (`上一轮 +98k ▂▁█`), so the turn that filled the window stands out; and too many uncommitted changes or unpushed commits.
+- Spend: today's spend against a daily budget, and the last 7 days as a sparkline.
+- A one-line task summary, and the `/hud detail` pane: each tool's calls and time, the last turns' time, cost and context growth, subagents, todos, and today's and the week's spend.
+- Twelve themes: neon, rainbow, emoji, anime themes with a kaomoji mascot (sakura, kawaii, mecha, shonen), Tokyo Night, Matrix, Nerd Font and powerline.
+- Turn-done toast for long turns (with an optional chime on macOS), and the Remote Control state.
 
 ## Install
 
@@ -22,17 +26,11 @@ claude plugin marketplace add hoobnn/hoobnn-agent-mods
 claude plugin install hud@hoobnn-agent-mods
 ```
 
-It reads claude-hud's own config files, so an existing claude-hud setup carries over and `/claude-hud:configure` keeps working. `/hud` toggles it; `/hud theme` picks a theme.
-
-## Config
-
-Language: claude-hud's own `language` (`en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`, `pt-BR`, `ru`) in its config file sets the whole HUD, what the mod adds included (alerts, the extras row, the detail pane, `/hud`, the task summary).
-
-claude-hud's own files: `~/.claude/plugins/claude-hud/config.json` and `~/.claude/claude-hud.json`, so `/claude-hud:configure` keeps working. Mod options (`/config`, or `pluginConfigs.hud.options` in settings): `visible` (`/hud` toggles it, `/hud off` / `on` set it, and so does the **HUD** button in the prompt footer; kept across sessions), `footerButton` (that button, on by default), `position` (`below` the prompt, or `above` it as a band), `extraCmd` (claude-hud's `--extra-cmd`), `debug` (registers `mcp__hud__hud_debug`), and the options of the additions below.
+It reads claude-hud's own config files (`~/.claude/plugins/claude-hud/config.json` and `~/.claude/claude-hud.json`), so an existing claude-hud setup carries over and `/claude-hud:configure` keeps working.
 
 ## Themes
 
-`theme` (in `/config`, default `classic`: claude-hud's own look) or `/hud theme <name>` live; `/hud theme` alone asks which in a dialog (the next four offered, any other typed under Other; dismissed, or under `-p`, it lists them with a sample), `/hud theme next` cycles, `/hud theme reset` goes back to `classic`. `/hud theme` writes the `theme` option, so `/config` shows it and it is kept across sessions (a theme an older version kept in the mod's store moves there once).
+`/hud theme <name>` switches live; `/hud theme` alone asks which in a dialog (the next four offered, any other typed under Other; dismissed, or under `-p`, it lists them with a sample); `/hud theme next` cycles, and `/hud theme reset` goes back to `classic`. The choice is written to the `theme` option in `/config`, so later sessions keep it.
 
 | Theme | Look |
 | --- | --- |
@@ -51,12 +49,55 @@ claude-hud's own files: `~/.claude/plugins/claude-hud/config.json` and `~/.claud
 
 Every theme on the same sample session: [assets/themes/gallery.png](assets/themes/gallery.png); one still per theme in `assets/themes/<theme>.png`.
 
+The anime themes' mascot changes face with the state: calm, busy while a tool runs, worried from 70% context (or 90% quota), panicking from 85%, knocked out when a limit is reached. `showMascot` turns it off.
+
 - Palette: the theme's colors go over claude-hud's `colors`; a color set in claude-hud's own config (off its default) stays.
-- Mascot (`showMascot`, on): the anime themes put a face first in the extras row: calm, busy while a tool runs, worried from 70% context (or 90% quota), panicking from 85%, knocked out when a limit is reached.
 - Width: glyphs are drawn by claude-hud, so its wrapping measures them; separators are no wider than ` │ `; powerline adds 2 cells to a row, taken off the columns claude-hud and the extras row fit to. Emoji are default-presentation ones only (no U+FE0F).
 - Known limit: claude-hud keeps a `[Model | Provider]` badge (Bedrock, Vertex) whole by its leading `[`; themes that drop the brackets lose that, so at a narrow width such a badge can wrap at ` | `.
 
-## Derived rather than reported
+## Commands
+
+- `/hud`: shows or hides the HUD; `/hud off` and `/hud on` set it (so does the HUD button in the prompt footer).
+- `/hud theme [name|next|reset]`: switches the theme.
+- `/hud detail`: opens or closes the detail pane. It works while Claude is busy too.
+
+## Options
+
+Set them in `/config`, or under `pluginConfigs` in `~/.claude/settings.json`:
+
+| Option | What it does | Default |
+| --- | --- | --- |
+| `visible` | Show the HUD | on |
+| `footerButton` | Show the HUD toggle button in the prompt footer | on |
+| `position` | `above` the prompt as a band, or `below` it where the statusline sat | `above` |
+| `theme` | The theme | `classic` |
+| `showMascot` | Show the kaomoji mascot in the anime themes | on |
+| `contextAlerts` | Toast when context use reaches these percentages, comma separated (`80,90`); empty turns it off | empty |
+| `usageAlerts` | Toast when the 5-hour or 7-day quota reaches these percentages; empty turns it off | empty |
+| `showForecast` | Show when a limit runs out, if at the current pace that comes before it resets | on |
+| `compactWarnPercent` | Once the context is this percentage of the way to auto-compaction, show the tokens left; 0 off | 60 |
+| `coldCacheTokens` | Once the prompt cache has expired, show what the next message re-caches when the context holds at least this many tokens; 0 off | 20000 |
+| `turnGrowthTokens` | When a turn grew the context by at least this many tokens, show by how much beside a sparkline of the recent turns; 0 off | 20000 |
+| `dailyBudgetUsd` | Daily budget in US dollars, with today's spend against it; 0 off | 0 |
+| `showHistory` | Show the last 7 days' spend as a sparkline and the streak of days in use | off |
+| `summaryEveryTurns` | Write the one-line task summary after the first turn and every this many turns (served from the prompt cache); 0 off | 5 |
+| `notifyAfterSeconds` | Toast when a turn that ran at least this many seconds ends; 0 off | 0 |
+| `notifySound` | A chime with that toast (macOS) | on |
+| `gitDirtyWarn` | Warn at this many uncommitted paths; 0 off | 20 |
+| `gitAheadWarn` | Warn at this many unpushed commits; 0 off | 5 |
+| `showAgents` | Show claude-hud's subagent lines (Claude Code already lists running subagents itself, so off by default) | off |
+| `extraCmd` | claude-hud's `--extra-cmd`: a shell command whose output shows as a label (needs `CLAUDE_HUD_ALLOW_EXTRA_CMD=1`) | empty |
+| `debug` | Register the `mcp__hud__hud_debug` debug tool | off |
+
+The language follows `language` in claude-hud's config file (`en`, `zh-Hans`, `zh-Hant`, `ja`, `ko`, `es`, `fr`, `de`, `pt-BR`, `ru`), and what the mod adds (alerts, the detail pane, `/hud`'s replies, the task summary) follows it too.
+
+## More mods
+
+[hoobnn-agent-mods](../../README.en.md) also has a task progress bar (`todo-bar`), a turn receipt (`receipt`), spinner animations with a pet (`spinner`), a Tailscale node band (`ts-band`) and a Hitokoto quote band (`hitokoto`).
+
+## Development
+
+### Derived rather than reported
 
 Claude Code's statusline stdin carries these; the mod API does not, so the mod works them out:
 
@@ -68,37 +109,28 @@ Claude Code's statusline stdin carries these; the mod API does not, so the mod w
 - Before the session's first model request, `current_usage` is the engine's context total, uncached, and the effort is `effortLevel` from settings; both arrive with the first `turn.step` and are kept in session state across reloads.
 - `total_api_duration_ms` counts the requests seen since the mod was enabled in the session.
 
-## Added
+### Additions in detail
 
 - Remote Control: ` │ ⇄ 远程控制` at the end of the first line while the session's Remote Control is on, linked to the session on claude.ai, then the attached clients by surface (`已连接 手机 · 网页/桌面×2`). The Claude app and claude.ai raise no `session.attach`, so a prompt or command arriving over Remote Control marks `已连接` until the bridge changes. The engine records the bridge as `bridgeSessionId` in `~/.claude/sessions/<pid>.json` (found by session id) and the mod API does not report it, so the file is read every 3 s and the HUD redrawn on a change; clients and their surfaces come from `session.attach` / `session.detach`.
-
 - An extras row: appended to claude-hud's last line when both fit the width, else a line of its own under it; parts that do not fit leave it, a theme's mascot first, then the 7-day sparkline, and the `⚠` git warning last. Each part shows only when it has something to say:
-  - `✎` the task in one line: a `$.model.fork` of the conversation (served from the prompt cache) after the first turn and every `summaryEveryTurns` turns (default 5; 0 off). Skipped while the transcript holds a task list with work left (the list already says what the model is doing), and an older line steps aside meanwhile.
+  - `✎` the task in one line: a `$.model.fork` of the conversation (served from the prompt cache) after the first turn and every `summaryEveryTurns` turns. Skipped while the transcript holds a task list with work left (the list already says what the model is doing), and an older line steps aside meanwhile.
   - Usage forecast (`showForecast`): when the 5-hour, 7-day or a model-scoped weekly limit runs out, if that comes before it resets: the 5-hour limit at the last hour's pace once the session has ten minutes of readings, the weekly ones at the rate since their window began.
-  - Tokens left before auto-compaction (`距自动压缩 42k`), once the context is `compactWarnPercent` of the way there (default 60; 0 off). The threshold is Claude Code's own (`$.session.usage({ breakdown: 'summary' })`), read again when the context window changes.
-  - Expired prompt cache (`缓存已过期，下条消息重写 120k`): once a cache the session used has expired, the context the next message writes to it again, when that is at least `coldCacheTokens` (default 20000; 0 off).
-  - Context growth (`上一轮 +98k ▂▁█`): when the last turn grew the context by at least `turnGrowthTokens` (default 20000; 0 off), by how much, then a sparkline of the last 8 turns' growth (a compaction counts as none), so the turn that filled the window stands out. Inspired by token-weather's per-turn chart.
-  - Today's spend across sessions against `dailyBudgetUsd` (0 off), from claude-hud's daily-cost ledger; yellow from 80%, red past it.
-  - The last 7 days' spend as a sparkline and the streak of days in use (`showHistory`, off by default); the spend is kept in the mod's store for 60 days either way.
-  - `⚠` uncommitted paths at or past `gitDirtyWarn` (default 20) and unpushed commits at or past `gitAheadWarn` (default 5); 0 turns either off.
-- Alerts (off by default): a toast when context use reaches each of `contextAlerts` (e.g. `80,90`), and the 5-hour, 7-day or a model-scoped weekly limit each of `usageAlerts`; once per threshold, again only after the gauge drops 5 points below it (a `/compact`, a reset).
-- Turn done: a turn of the main thread that ran `notifyAfterSeconds` or longer (default 0, off; e.g. 60) ends with a toast and, with `notifySound`, a short chime (macOS).
-- Subagent lines: off by default (`showAgents`), since Claude Code lists running subagents itself, with their time and tokens; the detail pane still lists them.
-- `/hud detail` opens (and closes) a pane: each tool's calls, total and average time and failures this session; the last 8 turns with their time, cost and context growth; subagents; todos; today's and the week's spend. `/hud` runs mid-turn too.
+  - Tokens left before auto-compaction (`距自动压缩 42k`), once the context is `compactWarnPercent` of the way there. The threshold is Claude Code's own (`$.session.usage({ breakdown: 'summary' })`), read again when the context window changes.
+  - Expired prompt cache (`缓存已过期，下条消息重写 120k`): once a cache the session used has expired, the context the next message writes to it again, when that is at least `coldCacheTokens`.
+  - Context growth (`上一轮 +98k ▂▁█`): when the last turn grew the context by at least `turnGrowthTokens`, by how much, then a sparkline of the last 8 turns' growth (a compaction counts as none). Inspired by token-weather's per-turn chart.
+  - Today's spend across sessions against `dailyBudgetUsd`, from claude-hud's daily-cost ledger; yellow from 80%, red past it.
+  - The last 7 days' spend as a sparkline and the streak of days in use (`showHistory`); the spend is kept in the mod's store for 60 days either way.
+  - `⚠` uncommitted paths at or past `gitDirtyWarn` and unpushed commits at or past `gitAheadWarn`.
+- Alerts: a toast when context use reaches each of `contextAlerts`, and the 5-hour, 7-day or a model-scoped weekly limit each of `usageAlerts`; once per threshold, again only after the gauge drops 5 points below it (a `/compact`, a reset).
+- Turn done: a turn of the main thread that ran `notifyAfterSeconds` or longer ends with a toast and, with `notifySound`, a short chime (macOS).
+- `/hud detail` pane: each tool's calls, total and average time and failures this session; the last 8 turns with their time, cost and context growth; subagents; todos; today's and the week's spend.
 - Prompt redraws: right after a compaction, and after `/model` (showing the new model before its first step).
-
 - Display tweaks over claude-hud: the ` │ ` and ` | ` separators are dimmed; a running tool's file shows relative to the session directory (`◐ Read src/a.ts`); the session duration is `⏱ 12m` and the prompt cache `缓存 至 14:05`, without the emoji-width `⏱️`.
 
-## Not carried over
+### Not carried over
 
 - OSC 8 `file://` links (the project path): a `Link` takes https only, so the text is kept and the link dropped. https links (a GitHub branch) stay clickable.
 - `worktree` (a `--worktree` session's name, path and branch): not in the mod API.
-
-## More mods
-
-[hoobnn-agent-mods](../../README.en.md) also has a task progress bar (`todo-bar`), a turn receipt (`receipt`), spinner animations with a pet (`spinner`), a Tailscale node band (`ts-band`) and a Hitokoto quote band (`hitokoto`).
-
-## Development
 
 ### Layout
 
@@ -127,7 +159,7 @@ Claude Code's statusline stdin carries these; the mod API does not, so the mod w
 - `hooks/ansi.ts`: SGR escapes to styled spans.
 - `hooks/i18n.ts`: the mod's own strings in every language claude-hud has, with plural forms, money and percent written as each language writes them.
 - `hooks/themes.ts`: the themes (palette, glyphs, separator, extras colors, powerline, gradient, mascot) and the span effects that apply them.
-- `hooks/extras.ts`: what the mod adds (below), as pure helpers: thresholds, the usage forecast, the spend history, the git counts, the extras row and the chime.
+- `hooks/extras.ts`: what the mod adds, as pure helpers: thresholds, the usage forecast, the spend history, the git counts, the extras row and the chime.
 
 ### Updating from upstream
 

@@ -1,3 +1,3 @@
 # pi
 
-Extensions for [pi](https://github.com/badlogic/pi-mono), one folder each.
+Extensions for [pi](https://github.com/earendil-works/pi), one folder each.

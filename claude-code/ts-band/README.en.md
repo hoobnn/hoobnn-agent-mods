@@ -1,6 +1,10 @@
+<div align="center">
+
 # ts-band: Tailscale node status in Claude Code
 
 [简体中文](README.md) · **English**
+
+</div>
 
 Your Tailscale nodes' state in a band above the prompt. While every node is online and direct it is one short mark; a node that goes through a relay or drops offline gets listed. Check the link before Claude deploys to or syncs with a remote machine.
 
@@ -8,11 +12,11 @@ Your Tailscale nodes' state in a band above the prompt. While every node is onli
 
 ## Features
 
-- **Tiny when all is well**: with every node online and direct it shows only `TS ● 4/4 direct`.
-- **Details only when they matter**: otherwise the online count, then only the nodes that need a look: `◐` yellow through a relay or DERP (with the region, e.g. `DERP-sfo`), `○` red when offline.
-- **Up / down toasts** when a node comes up or goes down.
-- **Fresh**: reads `tailscale status --json` every minute, and at once after Claude runs `tailscale up`, `down`, `set`, `switch`, `login` or `logout`.
-- **Keeps the last good read**: a failed read leaves the nodes last read on the band with the error after them, and the next read waits twice as long each time (up to 10 minutes), so a missing CLI or a stopped daemon is not retried every tick.
+- Tiny when all is well: with every node online and direct it shows only `TS ● 4/4 direct`.
+- Details only when they matter: otherwise the online count, then only the nodes that need a look: `◐` yellow through a relay or DERP (with the region, e.g. `DERP-sfo`), `○` red when offline.
+- Up / down toasts when a node comes up or goes down.
+- Fresh: reads `tailscale status --json` every minute, and at once after Claude runs `tailscale up`, `down`, `set`, `switch`, `login` or `logout`.
+- Keeps the last good read: a failed read leaves the nodes last read on the band with the error after them, and the next read waits twice as long each time (up to 10 minutes), so a missing CLI or a stopped daemon is not retried every tick.
 - Nothing runs in `claude -p` or the SDK.
 
 ## Install
