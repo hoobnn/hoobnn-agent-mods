@@ -1,6 +1,8 @@
 <div align="center">
 
-# hud: a statusline HUD for Claude Code
+# hud
+
+A statusline HUD for Claude Code.
 
 [简体中文](README.md) · **English**
 

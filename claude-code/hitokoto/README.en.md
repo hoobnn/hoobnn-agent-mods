@@ -1,6 +1,8 @@
 <div align="center">
 
-# hitokoto: a Hitokoto quote above the Claude Code prompt
+# hitokoto
+
+A Hitokoto quote above the Claude Code prompt.
 
 [简体中文](README.md) · **English**
 

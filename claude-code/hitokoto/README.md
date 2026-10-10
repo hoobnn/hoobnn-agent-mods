@@ -1,6 +1,8 @@
 <div align="center">
 
-# hitokoto：Claude Code 输入框上方的一言
+# hitokoto
+
+Claude Code 输入框上方的一言。
 
 **简体中文** · [English](README.en.md)
 

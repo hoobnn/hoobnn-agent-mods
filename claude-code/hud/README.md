@@ -1,6 +1,8 @@
 <div align="center">
 
-# hud：Claude Code 状态栏 HUD
+# hud
+
+Claude Code 状态栏 HUD。
 
 **简体中文** · [English](README.en.md)
 

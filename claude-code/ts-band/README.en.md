@@ -1,6 +1,8 @@
 <div align="center">
 
-# ts-band: Tailscale node status in Claude Code
+# ts-band
+
+Tailscale node status in Claude Code.
 
 [简体中文](README.md) · **English**
 

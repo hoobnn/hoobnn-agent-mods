@@ -1,6 +1,8 @@
 <div align="center">
 
-# receipt: a turn receipt for Claude Code
+# receipt
+
+A turn receipt for Claude Code.
 
 [简体中文](README.md) · **English**
 

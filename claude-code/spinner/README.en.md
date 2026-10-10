@@ -1,6 +1,8 @@
 <div align="center">
 
-# spinner: animations and a companion pet for Claude Code
+# spinner
+
+Animations and a companion pet for Claude Code.
 
 [简体中文](README.md) · **English**
 

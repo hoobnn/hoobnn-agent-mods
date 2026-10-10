@@ -1,6 +1,8 @@
 <div align="center">
 
-# spinner：Claude Code 运行动画与宠物伴侣
+# spinner
+
+Claude Code 运行动画与宠物伴侣。
 
 **简体中文** · [English](README.en.md)
 

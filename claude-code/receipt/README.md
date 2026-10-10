@@ -1,6 +1,8 @@
 <div align="center">
 
-# receipt：Claude Code 回合回执
+# receipt
+
+Claude Code 回合回执。
 
 **简体中文** · [English](README.en.md)
 

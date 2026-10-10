@@ -1,6 +1,8 @@
 <div align="center">
 
-# hoobnn-agent-mods：Claude Code mod 合集（状态栏 HUD、任务进度条、运行动画）
+# hoobnn-agent-mods
+
+Claude Code mod 合集：状态栏 HUD、任务进度条、运行动画等。
 
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 

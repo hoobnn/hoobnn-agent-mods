@@ -1,6 +1,8 @@
 <div align="center">
 
-# ts-band：在 Claude Code 里看 Tailscale 节点状态
+# ts-band
+
+在 Claude Code 里看 Tailscale 节点状态。
 
 **简体中文** · [English](README.en.md)
 

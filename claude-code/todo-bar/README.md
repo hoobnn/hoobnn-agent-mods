@@ -1,6 +1,8 @@
 <div align="center">
 
-# todo-bar：Claude Code 任务进度条
+# todo-bar
+
+Claude Code 任务进度条。
 
 **简体中文** · [English](README.en.md)
 

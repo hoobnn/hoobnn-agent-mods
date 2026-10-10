@@ -1,6 +1,8 @@
 <div align="center">
 
-# todo-bar: a task progress bar for Claude Code
+# todo-bar
+
+A task progress bar for Claude Code.
 
 [简体中文](README.md) · **English**
 

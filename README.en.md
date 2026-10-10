@@ -1,6 +1,8 @@
 <div align="center">
 
-# hoobnn-agent-mods: Claude Code mods (statusline HUD, task progress bar, spinner animations)
+# hoobnn-agent-mods
+
+Claude Code mods: a statusline HUD, a task progress bar, spinner animations and more.
 
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
