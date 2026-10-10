@@ -113,7 +113,7 @@ Claude Code 的状态栏 stdin 里有这些字段，mod API 没有，所以由 m
 
 ### 新增部分的细节
 
-- 远程控制：会话开启远程控制时，第一行末尾显示 ` │ ⇄ 远程控制`，链接到 claude.ai 上的这个会话，后面按端列出已连接的客户端（`已连接 手机 · 网页/桌面×2`）。Claude App 和 claude.ai 不会触发 `session.attach`，所以通过远程控制发来的消息或命令会把状态标为 `已连接`，直到桥接变化。引擎把桥接记在 `~/.claude/sessions/<pid>.json` 的 `bridgeSessionId` 里（按会话 id 查找），mod API 不提供，所以每 3 秒读一次这个文件，有变化时重画 HUD；客户端和所在的端取自 `session.attach` / `session.detach`。
+- 远程控制：会话开启远程控制时，第一行末尾显示 `│ ⇄ 远程控制`，链接到 claude.ai 上的这个会话，后面按端列出已连接的客户端（`已连接 手机 · 网页/桌面×2`）。Claude App 和 claude.ai 不会触发 `session.attach`，所以通过远程控制发来的消息或命令会把状态标为 `已连接`，直到桥接变化。引擎把桥接记在 `~/.claude/sessions/<pid>.json` 的 `bridgeSessionId` 里（按会话 id 查找），mod API 不提供，所以每 3 秒读一次这个文件，有变化时重画 HUD；客户端和所在的端取自 `session.attach` / `session.detach`。
 - 附加行：宽度够时接在 claude-hud 最后一行后面，不够时单独占一行放在下面；放不下的部分依次让出，先是主题的看板娘，然后是 7 天折线，最后是 `⚠` git 提醒。每一部分只在有内容时显示：
   - `✎` 一行任务摘要：第一轮之后以及每隔 `summaryEveryTurns` 轮，用 `$.model.fork` 分叉当前对话生成（命中提示词缓存）。transcript 里有未完成的任务清单时跳过（清单已经说明模型在做什么），旧的摘要这期间也先让开。
   - 用量预测（`showForecast`）：5 小时、7 天或按模型计的周额度在重置前会用完时，显示预计用完的时间：5 小时额度在会话有 10 分钟读数后按最近一小时的速度算，周额度按本周期开始以来的速度算。
