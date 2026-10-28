@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Mods for Claude Code: a claude-hud port, a Tailscale band, a Hitokoto band, spinner animations, a task progress band and a turn receipt",
-    "version": "0.9.5"
+    "version": "0.9.6"
   },
   "plugins": [
     {
@@ -62,7 +62,7 @@
       "name": "todo-bar",
       "source": "./claude-code/todo-bar",
       "description": "The task list's progress in a band above the prompt, read from the todo and task tools' own calls: no tool, no prompt, no tokens",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "category": "productivity",
       "tags": [
         "todo",
