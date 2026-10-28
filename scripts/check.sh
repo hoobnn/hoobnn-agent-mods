@@ -42,6 +42,9 @@ reach() {
   echo "$level ${joined:2}"
 }
 
+# A tsc on the PATH, else the typescript package through npx.
+if command -v tsc > /dev/null; then tsc=(tsc); else tsc=(npx -y -p typescript tsc); fi
+
 status=0
 echo "== kit"
 scripts/sync-kit.sh --check && echo "kit copies in sync" || status=1
@@ -65,7 +68,7 @@ for mod in "${mods[@]}"; do
   fi
   # The engine lays .claude-plugin/types at the mod's first load; tsc needs them.
   if [ -d "$mod/.claude-plugin/types" ]; then
-    tsc -p "$mod" && echo "tsc ok" || status=1
+    "${tsc[@]}" -p "$mod" && echo "tsc ok" || status=1
   else
     echo "tsc skipped: load the mod once so Claude Code lays .claude-plugin/types"
   fi
