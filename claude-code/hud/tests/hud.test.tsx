@@ -874,7 +874,7 @@ test('/hud theme with no name asks, and the answer switches like /hud theme <nam
   expect((await $.command.run({ ...COMMAND, args: 'theme' })).text!.startsWith('HUD 主题（当前 kawaii）')).toBe(true)
 })
 
-test('the footer button hides and shows the HUD, keeping the modes beneath it', async ($, on) => {
+test('the footer button hides and shows the HUD, keeping the modes beneath it', { options: { footerButton: true } }, async ($, on) => {
   const clock = host(on)
   on('ui.render', ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
@@ -892,7 +892,7 @@ test('the footer button hides and shows the HUD, keeping the modes beneath it', 
   await footer.unmount()
 })
 
-test('footerButton off leaves the footer to the engine', { options: { footerButton: false } }, async ($, on) => {
+test('the footer button is off by default, leaving the footer to the engine', async ($, on) => {
   host(on)
   on('ui.render', ($, e) => {
     const { Text } = $.ui.resolve(e)

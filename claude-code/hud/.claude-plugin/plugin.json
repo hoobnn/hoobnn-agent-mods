@@ -40,7 +40,7 @@
       "type": "boolean",
       "title": "Footer button",
       "description": "A HUD button in the prompt footer that hides and shows the HUD, as /hud off and /hud on do",
-      "default": true
+      "default": false
     },
     "position": {
       "type": "string",

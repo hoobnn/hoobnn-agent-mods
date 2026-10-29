@@ -81,7 +81,7 @@ claude plugin install spinner@hoobnn-agent-mods
 | 选项 | 作用 | 默认 |
 | --- | --- | --- |
 | `visible` | 全部动画的总开关（`/spinner off` / `on`，或输入框底栏的 「Spinner」按钮） | 开 |
-| `footerButton` | 在输入框底栏显示 「Spinner」开关按钮 | 开 |
+| `footerButton` | 在输入框底栏显示 「Spinner」开关按钮 | 关 |
 | `theme` | 主题 | `random` |
 | `stage` | 输入框上方的动画场景 | 开 |
 | `celebrate` | 一轮结束时的庆祝动画 | 开 |

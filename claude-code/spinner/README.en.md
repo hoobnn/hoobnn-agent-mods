@@ -81,7 +81,7 @@ Set them in `/config`, or under `pluginConfigs` in `~/.claude/settings.json`:
 | Option | What it does | Default |
 | --- | --- | --- |
 | `visible` | The switch for all the animations (`/spinner off` / `on`, or the Spinner button in the prompt footer) | on |
-| `footerButton` | Show the Spinner toggle button in the prompt footer | on |
+| `footerButton` | Show the Spinner toggle button in the prompt footer | off |
 | `theme` | The theme | `random` |
 | `stage` | The animated scene above the prompt | on |
 | `celebrate` | The finale when a turn ends | on |

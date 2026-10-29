@@ -563,7 +563,7 @@ test('random keeps the theme it drew this session across a reload', async ($, on
   expect((await $.command.run({ ...RUN, command: 'spinner', args: '' })).text?.split('\n')[0]).toBe(first)
 })
 
-test('the footer button turns the animations off and on, keeping the modes beneath it', async ($, on) => {
+test('the footer button turns the animations off and on, keeping the modes beneath it', { options: { footerButton: true } }, async ($, on) => {
   const clock = host(on)
   await $.session.start(START)
   await clock.settle()

@@ -48,7 +48,7 @@ export function readConfig(options: PluginOptions): Config {
     isVisible: flag(options.visible, true),
     isVisibleApp: flag(options.visibleApp, true),
     appItems: parseAppItems(text(options.appItems)),
-    hasFooterButton: flag(options.footerButton, true),
+    hasFooterButton: flag(options.footerButton, false),
     position: oneOf(options.position, ['above', 'below'], 'above'),
     theme: findTheme(options.theme) ?? THEMES[0]!,
     hasMascot: flag(options.showMascot, true),

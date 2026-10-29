@@ -72,7 +72,7 @@ Set them in `/config`, or under `pluginConfigs` in `~/.claude/settings.json`:
 | `visible` | Show the HUD in the terminal | on |
 | `visibleApp` | Show the HUD in Claude Desktop, the phone app and VS Code | on |
 | `appItems` | What the apps show and in what order, comma separated: `context`, `5h`, `7d`, `model` (a model's weekly limit, such as Fable's), `cache` (when the cache expires), `session` (its time), `cost` (its spend), `summary` (the task summary), `alerts` (forecast, auto-compact, expired cache, context growth, budget and git warnings). Empty shows all but `cost`. The terminal's rows follow claude-hud's own config | `context,5h,7d,model,cache,session,summary,alerts` |
-| `footerButton` | Show the HUD toggle button in the prompt footer | on |
+| `footerButton` | Show the HUD toggle button in the prompt footer | off |
 | `position` | `above` the prompt as a band, or `below` it where the statusline sat (Claude Desktop has no such place: there it is always above) | `above` |
 | `theme` | The theme | `classic` |
 | `showMascot` | Show the kaomoji mascot in the anime themes | on |

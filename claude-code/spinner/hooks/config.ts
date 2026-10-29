@@ -28,7 +28,7 @@ export function readConfig(options: PluginOptions): Config {
   return {
     theme: oneOf(options.theme, CHOICES, 'random'),
     isVisible: flag(options.visible, true),
-    hasFooterButton: flag(options.footerButton, true),
+    hasFooterButton: flag(options.footerButton, false),
     hasStage: flag(options.stage, true),
     hasFinale: flag(options.celebrate, true),
     hasCompanion: flag(options.companion, true),

@@ -72,7 +72,7 @@ claude plugin install hud@hoobnn-agent-mods
 | `visible` | 在终端显示 HUD | 开 |
 | `visibleApp` | 在 Claude Desktop、手机 App 和 VS Code 显示 HUD | 开 |
 | `appItems` | 应用里显示哪些项、按什么顺序，逗号分隔：`context`（上下文）、`5h`、`7d`、`model`（分模型周额度，如 Fable）、`cache`（缓存到期）、`session`（会话时长）、`cost`（本会话花费）、`summary`（任务摘要）、`alerts`（预测、自动压缩、缓存过期、上下文增长、预算、git 等提醒）。留空等于除 `cost` 外全部显示。终端的行由 claude-hud 自己的配置决定 | `context,5h,7d,model,cache,session,summary,alerts` |
-| `footerButton` | 在输入框底栏显示 「HUD」开关按钮 | 开 |
+| `footerButton` | 在输入框底栏显示 「HUD」开关按钮 | 关 |
 | `position` | `above` 放在输入框上方，`below` 放在下方原状态栏的位置（Claude Desktop 没有这个位置，那里总在输入框上方） | `above` |
 | `theme` | 主题 | `classic` |
 | `showMascot` | 动漫风主题显示颜文字看板娘 | 开 |

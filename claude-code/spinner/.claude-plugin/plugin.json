@@ -28,7 +28,7 @@
       "type": "boolean",
       "title": "Footer button",
       "description": "A Spinner button in the prompt footer that turns the animations off and on, as /spinner off and /spinner on do",
-      "default": true
+      "default": false
     },
     "theme": {
       "type": "string",
