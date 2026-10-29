@@ -5,8 +5,8 @@
     "url": "https://github.com/hoobnn"
   },
   "metadata": {
-    "description": "Mods for Claude Code: a claude-hud port, a Tailscale band, a Hitokoto band, spinner animations, a task progress band and a turn receipt",
-    "version": "0.9.7"
+    "description": "Mods for Claude Code: a claude-hud port, a Tailscale band, a Hitokoto band, spinner animations, a task progress band, a turn receipt and an agent-relay band",
+    "version": "0.10.0"
   },
   "plugins": [
     {
@@ -81,6 +81,19 @@
         "receipt",
         "turn",
         "activity",
+        "mod"
+      ]
+    },
+    {
+      "name": "relay-bar",
+      "source": "./claude-code/relay-bar",
+      "description": "What the agents agent-relay dispatched are doing, in a band above the prompt and a /relay pane, read from the runs' own status files: no tool, no prompt, no tokens",
+      "version": "0.1.0",
+      "category": "monitoring",
+      "tags": [
+        "agent-relay",
+        "acp",
+        "subagents",
         "mod"
       ]
     }
