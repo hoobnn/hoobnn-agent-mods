@@ -230,3 +230,16 @@ test('/relay opens the pane on the newest run, with its steps; off hides the ban
   release()
   await call
 })
+
+test('a run the list let go is not read back, nor toasted again', async ($, on) => {
+  const { clock } = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  // More runs than the list keeps, all of them left at running by a process long gone.
+  for (let i = 0; i < 12; i++) files[`20261029-120001-mcode-${String(i).padStart(6, '0')}`] = status({ cli: 'mcode' })
+  await $.tool.call(relay({ run_in_background: true }))
+  await clock.advance(95_000)
+  expect(toasts.length).toBe(12)
+  await clock.advance(10_000)
+  expect(toasts.length).toBe(12)
+})

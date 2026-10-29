@@ -59,6 +59,9 @@ const w = { inFlight: 0, until: 0, from: 0, timer: null as Timer | null, isPolli
 type Call = { id: string; at: number; inRow: boolean }
 const calls: Call[] = []
 const KEEP_CALLS = 20
+// The runs that ended, kept or not: a folder whose run ended is never read again, so one
+// the list let go (KEEP_RUNS) does not come back as new, and toast, every poll.
+const ended = new Set<string>()
 
 /** The call a run folder made at `made` came from: the newest made before it (give or take SLACK_MS). */
 function callOf(made: number): Call | null {
@@ -101,7 +104,7 @@ async function poll($: EngineInterface): Promise<void> {
       for (const entry of entries) {
         const made = dirTime(entry.name)
         const had = known.get(entry.name)
-        if (made === null || made < w.from - SLACK_MS || (had && !isLive(had))) continue
+        if (made === null || made < w.from - SLACK_MS || ended.has(entry.name)) continue
         const text = await $.fs.read(`${path}/${entry.name}/status.json`).catch(() => null)
         const parsed = typeof text === 'string' ? fromStatus(entry.name, text) : null
         if (!parsed || (had && parsed.updatedAt === had.updatedAt && parsed.state === had.state)) continue
@@ -118,6 +121,7 @@ async function poll($: EngineInterface): Promise<void> {
       }
     }
     if (fresh.length > 0) {
+      for (const r of fresh) if (!isLive(r)) ended.add(r.id)
       await update($, runs, list => merge(list, fresh))
       if (config.hasToast) {
         for (const r of fresh) {
@@ -160,7 +164,9 @@ export const register: Register = (on, options) => {
     setLang(resolveLanguage(config.language, settings.language, locale))
     await $.command.register({ name: 'relay', description: m('cmd.description'), argumentHint: '[off|on]' })
     // A reload in the middle of a run picks the watch up again.
-    const live = (await read($, runs)).filter(isLive)
+    const kept = await read($, runs)
+    for (const r of kept) if (!isLive(r)) ended.add(r.id)
+    const live = kept.filter(isLive)
     if (live.length > 0) watch($, Math.min(...live.map(r => r.startedAt)))
     return next(e)
   })
