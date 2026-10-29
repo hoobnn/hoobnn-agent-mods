@@ -47,6 +47,7 @@ Every command, option and implementation detail is in [`claude-code/hud`](claude
 | --- | --- |
 | [`todo-bar`](claude-code/todo-bar/README.en.md) | A task progress bar: the task running, how long it has run, how much is done and what its subagents are doing; reads the TodoWrite / Task tools' results, no tokens |
 | [`receipt`](claude-code/receipt/README.en.md) | A turn receipt: one row saying what the turn changed (files, lines), ran and how much failed, flagging code changed with no test run after it, with a pane that replays each edit's diff, plus an alert when Claude goes in circles; no tokens |
+| [`relay-bar`](claude-code/relay-bar/README.en.md) | What the agents agent-relay dispatched are doing: a row per agent (grok, codex, pi and the rest) under the Bash call that dispatched it, with what it is on, its time and its tool calls, and how it ended kept there; runs dispatched in the background or by a subagent go above the prompt; a `/relay` pane shows their thoughts, tool calls and answers; reads agent-relay's status files, no tokens |
 | [`spinner`](claude-code/spinner/README.en.md) | Animations and a companion pet: pixel-art scenes (a shoot-em-up, Clawd, a dot-eater, a rainbow cat, a spectrum of the sound your Mac plays; 15 themes), a pet that follows what Claude does and levels up, and confetti when a turn ends |
 | [`ts-band`](claude-code/ts-band/README.en.md) | Tailscale node status: one small mark while every node is direct, the relayed or offline ones listed otherwise, with a toast when a node comes up or goes down |
 | [`hitokoto`](claude-code/hitokoto/README.en.md) | A [Hitokoto (一言)](https://hitokoto.cn) quote and its source above the prompt, refreshed on a timer, once a day, per session or per prompt |
@@ -72,6 +73,7 @@ claude plugin marketplace add hoobnn/hoobnn-agent-mods
 claude plugin install hud@hoobnn-agent-mods
 claude plugin install todo-bar@hoobnn-agent-mods
 claude plugin install receipt@hoobnn-agent-mods
+claude plugin install relay-bar@hoobnn-agent-mods
 claude plugin install spinner@hoobnn-agent-mods
 claude plugin install ts-band@hoobnn-agent-mods
 claude plugin install hitokoto@hoobnn-agent-mods
@@ -92,13 +94,13 @@ claude plugin uninstall <mod>@hoobnn-agent-mods
 
 ## Usage
 
-Options (`hud`'s `position`, `theme`, `dailyBudgetUsd` and `summaryEveryTurns`, `ts-band`'s `nodes` and `hideOffline`, `hitokoto`'s `refreshMode` and `categories`, `spinner`'s `theme`, `stage`, `celebrate` and `companion`, …) are rows in `/config`, or `pluginConfigs` in `~/.claude/settings.json`. `/config` is the one place a mod's settings live: what a slash command changes (`/hud theme neon`, `/ts off`, `/spinner stage off`) it writes there, and every mod has a `visible` row that `/hud`, `/ts`, `/hitokoto`, `/spinner`, `/todos` and `/receipt` `off` / `on` set. Each mod's folder has its own README with the details.
+Options (`hud`'s `position`, `theme`, `dailyBudgetUsd` and `summaryEveryTurns`, `ts-band`'s `nodes` and `hideOffline`, `hitokoto`'s `refreshMode` and `categories`, `spinner`'s `theme`, `stage`, `celebrate` and `companion`, …) are rows in `/config`, or `pluginConfigs` in `~/.claude/settings.json`. `/config` is the one place a mod's settings live: what a slash command changes (`/hud theme neon`, `/ts off`, `/spinner stage off`) it writes there, and every mod has a `visible` row that `/hud`, `/ts`, `/hitokoto`, `/spinner`, `/todos`, `/receipt` and `/relay` `off` / `on` set. Each mod's folder has its own README with the details.
 
-All the mods speak English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, Brazilian Portuguese and Russian. `hud` follows `language` in claude-hud's config; `ts-band`, `hitokoto`, `spinner`, `todo-bar` and `receipt` each have a `language` option whose default, `auto`, follows Claude Code's `language` setting, then the system locale, then English.
+All the mods speak English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, Brazilian Portuguese and Russian. `hud` follows `language` in claude-hud's config; `ts-band`, `hitokoto`, `spinner`, `todo-bar`, `receipt` and `relay-bar` each have a `language` option whose default, `auto`, follows Claude Code's `language` setting, then the system locale, then English.
 
 ## Repository layout
 
-The six Claude Code mods live in `claude-code/`. Extensions for other coding-agent harnesses go in one folder per harness; for now `pi/` and `deepseek/` hold only a README and no extensions yet.
+The seven Claude Code mods live in `claude-code/`. Extensions for other coding-agent harnesses go in one folder per harness; for now `pi/` and `deepseek/` hold only a README and no extensions yet.
 
 | Folder | Harness | What goes there |
 | --- | --- | --- |
