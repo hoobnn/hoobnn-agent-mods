@@ -8,7 +8,7 @@ A statusline HUD for Claude Code.
 
 </div>
 
-[claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 rebuilt as a Claude Code mod: model, project, git, context, usage, tools, subagents and todos at a glance, below the prompt (beside the hint line, where the statusline sat) or in a band above it. On top of claude-hud it adds alerts, a usage forecast, a daily budget, a one-line task summary, a detail pane and twelve themes you switch live.
+[claude-hud](https://github.com/jarrodwatts/claude-hud) 0.13.1 rebuilt as a Claude Code mod: model, project, git, context, usage, tools, subagents and todos at a glance, below the prompt (beside the hint line, where the statusline sat) or in a band above it. On top of claude-hud it adds alerts, a usage forecast, a daily budget, a one-line task summary, a detail pane and twelve themes you switch live.
 
 ![hud, neon theme](assets/themes/neon.png)
 

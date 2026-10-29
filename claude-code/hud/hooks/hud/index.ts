@@ -2,8 +2,9 @@ import * as os from '../shims/os.js';
 import { realpathSync } from '../shims/fs.js';
 import { fileURLToPath } from '../shims/url.js';
 import { getUsageFromStdin, isContextUnreported, readStdin } from "./stdin.js";
-import { parseTranscript } from "./transcript.js";
+import { addSubagentEfforts, parseTranscript } from "./transcript.js";
 import { emitLine, render } from "./render/index.js";
+import { shownAgents } from "./render/activity.js";
 import { countConfigs, type ConfigCounts } from "./config-reader.js";
 import { getGitStatus, type GitRepoIdentity, type GitStatus } from "./git.js";
 import { getJjStatus, isJjRepo } from "./jj.js";
@@ -70,8 +71,15 @@ export async function main(source: () => Promise<StdinData | null> = () => readS
     const display = config.display;
     const now = Date.now();
     const extraCmd = parseExtraCmdArg();
+    const transcriptPath = stdin.transcript_path ?? "";
+    const readTranscript = async (): Promise<TranscriptData> => {
+      const data = await parseTranscript(transcriptPath);
+      // Only the agents the line will show, since each lookup opens a file.
+      if (display.showAgents && display.showAgentEffort) await addSubagentEfforts(transcriptPath, shownAgents(data.agents, now));
+      return data;
+    };
     const [transcript, gitStatus, extraLabel, memoryUsage] = await Promise.all([
-      needsTranscript(config, stdin) ? parseTranscript(stdin.transcript_path ?? "") : EMPTY_TRANSCRIPT,
+      needsTranscript(config, stdin) ? readTranscript() : EMPTY_TRANSCRIPT,
       resolveVcsStatus(config, stdin.cwd, stdin.workspace?.repo),
       extraCmd ? runExtraCmd(extraCmd) : null,
       display.showMemoryUsage && config.lineLayout === "expanded" ? getMemoryUsage() : null,

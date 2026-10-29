@@ -8,7 +8,7 @@ Claude Code 状态栏 HUD。
 
 </div>
 
-把 [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.10.0 改成了 Claude Code mod：模型、项目、git、上下文、用量、正在跑的工具、子代理和待办，都集中在输入框旁边。可以放在输入框上方，也可以放在下方原来状态栏的位置。在 claude-hud 的基础上，还加了额度预警、用量耗尽预测、每日预算、一行任务摘要、详情面板，以及 12 套随时切换的主题。
+把 [claude-hud](https://github.com/jarrodwatts/claude-hud) 0.13.1 改成了 Claude Code mod：模型、项目、git、上下文、用量、正在跑的工具、子代理和待办，都集中在输入框旁边。可以放在输入框上方，也可以放在下方原来状态栏的位置。在 claude-hud 的基础上，还加了额度预警、用量耗尽预测、每日预算、一行任务摘要、详情面板，以及 12 套随时切换的主题。
 
 ![hud：neon 主题](assets/themes/neon.png)
 

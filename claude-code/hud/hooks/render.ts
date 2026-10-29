@@ -8,7 +8,7 @@ import type { HudLine } from '../types'
 import { parseAnsi } from './ansi.js'
 import { dimSeparators, packRows, parseGitStatus } from './extras.js'
 import { getCostTotals } from './hud/daily-cost.js'
-import { takeGitStatus } from './hud/git.js'
+import { configOverrides, FILTER_CONFIG_ARGS, takeGitStatus } from './hud/git.js'
 import { main } from './hud/index.js'
 import { setRenderSink } from './hud/render/index.js'
 import type { StdinData } from './hud/types.js'
@@ -25,8 +25,11 @@ import { buildStdin, type SessionApi } from './stdin.js'
 export async function gitCounts(io: Io, cwd: string): Promise<{ dirty: number; ahead: number } | null> {
   const read = takeGitStatus(cwd)
   if (read !== null) return parseGitStatus(read)
+  // The repo's own config may name commands (fsmonitor, filters); they stay off here too.
+  const listed = await io.run(['git', ...FILTER_CONFIG_ARGS], { cwd, timeoutMs: 1_000 }).catch(() => null)
+  const safe = configOverrides(listed?.exitCode === 0 ? listed.stdout : null)
   const out = await io
-    .run(['git', 'status', '--porcelain=v2', '--branch'], { cwd, timeoutMs: 3_000 })
+    .run(['git', ...safe, '--no-optional-locks', 'status', '--porcelain=v2', '--branch', '--ignore-submodules=dirty'], { cwd, timeoutMs: 3_000 })
     .catch(() => null)
   return out && out.exitCode === 0 ? parseGitStatus(out.stdout) : null
 }

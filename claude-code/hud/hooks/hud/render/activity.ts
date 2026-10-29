@@ -1,6 +1,7 @@
 import type { AgentEntry } from '../types.js';
+import { effortInfo, formatEffort } from '../effort.js';
 import { t } from '../i18n/index.js';
-import { sanitizeDisplayText } from '../utils/sanitize.js';
+import { displayLabel, sanitizeDisplayText } from '../utils/sanitize.js';
 import { truncateString } from '../utils/truncate.js';
 import type { Frame } from './frame.js';
 import { cyan, green, label, magenta, yellow } from './colors.js';
@@ -12,7 +13,7 @@ function shortenToolName(rawName: string, maxLength: number): string {
   const name = sanitizeDisplayText(rawName);
   if (maxLength === 0) return name;
   const shown = /^mcp__.+__.+$/.test(name) ? name.split('__').pop() ?? name : name;
-  return shown.length <= maxLength ? shown : `${shown.slice(0, Math.max(0, maxLength - 1))}…`;
+  return truncateString(shown, maxLength, '…');
 }
 
 /** Relative to the session's directory (or project) when inside it, then cut to `…/<file>`. */
@@ -27,7 +28,7 @@ function shortenPath(target: string, dirs: (string | undefined)[], maxLength = 2
   }
   if (normalized.length <= maxLength) return normalized;
   const filename = normalized.split('/').pop() || normalized;
-  return filename.length >= maxLength ? `${filename.slice(0, maxLength - 1)}…` : `…/${filename}`;
+  return filename.length >= maxLength ? truncateString(filename, maxLength, '…') : `…/${filename}`;
 }
 
 /** `◐ Edit auth.ts | ✓ Read ×3 | +2 more`: the two newest running tools, then completed counts. */
@@ -65,10 +66,7 @@ const ACTIVITY_NAME_MAX = 64;
 /** `✓ Skills (5): a, b, c, d, +1 more`. */
 function namesLine(f: Frame, title: string, names: string[], maxVisible: number): string | null {
   const colors = f.config?.colors;
-  const safe = names
-    .map((name) => sanitizeDisplayText(name).trim())
-    .filter(Boolean)
-    .map((name) => (name.length <= ACTIVITY_NAME_MAX ? name : `${name.slice(0, ACTIVITY_NAME_MAX - 1)}…`));
+  const safe = names.map((name) => displayLabel(name, ACTIVITY_NAME_MAX, '…')).filter(Boolean);
   if (safe.length === 0) return null;
   const shown = (maxVisible === 0 ? safe : safe.slice(0, maxVisible)).map((name) => cyan(name));
   if (safe.length > shown.length) shown.push(label(`+${safe.length - shown.length} more`, colors));
@@ -102,28 +100,34 @@ function formatElapsed(agent: AgentEntry, now: number): string {
 }
 
 /** Up to three agents: running ones first, then those that finished in the last minute. */
-function agentsLine(f: Frame): string | null {
-  const colors = f.config?.colors;
+export function shownAgents(agents: AgentEntry[], now: number): AgentEntry[] {
   const seen = new Set<string>();
   const firstSighting = (agent: AgentEntry): boolean => !seen.has(agent.id) && !!seen.add(agent.id);
-  const running = f.transcript.agents.filter((agent) => agent.status === 'running').filter(firstSighting).slice(-MAX_AGENTS);
+  const running = agents.filter((agent) => agent.status === 'running').filter(firstSighting).slice(-MAX_AGENTS);
   const slots = Math.min(MAX_RECENT_COMPLETED, MAX_AGENTS - running.length);
-  const recent = f.transcript.agents
+  const recent = agents
     .filter((agent) => {
       const endedAt = agent.endTime?.getTime();
       return agent.status === 'completed' && endedAt !== undefined && Number.isFinite(endedAt)
-        && endedAt <= f.now && f.now - endedAt <= COMPLETED_RETENTION_MS;
+        && endedAt <= now && now - endedAt <= COMPLETED_RETENTION_MS;
     })
     .filter(firstSighting);
-  const shown = [...running, ...(slots > 0 ? recent.slice(-slots) : [])];
+  return [...running, ...(slots > 0 ? recent.slice(-slots) : [])];
+}
+
+function agentsLine(f: Frame): string | null {
+  const colors = f.config?.colors;
+  const shown = shownAgents(f.transcript.agents, f.now);
   if (shown.length === 0) return null;
 
-  const clean = (value: unknown, max: number): string => (typeof value === 'string' ? truncateString(sanitizeDisplayText(value).trim(), max) : '');
+  const clean = (value: unknown, max: number): string => displayLabel(value, max, '...');
+  const display = f.config?.display;
   return shown.map((agent) => {
     const icon = agent.status === 'running' ? yellow(glyph('running')) : green(glyph('done'));
-    const model = shortModel(agent.model);
+    const effort = display?.showAgentEffort ? effortInfo(agent.effort) : null;
+    const badge = [shortModel(agent.model), effort && formatEffort(effort, display?.effortFormat)].filter(Boolean).join(' ');
     const description = clean(agent.description, 40);
-    return `${icon} ${magenta(clean(agent.type, 24) || 'agent')}${model ? ` ${label(`[${model}]`, colors)}` : ''}`
+    return `${icon} ${magenta(clean(agent.type, 24) || 'agent')}${badge ? ` ${label(`[${badge}]`, colors)}` : ''}`
       + `${description ? label(`: ${description}`, colors) : ''} ${label(`(${formatElapsed(agent, f.now)})`, colors)}`;
   }).join('\n');
 }

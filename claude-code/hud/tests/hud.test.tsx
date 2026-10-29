@@ -7,7 +7,9 @@ import '../hooks/shims/globals'
 import { parseAnsi } from '../hooks/ansi'
 import { addDays, addSample, appendExtras, chimeWav, crossThresholds, dimSeparators, exhaustAt, extrasLine, growthOf, lastDays, paceAt, packRows, parseGitStatus, parseThresholds, sparkline, streak } from '../hooks/extras'
 import { setLanguage } from '../hooks/hud/i18n/index'
+import { configOverrides } from '../hooks/hud/git'
 import { Parser } from '../hooks/hud/transcript'
+import { truncateString } from '../hooks/hud/utils/truncate'
 import { MESSAGES, m, money } from '../hooks/i18n'
 import { rcSpans } from '../hooks/remote'
 import { currentScoped, usageCacheOf } from '../hooks/stdin'
@@ -367,6 +369,48 @@ test('a tool_use logged again after its result stays finished, a TaskCreate coun
   const data = parser.finish()
   expect(data.tools.map(tool => tool.status)).toEqual(['completed'])
   expect(data.todos).toHaveLength(1)
+})
+
+test('transcript: deleted tasks, late agent notices, zero-usage records and replayed blobs', async () => {
+  const parser = new Parser()
+  const at = '2026-10-29T05:00:00.000Z'
+  const later = '2026-10-29T05:01:00.000Z'
+  const line = (entry: object) => parser.line(JSON.stringify({ timestamp: at, ...entry }))
+  const usage = (input: number) => ({ input_tokens: input, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 1 })
+  line({ type: 'assistant', message: { id: 'm1', usage: usage(5000), content: [
+    { type: 'tool_use', id: 'c1', name: 'TaskCreate', input: { subject: 'a' } },
+    { type: 'tool_use', id: 'c2', name: 'TaskCreate', input: { subject: 'b' } },
+    { type: 'tool_use', id: 'c3', name: 'TaskCreate', input: { subject: 'c' } },
+    { type: 'tool_use', id: 'g1', name: 'Agent', input: { subagent_type: 'Explore', run_in_background: true } },
+  ] } })
+  line({ type: 'user', toolUseResult: { agentId: 'a42', isAsync: true }, message: { content: [{ type: 'tool_result', tool_use_id: 'g1' }] } })
+  line({ type: 'assistant', message: { id: 'm2', usage: usage(6000), content: [
+    { type: 'tool_use', id: 'u1', name: 'TaskUpdate', input: { taskId: '2', status: 'deleted' } },
+    { type: 'tool_use', id: 'u2', name: 'TaskUpdate', input: { taskId: '3', status: 'completed' } },
+  ] } })
+  // A gateway's thinking-block record: all-zero usage keeps the last real context size.
+  line({ type: 'assistant', message: { id: 'm3', usage: usage(0), content: [] } })
+  // A replayed request blob re-lists an earlier tool_use; it must not start it again.
+  line({ type: 'api-request-blob', message: { content: [{ type: 'tool_use', id: 'x1', name: 'Bash', input: { command: 'ls' } }] } })
+  parser.line(JSON.stringify({ type: 'attachment', timestamp: later, attachment: { type: 'queued_command', prompt: '<task-notification><task-id>a42</task-id></task-notification>' } }))
+  const data = parser.finish()
+  expect(data.todos).toEqual([{ content: 'a', status: 'pending' }, { content: 'c', status: 'completed' }])
+  expect(data.contextTokens).toBe(6000)
+  expect(data.tools).toHaveLength(0)
+  expect(data.agents.map(agent => [agent.status, agent.endTime?.toISOString()])).toEqual([['completed', later]])
+})
+
+test('git: a repo\'s own filter drivers are switched off, global ones kept', async () => {
+  const listed = ['local', 'filter.evil.clean\nsh -c x', 'global', 'filter.lfs.clean\ngit-lfs clean', ''].join('\0')
+  const args = configOverrides(listed)
+  expect(args).toEqual(['-c', 'core.fsmonitor=false', '-c', 'filter.evil.clean=', '-c', 'filter.evil.process=', '-c', 'filter.evil.required=false'])
+  expect(configOverrides(null)).toEqual(['-c', 'core.fsmonitor=false'])
+})
+
+test('labels cut on grapheme boundaries; cost and session tokens can be placed', async () => {
+  expect(truncateString('ab👨‍👩‍👧cd', 5, '…')).toBe('ab…')
+  expect(mergeConfig({ elementOrder: ['cost', 'sessionTokens', 'context'] } as never).elementOrder).toEqual(['cost', 'sessionTokens', 'context'])
+  expect(DEFAULT_CONFIG.elementOrder).not.toContain('cost')
 })
 
 test('short rows pack side by side where they fit; the first row stays alone', async () => {
