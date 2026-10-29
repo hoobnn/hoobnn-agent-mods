@@ -134,7 +134,7 @@ Claude Code 的状态栏 stdin 里有这些字段，mod API 没有，所以由 m
 
 ### 没有移植的部分
 
-- OSC 8 `file://` 链接（项目路径）：`Link` 只接受 https，所以保留文字、去掉链接。https 链接（GitHub 分支）仍可点击。
+- OSC 8 `file://` 链接（项目路径）：`Link` 只接受 https，所以保留文字、去掉链接。https 链接（GitHub 分支）仍可点击；Claude Code 认不出终端支持超链接时（如 Rex），会在分支后面直接显示网址，在 `~/.claude/settings.json` 的 `env` 里设置 `"FORCE_HYPERLINK": "1"` 后重启即可。
 - `worktree`（`--worktree` 会话的名称、路径和分支）：mod API 不提供。
 
 ### 目录结构

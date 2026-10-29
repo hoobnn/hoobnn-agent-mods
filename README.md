@@ -2,7 +2,7 @@
 
 # hoobnn-agent-mods
 
-Claude Code mod 合集：状态栏 HUD、任务进度条、运行动画等。
+Claude Code 状态栏 HUD，附带任务进度条、回合回执、运行动画等 mod。
 
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
@@ -10,38 +10,46 @@ Claude Code mod 合集：状态栏 HUD、任务进度条、运行动画等。
 
 </div>
 
-为 Claude Code 提供的六个 mod，终端和 Claude Desktop 都能用：状态栏 HUD、任务进度条、回合回执、运行动画和宠物、Tailscale 节点状态、一言。每个 mod 都可单独安装、开箱即用，设置统一在 `/config` 中管理。其他编程 Agent 工具的扩展按工具分目录存放，目前 `pi/` 和 `deepseek/` 只有说明文件，还没有收录扩展。
+![hud：neon 主题](claude-code/hud/assets/themes/neon.png)
 
-| 目录 | 对应工具 | 放什么 |
-| --- | --- | --- |
-| `claude-code/` | [Claude Code](https://code.claude.com) | mod（函数钩子插件），每个子目录都能用 `claude --plugin-dir` 单独加载；`kit/` 例外，放各 mod 共用的代码 |
-| `pi/` | [pi](https://github.com/earendil-works/pi) | 扩展 |
-| `deepseek/` | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | `dsh` 插件 |
-| `shared/` | 不限 | 多个工具的移植版都要用到的逻辑 |
-| `scripts/` | | 检查、kit 同步和截图渲染脚本 |
+[`hud`](claude-code/hud) 把 [claude-hud](https://github.com/jarrodwatts/claude-hud) 改成了 Claude Code mod：模型、项目、git、上下文、用量、正在跑的工具、子代理和待办都集中在输入框旁边，可以放在输入框上方，也可以放在下方原来状态栏的位置，终端和 Claude Desktop 都能用。在 claude-hud 的基础上，它还加了额度预警、用量耗尽预测、每日预算、一行任务摘要、`/hud detail` 详情面板和 12 套主题。
 
-## Claude Code mod
+## 快速开始
+
+```sh
+claude plugin marketplace add hoobnn/hoobnn-agent-mods
+claude plugin install hud@hoobnn-agent-mods
+```
+
+装好后 HUD 默认显示在输入框上方。用 `/hud theme` 选主题，`/hud detail` 打开详情面板，`/hud off` / `/hud on` 隐藏或显示。已有的 claude-hud 配置（`~/.claude/plugins/claude-hud/config.json`）会直接沿用。
+
+## HUD 功能
+
+- **claude-hud 原有的信息**：模型和推理强度、项目和 git 分支及改动、上下文和用量进度条、正在跑的工具、子代理和待办。
+- **提前预警**：上下文或额度到设定的百分比时弹提示；按当前速度预测额度何时用完；Fable 这类按模型单独计的周额度也一起显示和预警；距自动压缩还剩多少 token。
+- **省钱提醒**：提示缓存过期后，提醒下一条消息要重新写入多少 token；某一轮让上下文涨得特别多时，显示涨幅和最近几轮的迷你柱状图（如 `上一轮 +98k ▂▁█`）；今天的花费对比每日预算。
+- **任务概览**：每隔几轮生成一行任务摘要；`/hud detail` 面板列出每个工具的调用次数和耗时、最近几轮的用时和花费、子代理、待办、今天和本周的花费。
+- **其他**：未提交改动或未推送提交太多时提醒；长任务结束提醒（macOS 可加提示音）；远程控制的连接状态。
+- **12 套主题**：`classic`、`neon`、`rainbow`、`emoji`、`sakura`、`kawaii`、`mecha`、`shonen`、`tokyo-night`、`matrix`、`nerd`、`powerline`，其中动漫风主题带会随状态变脸的颜文字看板娘。
+
+<details>
+<summary>12 套主题总览</summary>
+
+![hud 12 套主题](claude-code/hud/assets/themes/gallery.png)
+
+</details>
+
+完整的命令、选项和实现细节见 [`claude-code/hud`](claude-code/hud)。
+
+## 更多 mod
 
 | Mod | 作用 |
 | --- | --- |
-| [`hud`](claude-code/hud) | 状态栏 HUD：集中显示模型、git、上下文、用量、工具和待办，并提供额度预警（含 Fable 等按模型的周额度）、耗尽预测、缓存过期提醒、单轮上下文涨幅、每日预算、任务摘要和 `/hud detail` 详情面板，支持 12 套主题切换 |
-| [`ts-band`](claude-code/ts-band) | Tailscale 节点状态：所有节点直连时仅显示一个小标记，有节点经中继连接或离线时才列出，节点上线或掉线时弹出提示 |
-| [`hitokoto`](claude-code/hitokoto) | 在输入框上方显示一句[一言](https://hitokoto.cn)及出处，支持定时、每日、每个会话或每条消息刷新 |
-| [`spinner`](claude-code/spinner) | 运行动画与宠物伴侣：像素风动画场景（雷霆战机、Clawd、吃豆人、彩虹猫、系统音频频谱等 15 套主题），宠物随 Claude 的操作变换姿态并可升级，每轮结束时播放彩带动画 |
 | [`todo-bar`](claude-code/todo-bar) | 任务进度条：显示当前任务、已用时长、完成进度以及各子代理的工作内容；仅读取 TodoWrite / Task 工具的结果，不消耗 token |
 | [`receipt`](claude-code/receipt) | 回合回执：每轮结束后用一行汇总改动的文件数、增删行数、执行的命令数和失败数，标出改了代码但未运行测试的情况，并可逐处回放每次改动的 diff；Claude 陷入重复操作时发出提醒，不消耗 token |
-
-`spinner` 的效果（`clawd` 主题跑完一轮，宠物伴侣的气泡跟着工具变化，最后放庆祝动画；15 套主题的动图见 [`claude-code/spinner`](claude-code/spinner)）：
-
-![spinner clawd 主题](claude-code/spinner/assets/clawd.gif)
-
-![spinner 雷霆战机主题](claude-code/spinner/assets/thunder.gif)
-
-其他 mod 的效果：
-
-| `hud`（`neon` 主题，12 套主题总览见 [gallery.png](claude-code/hud/assets/themes/gallery.png)） |
-| --- |
-| ![hud neon 主题](claude-code/hud/assets/themes/neon.png) |
+| [`spinner`](claude-code/spinner) | 运行动画与宠物伴侣：像素风动画场景（雷霆战机、Clawd、吃豆人、彩虹猫、系统音频频谱等 15 套主题），宠物随 Claude 的操作变换姿态并可升级，每轮结束时播放彩带动画 |
+| [`ts-band`](claude-code/ts-band) | Tailscale 节点状态：所有节点直连时仅显示一个小标记，有节点经中继连接或离线时才列出，节点上线或掉线时弹出提示 |
+| [`hitokoto`](claude-code/hitokoto) | 在输入框上方显示一句[一言](https://hitokoto.cn)及出处，支持定时、每日、每个会话或每条消息刷新 |
 
 | `todo-bar` | `receipt` |
 | --- | --- |
@@ -49,20 +57,24 @@ Claude Code mod 合集：状态栏 HUD、任务进度条、运行动画等。
 | `ts-band` | `hitokoto` |
 | ![ts-band Tailscale 节点状态](claude-code/ts-band/assets/preview.png) | ![hitokoto 一言](claude-code/hitokoto/assets/preview.png) |
 
+`spinner`（`clawd` 主题跑完一轮，宠物伴侣的气泡跟着工具变化，最后放庆祝动画；15 套主题的动图见 [`claude-code/spinner`](claude-code/spinner)）：
+
+![spinner clawd 主题](claude-code/spinner/assets/clawd.gif)
+
 <sub>截图均由 mod 实际绘制的内容渲染。</sub>
 
 ## 安装
 
-先添加本仓库的插件市场，再安装需要的 mod：
+先添加本仓库的插件市场，再安装需要的 mod，每个 mod 都可单独安装、开箱即用：
 
 ```sh
 claude plugin marketplace add hoobnn/hoobnn-agent-mods
 claude plugin install hud@hoobnn-agent-mods
-claude plugin install ts-band@hoobnn-agent-mods
-claude plugin install hitokoto@hoobnn-agent-mods
-claude plugin install spinner@hoobnn-agent-mods
 claude plugin install todo-bar@hoobnn-agent-mods
 claude plugin install receipt@hoobnn-agent-mods
+claude plugin install spinner@hoobnn-agent-mods
+claude plugin install ts-band@hoobnn-agent-mods
+claude plugin install hitokoto@hoobnn-agent-mods
 ```
 
 ### 更新
@@ -83,6 +95,18 @@ claude plugin uninstall <mod>@hoobnn-agent-mods
 选项（`hud` 的 `position`、`theme`、`dailyBudgetUsd`、`summaryEveryTurns`，`ts-band` 的 `nodes`、`hideOffline`，`hitokoto` 的 `refreshMode`、`categories`，`spinner` 的 `theme`、`stage`、`celebrate`、`companion` 等）都能在 `/config` 里改，也可以写在 `~/.claude/settings.json` 的 `pluginConfigs` 里。所有 mod 设置统一保存在 `/config`，斜杠命令修改的设置（`/hud theme neon`、`/ts off`、`/spinner stage off`）也会写回这里；每个 mod 都有 `visible` 选项，`/hud`、`/ts`、`/hitokoto`、`/spinner`、`/todos`、`/receipt` 的 `off` / `on` 改的就是它。每个 mod 的完整说明见各自目录下的 README。
 
 这些 mod 都支持英语、简体中文、繁体中文、日语、韩语、西班牙语、法语、德语、巴西葡萄牙语和俄语。`hud` 跟随 claude-hud 配置里的 `language`；`ts-band`、`hitokoto`、`spinner`、`todo-bar` 和 `receipt` 有各自的 `language` 选项，默认 `auto`，依次跟随 Claude Code 的 `language` 设置、系统语言环境，都没有时用英语。
+
+## 仓库结构
+
+Claude Code 的六个 mod 放在 `claude-code/`。其他编程 Agent 工具的扩展按工具分目录存放，目前 `pi/` 和 `deepseek/` 只有说明文件，还没有收录扩展。
+
+| 目录 | 对应工具 | 放什么 |
+| --- | --- | --- |
+| `claude-code/` | [Claude Code](https://code.claude.com) | mod（函数钩子插件），每个子目录都能用 `claude --plugin-dir` 单独加载；`kit/` 例外，放各 mod 共用的代码 |
+| `pi/` | [pi](https://github.com/earendil-works/pi) | 扩展 |
+| `deepseek/` | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | `dsh` 插件 |
+| `shared/` | 不限 | 多个工具的移植版都要用到的逻辑 |
+| `scripts/` | | 检查、kit 同步和截图渲染脚本 |
 
 ## 开发
 

@@ -2,7 +2,7 @@
 
 # hoobnn-agent-mods
 
-Claude Code mods: a statusline HUD, a task progress bar, spinner animations and more.
+A statusline HUD for Claude Code, plus a task progress bar, a turn receipt, spinner animations and more.
 
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
@@ -10,38 +10,46 @@ Claude Code mods: a statusline HUD, a task progress bar, spinner animations and 
 
 </div>
 
-Six mods for Claude Code, in the terminal and in Claude Desktop: a statusline HUD, a task progress bar, a turn receipt, spinner animations with a pet, a Tailscale node band and a Hitokoto quote band. Each installs on its own, works out of the box and keeps its settings in `/config`. Extensions for other coding-agent harnesses go in one folder per harness; for now `pi/` and `deepseek/` hold only a README and no extensions yet.
+![hud, neon theme](claude-code/hud/assets/themes/neon.png)
 
-| Folder | Harness | What goes there |
-| --- | --- | --- |
-| `claude-code/` | [Claude Code](https://code.claude.com) | Mods (function-hook plugins); each subfolder loads with `claude --plugin-dir`, except `kit/`, the code they share |
-| `pi/` | [pi](https://github.com/earendil-works/pi) | Extensions |
-| `deepseek/` | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | `dsh` plugins |
-| `shared/` | any | Logic more than one port uses |
-| `scripts/` | | Check, kit sync and screenshot scripts |
+[`hud`](claude-code/hud/README.en.md) is [claude-hud](https://github.com/jarrodwatts/claude-hud) rebuilt as a Claude Code mod: model, project, git, context, usage, the running tools, subagents and todos at a glance beside the prompt, in a band above it or below it where the statusline sat, in the terminal and in Claude Desktop. On top of claude-hud it adds quota alerts, a usage forecast, a daily budget, a one-line task summary, a `/hud detail` pane and twelve themes.
 
-## Claude Code mods
+## Quick start
+
+```sh
+claude plugin marketplace add hoobnn/hoobnn-agent-mods
+claude plugin install hud@hoobnn-agent-mods
+```
+
+Once installed, the HUD sits above the prompt. `/hud theme` picks a theme, `/hud detail` opens the detail pane, and `/hud off` / `/hud on` hide or show it. An existing claude-hud config (`~/.claude/plugins/claude-hud/config.json`) carries over.
+
+## What the HUD shows
+
+- **Everything claude-hud shows**: model and effort, project and git branch with its changes, context and usage gauges, the running tools, subagents and todos.
+- **Warnings before you hit a wall**: toasts at the context and quota levels you pick; when a limit runs out at the current pace; per-model weekly limits such as Fable's, with the same alerts; the tokens left before auto-compaction.
+- **Spend**: what the next message re-caches once the prompt cache has expired; a turn that grew the context a lot, by how much, beside a sparkline of the recent turns (`上一轮 +98k ▂▁█`); today's spend against a daily budget.
+- **The task at a glance**: a one-line task summary every few turns; the `/hud detail` pane with each tool's calls and time, the last turns' time and cost, subagents, todos, and today's and the week's spend.
+- **And**: a warning on too many uncommitted changes or unpushed commits; a turn-done toast for long turns (with an optional chime on macOS); the Remote Control state.
+- **Twelve themes**: `classic`, `neon`, `rainbow`, `emoji`, `sakura`, `kawaii`, `mecha`, `shonen`, `tokyo-night`, `matrix`, `nerd` and `powerline`; the anime ones bring a kaomoji mascot whose face follows the session.
+
+<details>
+<summary>All twelve themes</summary>
+
+![hud, all twelve themes](claude-code/hud/assets/themes/gallery.png)
+
+</details>
+
+Every command, option and implementation detail is in [`claude-code/hud`](claude-code/hud/README.en.md).
+
+## More mods
 
 | Mod | What it does |
 | --- | --- |
-| [`hud`](claude-code/hud/README.en.md) | A statusline HUD: model, git, context, usage, tools and todos at a glance, with quota alerts (per-model weekly limits such as Fable's included), a usage forecast, an expired-cache hint, per-turn context growth, a daily budget, a task summary, a `/hud detail` pane and 12 themes to switch live |
-| [`ts-band`](claude-code/ts-band/README.en.md) | Tailscale node status: one small mark while every node is direct, the relayed or offline ones listed otherwise, with a toast when a node comes up or goes down |
-| [`hitokoto`](claude-code/hitokoto/README.en.md) | A [Hitokoto (一言)](https://hitokoto.cn) quote and its source above the prompt, refreshed on a timer, once a day, per session or per prompt |
-| [`spinner`](claude-code/spinner/README.en.md) | Animations and a companion pet: pixel-art scenes (a shoot-em-up, Clawd, a dot-eater, a rainbow cat, a spectrum of the sound your Mac plays; 15 themes), a pet that follows what Claude does and levels up, and confetti when a turn ends |
 | [`todo-bar`](claude-code/todo-bar/README.en.md) | A task progress bar: the task running, how long it has run, how much is done and what its subagents are doing; reads the TodoWrite / Task tools' results, no tokens |
 | [`receipt`](claude-code/receipt/README.en.md) | A turn receipt: one row saying what the turn changed (files, lines), ran and how much failed, flagging code changed with no test run after it, with a pane that replays each edit's diff, plus an alert when Claude goes in circles; no tokens |
-
-`spinner` at work (the `clawd` theme through a turn, the companion's bubble following the tools, then the finale; every theme's GIF is in [`claude-code/spinner`](claude-code/spinner/README.en.md)):
-
-![spinner, clawd theme](claude-code/spinner/assets/clawd.gif)
-
-![spinner, thunder theme](claude-code/spinner/assets/thunder.gif)
-
-The other mods:
-
-| `hud` (the `neon` theme; all twelve in [gallery.png](claude-code/hud/assets/themes/gallery.png)) |
-| --- |
-| ![hud, neon theme](claude-code/hud/assets/themes/neon.png) |
+| [`spinner`](claude-code/spinner/README.en.md) | Animations and a companion pet: pixel-art scenes (a shoot-em-up, Clawd, a dot-eater, a rainbow cat, a spectrum of the sound your Mac plays; 15 themes), a pet that follows what Claude does and levels up, and confetti when a turn ends |
+| [`ts-band`](claude-code/ts-band/README.en.md) | Tailscale node status: one small mark while every node is direct, the relayed or offline ones listed otherwise, with a toast when a node comes up or goes down |
+| [`hitokoto`](claude-code/hitokoto/README.en.md) | A [Hitokoto (一言)](https://hitokoto.cn) quote and its source above the prompt, refreshed on a timer, once a day, per session or per prompt |
 
 | `todo-bar` | `receipt` |
 | --- | --- |
@@ -49,20 +57,24 @@ The other mods:
 | `ts-band` | `hitokoto` |
 | ![ts-band](claude-code/ts-band/assets/preview.png) | ![hitokoto](claude-code/hitokoto/assets/preview.png) |
 
+`spinner` (the `clawd` theme through a turn, the companion's bubble following the tools, then the finale; every theme's GIF is in [`claude-code/spinner`](claude-code/spinner/README.en.md)):
+
+![spinner, clawd theme](claude-code/spinner/assets/clawd.gif)
+
 <sub>Each shot is rendered from what the mod itself draws.</sub>
 
 ## Install
 
-Add this repo's marketplace, then install the mods you want:
+Add this repo's marketplace, then install the mods you want; each installs on its own and works out of the box:
 
 ```sh
 claude plugin marketplace add hoobnn/hoobnn-agent-mods
 claude plugin install hud@hoobnn-agent-mods
-claude plugin install ts-band@hoobnn-agent-mods
-claude plugin install hitokoto@hoobnn-agent-mods
-claude plugin install spinner@hoobnn-agent-mods
 claude plugin install todo-bar@hoobnn-agent-mods
 claude plugin install receipt@hoobnn-agent-mods
+claude plugin install spinner@hoobnn-agent-mods
+claude plugin install ts-band@hoobnn-agent-mods
+claude plugin install hitokoto@hoobnn-agent-mods
 ```
 
 ### Update
@@ -83,6 +95,18 @@ claude plugin uninstall <mod>@hoobnn-agent-mods
 Options (`hud`'s `position`, `theme`, `dailyBudgetUsd` and `summaryEveryTurns`, `ts-band`'s `nodes` and `hideOffline`, `hitokoto`'s `refreshMode` and `categories`, `spinner`'s `theme`, `stage`, `celebrate` and `companion`, …) are rows in `/config`, or `pluginConfigs` in `~/.claude/settings.json`. `/config` is the one place a mod's settings live: what a slash command changes (`/hud theme neon`, `/ts off`, `/spinner stage off`) it writes there, and every mod has a `visible` row that `/hud`, `/ts`, `/hitokoto`, `/spinner`, `/todos` and `/receipt` `off` / `on` set. Each mod's folder has its own README with the details.
 
 All the mods speak English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, Brazilian Portuguese and Russian. `hud` follows `language` in claude-hud's config; `ts-band`, `hitokoto`, `spinner`, `todo-bar` and `receipt` each have a `language` option whose default, `auto`, follows Claude Code's `language` setting, then the system locale, then English.
+
+## Repository layout
+
+The six Claude Code mods live in `claude-code/`. Extensions for other coding-agent harnesses go in one folder per harness; for now `pi/` and `deepseek/` hold only a README and no extensions yet.
+
+| Folder | Harness | What goes there |
+| --- | --- | --- |
+| `claude-code/` | [Claude Code](https://code.claude.com) | Mods (function-hook plugins); each subfolder loads with `claude --plugin-dir`, except `kit/`, the code they share |
+| `pi/` | [pi](https://github.com/earendil-works/pi) | Extensions |
+| `deepseek/` | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | `dsh` plugins |
+| `shared/` | any | Logic more than one port uses |
+| `scripts/` | | Check, kit sync and screenshot scripts |
 
 ## Development
 

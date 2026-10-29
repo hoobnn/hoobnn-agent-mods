@@ -134,7 +134,7 @@ Claude Code's statusline stdin carries these; the mod API does not, so the mod w
 
 ### Not carried over
 
-- OSC 8 `file://` links (the project path): a `Link` takes https only, so the text is kept and the link dropped. https links (a GitHub branch) stay clickable.
+- OSC 8 `file://` links (the project path): a `Link` takes https only, so the text is kept and the link dropped. https links (a GitHub branch) stay clickable; where Claude Code doesn't recognize the terminal as link-capable (Rex, for one), it prints the URL after the branch instead, and `"FORCE_HYPERLINK": "1"` under `env` in `~/.claude/settings.json`, then a restart, fixes it.
 - `worktree` (a `--worktree` session's name, path and branch): not in the mod API.
 
 ### Layout
