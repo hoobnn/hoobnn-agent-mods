@@ -1,0 +1,54 @@
+{
+  "name": "relay-bar",
+  "version": "0.1.0",
+  "description": "What the agents agent-relay dispatched are doing, in a band above the prompt and a /relay pane, read from the runs' own status files: no tool, no prompt, no tokens",
+  "author": {
+    "name": "hoobnn",
+    "url": "https://github.com/hoobnn"
+  },
+  "homepage": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "repository": "https://github.com/hoobnn/hoobnn-agent-mods",
+  "license": "MIT",
+  "keywords": [
+    "agent-relay",
+    "acp",
+    "subagents",
+    "progress",
+    "band",
+    "mod"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "visible": {
+      "type": "boolean",
+      "title": "Show the band",
+      "description": "Show the band while relay runs work; /relay off and /relay on set this too",
+      "default": true
+    },
+    "toast": {
+      "type": "boolean",
+      "title": "Toast when a run ends",
+      "description": "A toast when a dispatched agent finishes, fails or asks a question",
+      "default": true
+    },
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "Language of the band and the pane; auto follows Claude Code's language setting, then the system locale",
+      "options": [
+        "auto",
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "es",
+        "fr",
+        "de",
+        "pt-BR",
+        "ru"
+      ],
+      "default": "auto"
+    }
+  }
+}
