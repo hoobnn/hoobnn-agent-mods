@@ -58,13 +58,13 @@ Each agent-relay run has a folder under `$XDG_STATE_HOME/agent-relay/runs/` (by 
 ```json
 {"v": 1, "cli": "codex", "model": "gpt-5.5", "effort": "high", "pid": 12345, "cwd": "/repo",
  "prompt": "first 200 characters", "started": 1761700000.0, "updated": 1761700130.0,
- "state": "starting | running | done | failed | asked", "session_id": "…",
+ "state": "starting | running | done | failed | asked", "session_id": "…", "caller_session": "…",
  "tools": {"done": 7, "total": 8},
  "steps": [{"type": "thought", "text": "…"}, {"type": "tool", "title": "Edit src/x.ts", "kind": "edit", "status": "in_progress"}],
  "ok": true, "error": null, "files_changed": 3, "ended": 1761700135.0}
 ```
 
-`steps` holds the latest 40 steps, each text cut to 600 characters; `ok` and what follows appear once it ends. relay-bar reads only folders made after the relay call began, so older runs from other sessions stay out; another session dispatching at the same moment shows on both.
+`steps` holds the latest 40 steps, each text cut to 600 characters; `ok` and what follows appear once it ends. relay-bar reads only folders made after the relay call began, and skips those whose `caller_session` (the Claude Code session that dispatched it, from `CLAUDE_CODE_SESSION_ID`) is not this one, so another session dispatching at the same moment stays out; a subagent's runs share the session's ID and show. Runs from an older relay.py, which writes no such field, and any poll that cannot get the session's ID still go by time.
 
 ## Other mods
 

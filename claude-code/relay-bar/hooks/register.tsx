@@ -93,6 +93,8 @@ async function poll($: EngineInterface): Promise<void> {
     const was = await read($, runs)
     const known = new Map(was.map(r => [r.id, r]))
     const path = await runsPath($)
+    // Asked each poll: a failed ask retries next time, and a new session ID (/clear) is followed.
+    const session = await $.session.id().catch(() => null)
     const fresh: Run[] = []
     if (path) {
       const entries = await $.fs.list(path).catch(() => [])
@@ -103,6 +105,8 @@ async function poll($: EngineInterface): Promise<void> {
         const text = await $.fs.read(`${path}/${entry.name}/status.json`).catch(() => null)
         const parsed = typeof text === 'string' ? fromStatus(entry.name, text) : null
         if (!parsed || (had && parsed.updatedAt === had.updatedAt && parsed.state === had.state)) continue
+        // Another session's run: its relay.py says who started it. Runs that say nothing are kept.
+        if (parsed.caller !== null && session && parsed.caller !== session) continue
         const call = had ? null : callOf(made)
         fresh.push(had ? { ...parsed, callId: had.callId, inRow: had.inRow } : { ...parsed, callId: call?.id ?? null, inRow: call?.inRow ?? false })
       }

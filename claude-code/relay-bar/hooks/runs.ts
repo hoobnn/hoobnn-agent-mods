@@ -61,6 +61,7 @@ export function fromStatus(id: string, text: string): Run | null {
     steps: Array.isArray(s.steps) ? s.steps.map(toStep).filter((x): x is Step => x !== null) : [],
     error: str(s.error),
     filesChanged: num(s.files_changed) ?? 0,
+    caller: str(s.caller_session),
     callId: null,
     inRow: false,
   }

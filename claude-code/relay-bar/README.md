@@ -58,13 +58,13 @@ agent-relay 的每次运行在 `$XDG_STATE_HOME/agent-relay/runs/`（默认 `~/.
 ```json
 {"v": 1, "cli": "codex", "model": "gpt-5.5", "effort": "high", "pid": 12345, "cwd": "/repo",
  "prompt": "前 200 字", "started": 1761700000.0, "updated": 1761700130.0,
- "state": "starting | running | done | failed | asked", "session_id": "…",
+ "state": "starting | running | done | failed | asked", "session_id": "…", "caller_session": "…",
  "tools": {"done": 7, "total": 8},
  "steps": [{"type": "thought", "text": "…"}, {"type": "tool", "title": "Edit src/x.ts", "kind": "edit", "status": "in_progress"}],
  "ok": true, "error": null, "files_changed": 3, "ended": 1761700135.0}
 ```
 
-`steps` 只带最近 40 步，每步文本截到 600 字；`ok` 及之后的字段只在结束时出现。relay-bar 只读派活开始后新建的目录，所以同一台机器上别的会话以前的派活不会混进来；不过同一时刻另一个会话也在派活的话，两边都会显示。
+`steps` 只带最近 40 步，每步文本截到 600 字；`ok` 及之后的字段只在结束时出现。relay-bar 只读派活开始后新建的目录，并跳过 `caller_session`（发起派活的 Claude Code 会话，取自 `CLAUDE_CODE_SESSION_ID`）不是本会话的那些，所以同一时刻别的会话在派活也不会混进来；子代理派的活和本会话同一个 ID，照常显示。旧版 relay.py 没有这个字段、或这一秒取不到本会话 ID 时，仍按时间收进来。
 
 ## 同系列 mod
 

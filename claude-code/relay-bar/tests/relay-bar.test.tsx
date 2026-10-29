@@ -52,6 +52,7 @@ function host(on: On) {
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('config.set', ($, e) => ({ value: e.value }))
   on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.id', () => ({ value: 'sess-me' }))
   on('prompt.submit', ($, e) => ({ text: e.text }))
   on('ui.toast', ($, e) => {
     toasts.push(e.text)
@@ -177,6 +178,21 @@ test('other Bash calls start no watch, and folders from before the call are left
   expect(await band($)).toBe('[]')
   await $.tool.call(relay())
   expect(await band($)).not.toContain('grok')
+})
+
+test("another session's runs stay out; this session's and the unmarked ones show", async ($, on) => {
+  const { clock } = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  files[DIR] = status({ caller_session: 'sess-me' })
+  files['20261029-120001-grok-bbbbbb'] = status({ cli: 'grok', caller_session: 'sess-other' })
+  files['20261029-120001-pi-cccccc'] = status({ cli: 'pi' })
+  await $.tool.call(relay({ agentId: 'ag-1' }))
+  const text = await band($)
+  expect(text).toContain('codex')
+  expect(text).toContain('pi')
+  expect(text).not.toContain('grok')
+  expect(fromStatus(DIR, status({ caller_session: 'sess-me' }))!.caller).toBe('sess-me')
 })
 
 test('a run that stops writing after the call is marked lost', async ($, on) => {

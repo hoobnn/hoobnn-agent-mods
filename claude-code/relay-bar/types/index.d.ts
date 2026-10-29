@@ -25,6 +25,8 @@ export type Run = {
   steps: Step[]
   error: string | null
   filesChanged: number
+  /** The Claude Code session that started it (`CLAUDE_CODE_SESSION_ID`); null from an older relay.py or from outside Claude Code. */
+  caller: string | null
   /** The Bash call that started it, as `tool.call`'s `tool_use_id`; null until matched. */
   callId: string | null
   /** True when that call's row is in the main transcript (a foreground call of the main thread): the run is drawn under it, not on the band. */
