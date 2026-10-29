@@ -88,7 +88,7 @@
       "name": "relay-bar",
       "source": "./claude-code/relay-bar",
       "description": "What the agents agent-relay dispatched are doing, in a band above the prompt and a /relay pane, read from the runs' own status files: no tool, no prompt, no tokens",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "category": "monitoring",
       "tags": [
         "agent-relay",
