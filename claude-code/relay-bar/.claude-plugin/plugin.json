@@ -1,6 +1,6 @@
 {
   "name": "relay-bar",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "What the agents agent-relay dispatched are doing, in a band above the prompt and a /relay pane, read from the runs' own status files: no tool, no prompt, no tokens",
   "author": {
     "name": "hoobnn",
