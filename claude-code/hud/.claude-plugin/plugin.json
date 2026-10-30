@@ -52,6 +52,12 @@
       ],
       "default": "above"
     },
+    "narrowColumns": {
+      "type": "number",
+      "title": "Narrow terminal width",
+      "description": "Below this many columns (a phone over Rex or another remote terminal) the terminal HUD drops the session name, duration, prompt cache and unused model limits, and lists at most two tools; 0 turns it off",
+      "default": 60
+    },
     "theme": {
       "type": "string",
       "title": "Theme",

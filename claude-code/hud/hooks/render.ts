@@ -12,7 +12,7 @@ import { configOverrides, FILTER_CONFIG_ARGS, takeGitStatus } from './hud/git.js
 import { main } from './hud/index.js'
 import { setRenderSink } from './hud/render/index.js'
 import type { StdinData } from './hud/types.js'
-import { fitColumns, live } from './live.js'
+import { fitColumns, isNarrow, live } from './live.js'
 import { rcSpans, remoteControl } from './remote.js'
 import { processShim } from './shims/globals.js'
 import { type Io, runWithFacts } from './shims/host.js'
@@ -47,7 +47,9 @@ export async function renderHud(io: Io, session: SessionApi): Promise<Rendered> 
   await runWithFacts(async () => {
     out = []
     setRenderSink(line => out.push(line))
-    await main(async () => stdin)
+    // Narrow, an unused model limit (Fable at 0%) is a row of nothing to say.
+    const scoped = stdin.model_scoped
+    await main(async () => (isNarrow() && scoped ? { ...stdin, model_scoped: scoped.filter(w => (w.utilization ?? 0) > 0) } : stdin))
     // Today's spend across sessions, from claude-hud's own ledger (kept current here
     // even when its daily-cost element is off), so the history and /hud detail have every day.
     const resetsAt = stdin.rate_limits?.seven_day?.resets_at

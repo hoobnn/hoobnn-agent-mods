@@ -338,6 +338,8 @@ test('extras fit the width: low parts drop, the row joins the last line when it 
   expect(narrow).toMatch(/Fix login │ /)
   expect(narrow).not.toMatch(/▁/)
   expect(text(extrasLine({ ...x, columns: 12 }))).toBe('✎ Fix login')
+  // A summary wider than a phone's band is cut to it, not wrapped onto a second row.
+  expect(text(extrasLine({ ...x, summary: '界面测试：查看最近提交与 README 前三行', columns: 30 }))).toBe('✎ 界面测试：查看最近提交与 R…')
   expect(text(extrasLine({ ...x, summary: null, budgetUsd: 0, week: null, compactLeft: 42_000 }))).toMatch(/42k/)
   expect(text(extrasLine({ ...x, summary: null, budgetUsd: 0, week: null, coldCache: 120_000 }))).toMatch(/120k/)
   // A turn that grew the context past the threshold shows by how much, beside the recent turns.
@@ -577,6 +579,42 @@ test('the Fable window shows beside the 5-hour one and toasts at a threshold', {
     await ui.unmount()
   } finally {
     delete FILES[path]
+  }
+})
+
+test('a phone\'s narrow band sheds the duration and an unused model limit', async ($, on) => {
+  const path = `${HOME}/.claude.json`
+  const config = `${HOME}/.claude/plugins/claude-hud/config.json`
+  FILES[path] = claudeJson(Date.now(), 0)
+  FILES[config] = JSON.stringify({ ...JSON.parse(CONFIG), display: { ...JSON.parse(CONFIG).display, showDuration: true } })
+  try {
+    const clock = host(on)
+    on('ui.render', ($, e) => {
+      const { Box } = $.ui.resolve(e)
+      return <Box key="core" />
+    })
+    await $.session.start({ cwd: CWD, surface: 'terminal', isInteractive: true })
+    const drawn = async (bodyColumns: number) => {
+      const band = { ...BAND, props: { ...BAND.props, bodyColumns } }
+      // The first draw learns the width; the pass it schedules draws to it.
+      await (await $.ui.mount({ plugin: 'hud', surface: 'terminal', ...band })).unmount()
+      await clock.advance(1000)
+      for (let i = 0; i < 30; i++) await clock.settle()
+      const ui = await $.ui.mount({ plugin: 'hud', surface: 'terminal', ...band })
+      const shown = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
+      await ui.unmount()
+      return shown
+    }
+    const wide = await drawn(140)
+    expect(wide).toContain('Fable')
+    expect(wide).toContain('⏱')
+    const narrow = await drawn(46)
+    expect(narrow).not.toContain('Fable')
+    expect(narrow).not.toContain('⏱')
+    expect(narrow).toContain('25%')
+  } finally {
+    delete FILES[path]
+    FILES[config] = CONFIG
   }
 })
 

@@ -14,7 +14,7 @@ A line from [Hitokoto (一言)](https://hitokoto.cn), a Chinese quote service of
 
 ## Features
 
-- A line and its source, with a `↻` at the end that brings another when clicked (not in `daily` mode).
+- A line and its source, with a `↻` at the end that brings another when clicked (not in `daily` mode). Below 60 columns (a phone over a remote terminal) the line and its source flow as one text with the `↻` ahead, so no row is left half empty.
 - Four refresh modes: on a timer (every 30 minutes by default), one line a day (the same in every session, a new one after midnight), one per session, or a new one each prompt.
 - Pick categories: poetry, literature, philosophy and the rest, or any.
 - Light and never empty: nothing is fetched while the band is hidden; one request runs at a time, and one that has not answered in 10 s counts as failed. The last line is kept, so a new or offline session starts with it.

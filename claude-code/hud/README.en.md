@@ -17,7 +17,7 @@ A statusline HUD for Claude Code.
 - Everything claude-hud shows: model and effort, project and git branch with its changes, context and usage gauges, the running tools, subagents and todos.
 - Warnings before you hit a wall: toasts at the context and quota levels you pick; when a limit runs out at the current pace (the 5-hour limit at the last hour's pace); per-model weekly limits such as Fable's, with the same alerts and forecast; the tokens left before auto-compaction; what the next message re-caches once the prompt cache has expired; a turn that grew the context a lot, by how much and beside a sparkline of the recent turns (`上一轮 +98k ▂▁█`), so the turn that filled the window stands out; and too many uncommitted changes or unpushed commits.
 - Spend: today's spend against a daily budget, and the last 7 days as a sparkline.
-- A one-line task summary, and the `/hud detail` pane: each tool's calls and time, the last turns' time, cost and context growth, subagents, todos, and today's and the week's spend.
+- A one-line task summary (cut to the terminal's width, never a second row), and the `/hud detail` pane: each tool's calls and time, the last turns' time, cost and context growth, subagents, todos, and today's and the week's spend.
 - Twelve themes: neon, rainbow, emoji, anime themes with a kaomoji mascot (sakura, kawaii, mecha, shonen), Tokyo Night, Matrix, Nerd Font and powerline.
 - Turn-done toast for long turns (with an optional chime on macOS), and the Remote Control state.
 
@@ -74,6 +74,7 @@ Set them in `/config`, or under `pluginConfigs` in `~/.claude/settings.json`:
 | `appItems` | What the apps show and in what order, comma separated: `context`, `5h`, `7d`, `model` (a model's weekly limit, such as Fable's), `cache` (when the cache expires), `session` (its time), `cost` (its spend), `summary` (the task summary), `alerts` (forecast, auto-compact, expired cache, context growth, budget and git warnings). Empty shows all but `cost`. The terminal's rows follow claude-hud's own config | `context,5h,7d,model,cache,session,summary,alerts` |
 | `footerButton` | Show the HUD toggle button in the prompt footer | off |
 | `position` | `above` the prompt as a band, or `below` it where the statusline sat (Claude Desktop has no such place: there it is always above) | `above` |
+| `narrowColumns` | Below this many columns (a phone over Rex or another remote terminal) the terminal HUD sheds rows: no session name, duration, prompt cache or model-scoped weekly limits at 0%, at most two tools; 0 off | 60 |
 | `theme` | The theme | `classic` |
 | `showMascot` | Show the kaomoji mascot in the anime themes | on |
 | `contextAlerts` | Toast when context use reaches these percentages, comma separated (`80,90`); empty turns it off | empty |

@@ -235,12 +235,14 @@ const SEPARATOR = ' │ '
 const lineWidth = (spans: HudLine) => spans.reduce((sum, span) => sum + textWidth(span.text), 0)
 
 /** The row under claude-hud's lines; empty when there is nothing to say. */
+const SUMMARY_RANK = 3
+
 export function extrasLine(x: ExtrasInput): HudLine {
   // Kept in display order; `rank` is what goes last when the row is too wide.
   const parts: { spans: HudLine; rank: number }[] = []
   const style = x.style ?? {}
   if (x.mascot) parts.push({ spans: [{ text: x.mascot, color: style.mascotColor ?? style.summaryColor ?? 'cyan', bold: true }], rank: -1 })
-  if (x.summary) parts.push({ spans: [{ text: `${style.summary ?? '✎'} ${x.summary}`, color: style.summaryColor ?? 'cyan' }], rank: 3 })
+  if (x.summary) parts.push({ spans: [{ text: `${style.summary ?? '✎'} ${x.summary}`, color: style.summaryColor ?? 'cyan' }], rank: SUMMARY_RANK })
   for (const { label, at } of x.exhaust) {
     parts.push({ spans: [{ text: m('forecast', { label, time: clockTime(at) }), color: style.forecastColor ?? 'magenta' }], rank: 2 })
   }
@@ -283,7 +285,27 @@ export function extrasLine(x: ExtrasInput): HudLine {
     const lowest = Math.min(...kept.map(p => p.rank))
     kept.splice(kept.findIndex(p => p.rank === lowest), 1)
   }
+  // Still too wide (a phone's few columns): the summary is cut, not wrapped onto a row of its own.
+  const at = kept.findIndex(p => p.rank === SUMMARY_RANK)
+  const over = x.columns ? lineWidth(join(kept)) - x.columns : 0
+  if (at >= 0 && over > 0) {
+    const span = kept[at]!.spans[0]!
+    kept[at] = { ...kept[at]!, spans: [{ ...span, text: cutToWidth(span.text, textWidth(span.text) - over) }] }
+  }
   return join(kept)
+}
+
+const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+
+/** `text` cut to `width` cells, an ellipsis in the last. */
+export function cutToWidth(text: string, width: number): string {
+  if (textWidth(text) <= width) return text
+  let out = ''
+  for (const { segment } of GRAPHEMES.segment(text)) {
+    if (textWidth(out + segment) > width - 1) break
+    out += segment
+  }
+  return `${out}…`
 }
 
 /** claude-hud's ` │ ` and ` | ` between elements, dimmed like the extras row's. */

@@ -25,6 +25,8 @@ const isPicking = atom({ plugin: 'hitokoto', key: 'isPicking' } as const, false)
 const DAY_CHECK_MS = 10 * 60_000
 // A request that has not answered by then counts as failed.
 const FETCH_TIMEOUT_MS = 10_000
+/** Below this many columns (a phone over a remote terminal) the line and its source flow as one text. */
+const NARROW_COLUMNS = 60
 
 /** The kit's hold on this mod's store and `/config` rows. */
 function prefsOf($: EngineInterface): Prefs {
@@ -218,12 +220,22 @@ export const register: Register = (on, options) => {
     const ui = $.ui.resolve(e)
     const { Box, Button, Text } = ui
     const by = attribution(q)
-    const line = (
+    // A click brings a new line; daily mode keeps today's.
+    const again = isDaily ? null : <Button key="hitokoto-next" plain dimColor label="↻" onPress={() => void fetchNew($, url, false)} />
+    // Narrow (a phone), the source wrapping whole under the line leaves half rows (a lone `』`): the line
+    // and its source flow as one text, its own spaces unbroken so a wrap falls before it, the ↻ ahead.
+    const line = e.props.bodyColumns < NARROW_COLUMNS ? (
+      <Box flexDirection="row" columnGap={1}>
+        {again}
+        <Box flexShrink={1}>
+          <Text dimColor italic>{`『${q.text}』${by ? ` ${by.replace(/ /g, '\u00a0')}` : ''}`}</Text>
+        </Box>
+      </Box>
+    ) : (
       <Box flexDirection="row" flexWrap="wrap" columnGap={1}>
         <Text dimColor italic>『{q.text}』</Text>
         {by ? <Text dimColor>{by}</Text> : null}
-        {/* A click brings a new line; daily mode keeps today's. */}
-        {isDaily ? null : <Button key="hitokoto-next" plain dimColor label="↻" onPress={() => void fetchNew($, url, false)} />}
+        {again}
       </Box>
     )
     return stackAbove(ui, line, await next(e), e.surface)

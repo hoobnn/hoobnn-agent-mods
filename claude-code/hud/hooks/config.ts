@@ -16,6 +16,8 @@ export type Config = {
   /** A HUD button in the prompt footer. */
   hasFooterButton: boolean
   position: 'above' | 'below'
+  /** Below this many columns the terminal HUD sheds its lesser rows; 0 is off. */
+  narrowColumns: number
   theme: Theme
   hasMascot: boolean
   /** claude-hud's `--extra-cmd`. */
@@ -50,6 +52,7 @@ export function readConfig(options: PluginOptions): Config {
     appItems: parseAppItems(text(options.appItems)),
     hasFooterButton: flag(options.footerButton, false),
     position: oneOf(options.position, ['above', 'below'], 'above'),
+    narrowColumns: count(options.narrowColumns, 60, { min: 0, isInteger: true }),
     theme: findTheme(options.theme) ?? THEMES[0]!,
     hasMascot: flag(options.showMascot, true),
     extraCmd: text(options.extraCmd),

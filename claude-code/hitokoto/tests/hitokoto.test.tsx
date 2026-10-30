@@ -69,6 +69,10 @@ test('band shows the quote on every surface', { options: { categories: 'i' } }, 
     expect(await ui.find({ type: 'Text', text: '—— 苏轼「临江仙·送钱穆父」' })).toBeDefined()
     await ui.unmount()
   }
+  // A phone's narrow band: the line and its source flow as one text, no half rows.
+  const ui = await $.ui.mount({ plugin: 'hitokoto', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns: 46 } })
+  expect(await ui.find({ type: 'Text', text: '『人生如逆旅，我亦是行人。』 ——\u00a0苏轼「临江仙·送钱穆父」' })).toBeDefined()
+  await ui.unmount()
 })
 
 test('a session the desktop app hosts fetches once the desktop attaches', async ($, on) => {

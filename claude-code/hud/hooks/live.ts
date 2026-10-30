@@ -14,6 +14,8 @@ export const live = {
   transcriptPath: undefined as string | undefined,
   transcriptFor: undefined as string | undefined,
   columns: undefined as number | undefined,
+  /** The `narrowColumns` option: below it the terminal HUD sheds its lesser rows. */
+  narrowColumns: 0,
   lastStdin: null as StdinData | null,
   lastError: null as string | null,
   lastLines: [] as string[],
@@ -27,6 +29,11 @@ export const live = {
 /** Columns claude-hud and the extras row may fill, leaving room for the theme's span effects. */
 export function fitColumns(): number | undefined {
   return live.columns ? Math.max(20, live.columns - themeOverhead(live.theme)) : undefined
+}
+
+/** Whether the band is narrower than `narrowColumns` (a phone over a remote terminal). */
+export function isNarrow(): boolean {
+  return live.columns !== undefined && live.columns < live.narrowColumns
 }
 
 export function useTheme(theme: Theme): void {

@@ -81,8 +81,8 @@ function host(on: On) {
   return { clock }
 }
 
-async function band($: Parameters<TestBody>[0]): Promise<string> {
-  const ui = await $.ui.mount({ plugin: 'relay-bar', surface: 'terminal', ...BAND })
+async function band($: Parameters<TestBody>[0], bodyColumns: number = BAND.props.bodyColumns): Promise<string> {
+  const ui = await $.ui.mount({ plugin: 'relay-bar', surface: 'terminal', ...BAND, props: { ...BAND.props, bodyColumns } })
   const texts = (await ui.findAll({ type: 'Text' })) as unknown[]
   await ui.unmount()
   return JSON.stringify(texts)
@@ -166,6 +166,21 @@ test('a background call or a subagent call shows on the band, then folds', async
   expect(await band($)).toContain('完成')
   await clock.advance(FINISH_MS + 31_000)
   expect(await band($)).not.toContain('codex')
+})
+
+test('on a phone\'s narrow band a run\'s row keeps what it is on, not its model and tools', async ($, on) => {
+  const { clock } = host(on)
+  await $.session.start(START)
+  await clock.settle()
+  files[DIR] = status()
+  await $.tool.call(relay({ agentId: 'ag-1' }))
+  const wide = await band($)
+  expect(wide).toContain('gpt-5.5')
+  expect(wide).toContain('1/2')
+  const narrow = await band($, 46)
+  expect(narrow).toContain('⚙ Read src/a.ts')
+  expect(narrow).not.toContain('gpt-5.5')
+  expect(narrow).not.toContain('1/2')
 })
 
 test('other Bash calls start no watch, and folders from before the call are left out', async ($, on) => {

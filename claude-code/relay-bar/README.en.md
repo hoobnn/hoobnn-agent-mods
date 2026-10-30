@@ -19,7 +19,7 @@ When Claude hands work to grok, codex, pi and the rest through [agent-relay](htt
 ## Features
 
 - Where its call is: a run the main thread dispatched in the foreground is drawn under that Bash call in the transcript, and how it ended stays there; one dispatched in the background (`run_in_background`) or by a subagent, whose call the main transcript does not show, goes above the prompt and folds 10 seconds after it ends (under the subagent's own call too). The space above the prompt is left to the other mods.
-- A row per agent: a mark, the agent, its model and effort, how long it has run, then what it is on (`⚙` a tool call, `∴` a thought's last sentence, `›` the answer) and how many of its tool calls are done. Above the prompt four rows at most, the rest counted on one more.
+- A row per agent: a mark, the agent, its model and effort, how long it has run, then what it is on (`⚙` a tool call, `∴` a thought's last sentence, `›` the answer) and how many of its tool calls are done. Above the prompt four rows at most, the rest counted on one more. Below 60 columns (a phone over a remote terminal) the model and the tool count give their room to what it is on.
 - Its end: files changed when done, an error's first line when failed, "waiting for an answer" when it asks back; a toast at the same time.
 - `/relay` pane: the session's last 10 runs in a row, the one you press shown: its model, time, the prompt it got, and its latest thoughts, tool calls and answer. Pressing an agent's name on the band opens it too.
 - A run that has not moved for 90 seconds once its call is over (killed, the machine slept) is marked "process gone".

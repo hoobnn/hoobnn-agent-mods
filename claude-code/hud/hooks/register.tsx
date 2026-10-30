@@ -26,7 +26,7 @@ import { isPickerOpen } from './kit/band.js'
 import { cellWidth, dockFits, drawPet } from './kit/pet.js'
 import { keptRows, migrateStore, persist, switchArg } from './kit/prefs.js'
 import type { Prefs } from './kit/prefs.js'
-import { fitColumns, live, useTheme } from './live.js'
+import { fitColumns, isNarrow, live, useTheme } from './live.js'
 import { BRIDGE, remoteControl } from './remote.js'
 import { gitCounts, renderHud } from './render.js'
 import { factsSummary, type Io, runWithFacts, setIo } from './shims/host.js'
@@ -190,6 +190,7 @@ export const register: Register = (on, options) => {
   rowHidden.terminal = !config.isVisible
   rowHidden.app = !config.isVisibleApp
   useTheme(config.theme)
+  live.narrowColumns = config.narrowColumns
   // A session the desktop app hosts: no terminal, the desktop attached. Its side panel
   // draws the context, so the desktop's HUD leaves it out.
   let isHeadless = false
@@ -198,7 +199,14 @@ export const register: Register = (on, options) => {
     const themed = applyPalette(hud, live.theme)
     // Claude Code lists running subagents itself, with their time and tokens; claude-hud's
     // agent lines would repeat them, so they show only when asked for.
-    return config.hasAgents ? themed : { ...themed, display: { ...themed.display, showAgents: false } }
+    const display = config.hasAgents ? themed.display : { ...themed.display, showAgents: false }
+    // A phone's few columns: every element a row of its own, so the lesser ones go.
+    return {
+      ...themed,
+      display: isNarrow()
+        ? { ...display, showSessionName: false, showDuration: false, showPromptCache: false, toolsMaxVisible: display.toolsMaxVisible === 0 ? 2 : Math.min(display.toolsMaxVisible, 2) }
+        : display,
+    }
   })
   let isSummarizing = false
   // Set in session.start: everything that outlives one dispatch calls the
@@ -704,7 +712,8 @@ export const register: Register = (on, options) => {
     // Under the prompt, where the statusline sat: the HUD, then the engine's hint line.
     on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
       if (e.surface !== 'terminal') return next(e)
-      trackWidth(e.viewport?.columns)
+      // The engine sets the hint line two cells in from either side, and the rows with it.
+      trackWidth(e.viewport ? e.viewport.columns - 4 : undefined)
       const rows = await read($, lines)
       if (rows.length === 0 || (await read($, isHidden)).terminal) {
         return next(e)

@@ -41,6 +41,8 @@ const STALE_MS = 90_000
 export const FINISH_MS = 10_000
 /** Band rows for runs; the rest are counted on one more. */
 const ROWS = 4
+/** Below this many columns (a phone over a remote terminal) a run's row keeps only what it is on. */
+const NARROW_COLUMNS = 60
 /** Rows the pane takes besides the steps: the runs, the run's facts, its prompt, the gaps and the button. */
 const PANE_CHROME = 7
 
@@ -226,7 +228,8 @@ export const register: Register = (on, options) => {
     const shown = (await read($, runs)).filter(r => !r.inRow && (isLive(r) || (r.endedAt !== null && at - r.endedAt < FINISH_MS)))
     if (shown.length === 0) return next(e)
     const ui = $.ui.resolve(e)
-    return stackAbove(ui, drawBand(ui, shown, at, id => void openPane($, id)), await next(e), e.surface)
+    const isNarrow = e.props.bodyColumns < NARROW_COLUMNS
+    return stackAbove(ui, drawBand(ui, shown, at, id => void openPane($, id), isNarrow), await next(e), e.surface)
   })
 
   // Under the Bash call that dispatched them: a row a run, live while it works, its end kept after.
@@ -242,7 +245,7 @@ export const register: Register = (on, options) => {
       <Box flexDirection="column">
         {await next(e)}
         <Box flexDirection="column" paddingLeft={5}>
-          {drawRows(ui, mine, at, rid => void openPane($, rid))}
+          {drawRows(ui, mine, at, rid => void openPane($, rid), (e.viewport?.columns ?? Infinity) < NARROW_COLUMNS)}
         </Box>
       </Box>
     )
@@ -284,24 +287,27 @@ function status(r: Run): { text: string; color?: string } {
 }
 
 /** The band: the runs' rows, the newest few, the rest counted on one more. */
-function drawBand(ui: Ui, shown: Run[], at: number, open: (id: string) => void): RenderElement {
+function drawBand(ui: Ui, shown: Run[], at: number, open: (id: string) => void, isNarrow: boolean): RenderElement {
   const { Box, Text } = ui
   const rows = shown.length > ROWS ? shown.slice(-(ROWS - 1)) : shown
   return (
     <Box flexDirection="column">
-      {drawRows(ui, rows, at, open)}
+      {drawRows(ui, rows, at, open, isNarrow)}
       {shown.length > ROWS ? <Text dimColor>{m('band.more', { n: shown.length - rows.length })}</Text> : null}
     </Box>
   )
 }
 
-/** A row a run: its mark, its agent (a press opens the pane on it), model, time, what it is on, its tools. */
-function drawRows(ui: Ui, rows: Run[], at: number, open: (id: string) => void): RenderElement[] {
+/**
+ * A row a run: its mark, its agent (a press opens the pane on it), model, time, what it is on, its tools.
+ * Narrow (a phone), the model and the tools give their cells to what it is on.
+ */
+function drawRows(ui: Ui, rows: Run[], at: number, open: (id: string) => void, isNarrow: boolean): RenderElement[] {
   const { Box, Text, Button } = ui
   return rows.map(r => {
     const mark = MARK[r.state]
     const s = status(r)
-    const model = modelOf(r)
+    const model = isNarrow ? '' : modelOf(r)
     return (
       <Box key={r.id} flexDirection="row" columnGap={1}>
         <Text color={mark.color} bold>{mark.glyph}</Text>
@@ -321,7 +327,7 @@ function drawRows(ui: Ui, rows: Run[], at: number, open: (id: string) => void): 
         <Box flexGrow={1} flexShrink={1}>
           <Text color={s.color} dimColor={!s.color} wrap="truncate-end">{s.text}</Text>
         </Box>
-        {isLive(r) && r.tools.total > 0 ? (
+        {!isNarrow && isLive(r) && r.tools.total > 0 ? (
           <Box flexShrink={0}>
             <Text dimColor>{m('band.tools', { done: r.tools.done, total: r.tools.total })}</Text>
           </Box>
