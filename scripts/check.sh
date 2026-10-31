@@ -72,5 +72,11 @@ for mod in "${mods[@]}"; do
   else
     echo "tsc skipped: load the mod once so Claude Code lays .claude-plugin/types"
   fi
+  # Every released version carries a tag: scripts/release.sh bumps and tags together.
+  version=$(sed -nE 's/^[[:space:]]*"version":[[:space:]]*"([^"]+)".*/\1/p' "$mod/.claude-plugin/plugin.json" | head -1)
+  if ! git rev-parse -q --verify "refs/tags/$(basename "$mod")--v$version" > /dev/null; then
+    echo "tag: no $(basename "$mod")--v$version; release with scripts/release.sh"
+    status=1
+  fi
 done
 exit $status
