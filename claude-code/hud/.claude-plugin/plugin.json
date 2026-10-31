@@ -123,8 +123,14 @@
     "showForecast": {
       "type": "boolean",
       "title": "Usage forecast",
-      "description": "Show when a usage limit runs out at the current rate, if that is before it resets",
+      "description": "Show how long before a usage limit resets it runs out at the current rate, if it does",
       "default": true
+    },
+    "forecastFormat": {
+      "type": "string",
+      "title": "Forecast format",
+      "description": "The forecast's wording: {label} the limit, {early} how long before its reset, {left} how long from now, {at} the clock time it runs out. Empty uses the HUD language's own",
+      "default": ""
     },
     "dailyBudgetUsd": {
       "type": "number",

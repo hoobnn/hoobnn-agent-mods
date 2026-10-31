@@ -303,14 +303,16 @@ export const register: Register = (on, options) => {
         // The 7-day window keeps the pace since it began: an hour of work says little about a week.
         const exhaust = config.hasForecast
           ? [
-              { label: m('limit.fiveHour'), at: paceAt(fiveHour, five?.used_percentage, five?.resets_at, FIVE_HOUR_WINDOW_MS, now) },
-              { label: m('limit.sevenDay'), at: exhaustAt(limits?.seven_day?.used_percentage, limits?.seven_day?.resets_at, SEVEN_DAY_WINDOW_MS, now) },
-              ...scoped.map(w => ({ label: m('limit.scoped', { name: w.name }), at: exhaustAt(w.percent, w.resetsAt, SEVEN_DAY_WINDOW_MS, now) })),
-            ].flatMap(({ label, at }) => (at === null ? [] : [{ label, inMs: at - now }]))
+              { label: m('limit.fiveHour'), resetsAt: five?.resets_at, at: paceAt(fiveHour, five?.used_percentage, five?.resets_at, FIVE_HOUR_WINDOW_MS, now) },
+              { label: m('limit.sevenDay'), resetsAt: limits?.seven_day?.resets_at, at: exhaustAt(limits?.seven_day?.used_percentage, limits?.seven_day?.resets_at, SEVEN_DAY_WINDOW_MS, now) },
+              ...scoped.map(w => ({ label: m('limit.scoped', { name: w.name }), resetsAt: w.resetsAt, at: exhaustAt(w.percent, w.resetsAt, SEVEN_DAY_WINDOW_MS, now) })),
+            ].flatMap(({ label, resetsAt, at }) => (at === null || !resetsAt ? [] : [{ label, inMs: at - now, earlyMs: resetsAt * 1000 - at }]))
           : []
         const extrasInput: ExtrasInput = {
           summary: await read($, summary),
           exhaust,
+          forecastFormat: config.forecastFormat,
+          now,
           todayUsd,
           budgetUsd: config.budgetUsd,
           week: config.hasHistory ? { values: lastDays(days, today, 7), streak: streak(days, today) } : null,

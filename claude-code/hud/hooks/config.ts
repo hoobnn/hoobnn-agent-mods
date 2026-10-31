@@ -30,6 +30,8 @@ export type Config = {
   contextAlerts: number[]
   usageAlerts: number[]
   hasForecast: boolean
+  /** The forecast's wording with {label}, {early}, {left} and {at}; empty is the language's own. */
+  forecastFormat: string
   budgetUsd: number
   hasHistory: boolean
   /** Summarize after the first turn and every this many; 0 is off. */
@@ -62,6 +64,7 @@ export function readConfig(options: PluginOptions): Config {
     contextAlerts: parseThresholds(text(options.contextAlerts)),
     usageAlerts: parseThresholds(text(options.usageAlerts)),
     hasForecast: flag(options.showForecast, true),
+    forecastFormat: text(options.forecastFormat),
     budgetUsd: count(options.dailyBudgetUsd, 0, { min: 0 }),
     hasHistory: flag(options.showHistory, false),
     summaryEvery: count(options.summaryEveryTurns, 5, { min: 0, isInteger: true }),

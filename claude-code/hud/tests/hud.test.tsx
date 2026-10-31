@@ -5,7 +5,7 @@ import { type Engine, expect, mock, test } from 'claude-code/testing'
 import '../hooks/shims/globals'
 
 import { parseAnsi } from '../hooks/ansi'
-import { addDays, addSample, formatLeft, appendExtras, chimeWav, crossThresholds, dimSeparators, exhaustAt, extrasLine, growthOf, lastDays, paceAt, packRows, parseGitStatus, parseThresholds, sparkline, streak } from '../hooks/extras'
+import { addDays, addSample, forecastText, formatLeft, appendExtras, chimeWav, crossThresholds, dimSeparators, exhaustAt, extrasLine, growthOf, lastDays, paceAt, packRows, parseGitStatus, parseThresholds, sparkline, streak } from '../hooks/extras'
 import { setLanguage } from '../hooks/hud/i18n/index'
 import { configOverrides } from '../hooks/hud/git'
 import { Parser } from '../hooks/hud/transcript'
@@ -329,6 +329,18 @@ test('forecast names the time a window runs out before its reset', async () => {
   expect(addSample(samples, 1, resets + 5 * 3600, now).points).toEqual([[now, 1]])
   // Shown as how long is left, to the minute.
   expect([formatLeft((3 * 24 + 4) * hour + 20 * min), formatLeft(48 * hour), formatLeft(2 * hour + 5 * min), formatLeft(40 * min), formatLeft(10_000)]).toEqual(['3d4h', '2d', '2h5m', '40m', '1m'])
+})
+
+test('forecast says how long before the reset a window runs out, in the user\'s wording when given', async () => {
+  const hour = 3600_000
+  const now = new Date(2026, 9, 2, 10, 0).getTime()
+  const x = { label: 'Fable', inMs: 4 * hour, earlyMs: 18 * hour }
+  expect(forecastText('', x, now, 'zh-Hans')).toBe('Fable 预计早于重置 18h 消耗完毕')
+  expect(forecastText('', x, now, 'en')).toBe('Fable likely out 18h before reset')
+  expect(forecastText('{label} {left} 后用完（早 {early}）', x, now, 'zh-Hans')).toBe('Fable 4h 后用完（早 18h）')
+  // {at}: the clock time, with the weekday once it is another day.
+  expect(forecastText('{at}', x, now, 'en')).toBe('14:00')
+  expect(forecastText('{at}', { ...x, inMs: 30 * hour }, now, 'en')).toBe('Sat 16:00')
 })
 
 test('extras fit the width: low parts drop, the row joins the last line when it fits', async () => {

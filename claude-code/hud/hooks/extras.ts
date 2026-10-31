@@ -4,7 +4,8 @@
 import type { Desk, DeskItem, HudLine, TurnCost } from '../types'
 import { textWidth } from './hud/render/ansi.js'
 import { formatTokens } from './hud/utils/format.js'
-import { m, money } from './i18n.js'
+import { type CanonicalLanguage, interpolate } from './hud/i18n/index.js'
+import { language, m, money } from './i18n.js'
 
 /** "80, 90" → [80, 90]: whole percents in 1-100, ascending; empty turns alerts off. */
 export function parseThresholds(spec: string): number[] {
@@ -118,6 +119,30 @@ export function formatDuration(ms: number): string {
   return `${Math.floor(s / 3600)}h${pad(Math.floor((s % 3600) / 60))}m`
 }
 
+/** One rate-limit window's forecast: its label, and how long until it runs out and how long that is before its reset (ms). */
+export type Exhaust = { label: string; inMs: number; earlyMs: number }
+
+/**
+ * A forecast's line: `format` (the user's `forecastFormat`, else the language's own)
+ * with {label}, {early} (how long before the reset), {left} (how long from now) and
+ * {at} (the clock time it runs out) filled in.
+ */
+export function forecastText(format: string | undefined, x: Exhaust, now: number, lang: CanonicalLanguage = language()): string {
+  const params = { label: x.label, early: formatLeft(x.earlyMs), left: formatLeft(x.inMs), at: clockAt(now + x.inMs, now, lang) }
+  return format ? interpolate(format, params) : m('forecast', params, lang)
+}
+
+/** "14:05" today, "Wed 14:05" another day, as the language writes it. */
+export function clockAt(at: number, now: number, lang: CanonicalLanguage = language()): string {
+  const isToday = new Date(at).toDateString() === new Date(now).toDateString()
+  try {
+    return new Intl.DateTimeFormat(lang, { ...(isToday ? {} : { weekday: 'short' }), hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(at)
+  } catch {
+    const d = new Date(at)
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+}
+
 /** "3d4h", "2h5m", "40m": how long until a forecast comes due, to the minute. */
 export function formatLeft(ms: number): string {
   const min = Math.max(1, Math.round(ms / 60_000))
@@ -208,8 +233,12 @@ export function budgetSpans(todayUsd: number, budgetUsd: number, width = 8): Hud
 
 export type ExtrasInput = {
   summary: string | null
-  /** Rate-limit windows that run out before they reset: label and how long until then (ms). */
-  exhaust: { label: string; inMs: number }[]
+  /** Rate-limit windows that run out before they reset: label, how long until then and how long before the reset (ms). */
+  exhaust: Exhaust[]
+  /** The user's forecast wording (`forecastFormat`); empty is the language's own. */
+  forecastFormat?: string
+  /** The time the forecasts' {at} counts from (ms); the clock's when absent. */
+  now?: number
   todayUsd: number | null
   budgetUsd: number
   /** The last 7 days' spend, oldest first, and the streak; null hides the history. */
@@ -254,8 +283,8 @@ export function extrasLine(x: ExtrasInput): HudLine {
   const style = x.style ?? {}
   if (x.mascot) parts.push({ spans: [{ text: x.mascot, color: style.mascotColor ?? style.summaryColor ?? 'cyan', bold: true }], rank: -1 })
   if (x.summary) parts.push({ spans: [{ text: `${style.summary ?? '✎'} ${x.summary}`, color: style.summaryColor ?? 'cyan' }], rank: SUMMARY_RANK })
-  for (const { label, inMs } of x.exhaust) {
-    parts.push({ spans: [{ text: m('forecast', { label, time: formatLeft(inMs) }), color: style.forecastColor ?? 'magenta' }], rank: 2 })
+  for (const e of x.exhaust) {
+    parts.push({ spans: [{ text: forecastText(x.forecastFormat, e, x.now ?? Date.now()), color: style.forecastColor ?? 'magenta' }], rank: 2 })
   }
   if (typeof x.compactLeft === 'number') {
     parts.push({ spans: [{ text: m('compact.left', { tokens: formatTokens(Math.max(0, x.compactLeft)) }), color: style.forecastColor ?? 'magenta' }], rank: 2 })
@@ -468,7 +497,7 @@ export function deskOf(x: DeskInput): Desk {
   const notes: DeskItem[] = []
   if (x.summary && x.items.includes('summary')) notes.push({ value: x.summary, isMuted: true })
   if (!x.items.includes('alerts')) return { gauges, notes }
-  for (const { label, inMs } of x.exhaust) notes.push({ value: m('forecast', { label, time: formatLeft(inMs) }), tone: 'warn' })
+  for (const e of x.exhaust) notes.push({ value: forecastText(x.forecastFormat, e, x.now), tone: 'warn' })
   if (typeof x.compactLeft === 'number') notes.push({ value: m('compact.left', { tokens: formatTokens(Math.max(0, x.compactLeft)) }), tone: 'warn' })
   if (typeof x.coldCache === 'number') notes.push({ value: m('cache.cold', { tokens: formatTokens(x.coldCache) }), tone: 'warn' })
   if (x.growth) notes.push({ value: m('turn.growth', { tokens: formatTokens(x.growth.last) }), isMuted: true })
