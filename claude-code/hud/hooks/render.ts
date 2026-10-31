@@ -9,6 +9,7 @@ import { parseAnsi } from './ansi.js'
 import { dimSeparators, packRows, parseGitStatus } from './extras.js'
 import { getCostTotals } from './hud/daily-cost.js'
 import { configOverrides, FILTER_CONFIG_ARGS, takeGitStatus } from './hud/git.js'
+import { loadConfig } from './hud/config.js'
 import { main } from './hud/index.js'
 import { setRenderSink } from './hud/render/index.js'
 import type { StdinData } from './hud/types.js'
@@ -43,10 +44,14 @@ export async function renderHud(io: Io, session: SessionApi): Promise<Rendered> 
   live.lastStdin = stdin
   let out: string[] = []
   let todayUsd: number | null = null
+  let isScopedHidden = false
   takeGitStatus('') // A status left from an earlier pass is not this one's.
   await runWithFacts(async () => {
     out = []
     setRenderSink(line => out.push(line))
+    // claude-hud's `showModelScopedUsage: false` hides the model limits (Fable's); the
+    // forecast and alerts built from this pass's stdin leave them out too.
+    isScopedHidden = (await loadConfig()).display.showModelScopedUsage === false
     // Narrow, an unused model limit (Fable at 0%) is a row of nothing to say.
     const scoped = stdin.model_scoped
     await main(async () => (isNarrow() && scoped ? { ...stdin, model_scoped: scoped.filter(w => (w.utilization ?? 0) > 0) } : stdin))
@@ -62,5 +67,5 @@ export async function renderHud(io: Io, session: SessionApi): Promise<Rendered> 
     if (rendered.length > 0) rendered[0] = [...rendered[0]!, ...rc]
     else rendered.push(rc.slice(1))
   }
-  return { rows: rendered, stdin, todayUsd }
+  return { rows: rendered, stdin: isScopedHidden ? { ...stdin, model_scoped: [] } : stdin, todayUsd }
 }
