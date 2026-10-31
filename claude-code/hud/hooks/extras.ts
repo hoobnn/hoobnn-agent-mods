@@ -118,6 +118,17 @@ export function formatDuration(ms: number): string {
   return `${Math.floor(s / 3600)}h${pad(Math.floor((s % 3600) / 60))}m`
 }
 
+/** "3d4h", "2h5m", "40m": how long until a forecast comes due, to the minute. */
+export function formatLeft(ms: number): string {
+  const min = Math.max(1, Math.round(ms / 60_000))
+  const d = Math.floor(min / 1440)
+  const h = Math.floor((min % 1440) / 60)
+  if (d > 0) return h > 0 ? `${d}d${h}h` : `${d}d`
+  const rest = min % 60
+  if (h > 0) return rest > 0 ? `${h}h${rest}m` : `${h}h`
+  return `${rest}m`
+}
+
 const BLOCKS = '▁▂▃▄▅▆▇█'
 
 /** One block per value, scaled to the largest; a zero is the lowest block. */
@@ -197,8 +208,8 @@ export function budgetSpans(todayUsd: number, budgetUsd: number, width = 8): Hud
 
 export type ExtrasInput = {
   summary: string | null
-  /** Rate-limit windows that run out before they reset: label and when. */
-  exhaust: { label: string; at: number }[]
+  /** Rate-limit windows that run out before they reset: label and how long until then (ms). */
+  exhaust: { label: string; inMs: number }[]
   todayUsd: number | null
   budgetUsd: number
   /** The last 7 days' spend, oldest first, and the streak; null hides the history. */
@@ -243,8 +254,8 @@ export function extrasLine(x: ExtrasInput): HudLine {
   const style = x.style ?? {}
   if (x.mascot) parts.push({ spans: [{ text: x.mascot, color: style.mascotColor ?? style.summaryColor ?? 'cyan', bold: true }], rank: -1 })
   if (x.summary) parts.push({ spans: [{ text: `${style.summary ?? '✎'} ${x.summary}`, color: style.summaryColor ?? 'cyan' }], rank: SUMMARY_RANK })
-  for (const { label, at } of x.exhaust) {
-    parts.push({ spans: [{ text: m('forecast', { label, time: clockTime(at) }), color: style.forecastColor ?? 'magenta' }], rank: 2 })
+  for (const { label, inMs } of x.exhaust) {
+    parts.push({ spans: [{ text: m('forecast', { label, time: formatLeft(inMs) }), color: style.forecastColor ?? 'magenta' }], rank: 2 })
   }
   if (typeof x.compactLeft === 'number') {
     parts.push({ spans: [{ text: m('compact.left', { tokens: formatTokens(Math.max(0, x.compactLeft)) }), color: style.forecastColor ?? 'magenta' }], rank: 2 })
@@ -457,7 +468,7 @@ export function deskOf(x: DeskInput): Desk {
   const notes: DeskItem[] = []
   if (x.summary && x.items.includes('summary')) notes.push({ value: x.summary, isMuted: true })
   if (!x.items.includes('alerts')) return { gauges, notes }
-  for (const { label, at } of x.exhaust) notes.push({ value: m('forecast', { label, time: clockTime(at) }), tone: 'warn' })
+  for (const { label, inMs } of x.exhaust) notes.push({ value: m('forecast', { label, time: formatLeft(inMs) }), tone: 'warn' })
   if (typeof x.compactLeft === 'number') notes.push({ value: m('compact.left', { tokens: formatTokens(Math.max(0, x.compactLeft)) }), tone: 'warn' })
   if (typeof x.coldCache === 'number') notes.push({ value: m('cache.cold', { tokens: formatTokens(x.coldCache) }), tone: 'warn' })
   if (x.growth) notes.push({ value: m('turn.growth', { tokens: formatTokens(x.growth.last) }), isMuted: true })

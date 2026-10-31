@@ -5,7 +5,7 @@ import { type Engine, expect, mock, test } from 'claude-code/testing'
 import '../hooks/shims/globals'
 
 import { parseAnsi } from '../hooks/ansi'
-import { addDays, addSample, appendExtras, chimeWav, crossThresholds, dimSeparators, exhaustAt, extrasLine, growthOf, lastDays, paceAt, packRows, parseGitStatus, parseThresholds, sparkline, streak } from '../hooks/extras'
+import { addDays, addSample, formatLeft, appendExtras, chimeWav, crossThresholds, dimSeparators, exhaustAt, extrasLine, growthOf, lastDays, paceAt, packRows, parseGitStatus, parseThresholds, sparkline, streak } from '../hooks/extras'
 import { setLanguage } from '../hooks/hud/i18n/index'
 import { configOverrides } from '../hooks/hud/git'
 import { Parser } from '../hooks/hud/transcript'
@@ -327,6 +327,8 @@ test('forecast names the time a window runs out before its reset', async () => {
   expect(paceAt(addSample(undefined, 60, resets, now), 60, resets, 5 * hour, now)).toBe(exhaustAt(60, resets, 5 * hour, now))
   // A new window starts its readings over.
   expect(addSample(samples, 1, resets + 5 * 3600, now).points).toEqual([[now, 1]])
+  // Shown as how long is left, to the minute.
+  expect([formatLeft((3 * 24 + 4) * hour + 20 * min), formatLeft(48 * hour), formatLeft(2 * hour + 5 * min), formatLeft(40 * min), formatLeft(10_000)]).toEqual(['3d4h', '2d', '2h5m', '40m', '1m'])
 })
 
 test('extras fit the width: low parts drop, the row joins the last line when it fits', async () => {

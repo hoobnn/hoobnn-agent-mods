@@ -306,7 +306,7 @@ export const register: Register = (on, options) => {
               { label: m('limit.fiveHour'), at: paceAt(fiveHour, five?.used_percentage, five?.resets_at, FIVE_HOUR_WINDOW_MS, now) },
               { label: m('limit.sevenDay'), at: exhaustAt(limits?.seven_day?.used_percentage, limits?.seven_day?.resets_at, SEVEN_DAY_WINDOW_MS, now) },
               ...scoped.map(w => ({ label: m('limit.scoped', { name: w.name }), at: exhaustAt(w.percent, w.resetsAt, SEVEN_DAY_WINDOW_MS, now) })),
-            ].flatMap(({ label, at }) => (at === null ? [] : [{ label, at }]))
+            ].flatMap(({ label, at }) => (at === null ? [] : [{ label, inMs: at - now }]))
           : []
         const extrasInput: ExtrasInput = {
           summary: await read($, summary),
