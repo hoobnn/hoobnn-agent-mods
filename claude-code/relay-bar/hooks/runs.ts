@@ -6,7 +6,9 @@ import type { Run, RunState, Step } from '../types'
 
 /** A run folder's name: its local start time, the agent, a random tail. */
 const RUN_DIR = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-([a-z0-9]+)-[0-9a-f]+$/
-const STATES = new Set<RunState>(['starting', 'running', 'done', 'failed', 'asked', 'lost'])
+const STATES = new Set<RunState>(['working', 'done', 'blocked', 'error', 'lost'])
+/** status.json version 1 (an older relay.py) used its own words. */
+const V1_WORDS: Record<string, RunState> = { starting: 'working', running: 'working', asked: 'blocked', failed: 'error' }
 /** Runs kept for the pane; the oldest that ended go first. */
 export const KEEP_RUNS = 10
 
@@ -34,7 +36,7 @@ function toStep(raw: unknown): Step | null {
   return null
 }
 
-/** A run from its status.json text (version 1); null when it does not parse as one. */
+/** A run from its status.json text (version 1 or 2); null when it does not parse as one. */
 export function fromStatus(id: string, text: string): Run | null {
   let s: Record<string, unknown>
   try {
@@ -44,7 +46,8 @@ export function fromStatus(id: string, text: string): Run | null {
   }
   const started = num(s.started)
   const cli = str(s.cli)
-  if (s.v !== 1 || started === null || cli === null || !STATES.has(s.state as RunState)) return null
+  const state = s.v === 1 ? (V1_WORDS[s.state as string] ?? s.state) : s.state
+  if ((s.v !== 1 && s.v !== 2) || started === null || cli === null || !STATES.has(state as RunState)) return null
   const tools = (s.tools ?? {}) as Record<string, unknown>
   const ended = num(s.ended)
   return {
@@ -53,7 +56,7 @@ export function fromStatus(id: string, text: string): Run | null {
     model: str(s.model),
     effort: str(s.effort),
     prompt: str(s.prompt) ?? '',
-    state: s.state as RunState,
+    state: state as RunState,
     startedAt: started * 1000,
     updatedAt: (num(s.updated) ?? started) * 1000,
     endedAt: ended === null ? null : ended * 1000,
@@ -67,7 +70,7 @@ export function fromStatus(id: string, text: string): Run | null {
   }
 }
 
-export const isLive = (r: Pick<Run, 'state'>): boolean => r.state === 'starting' || r.state === 'running'
+export const isLive = (r: Pick<Run, 'state'>): boolean => r.state === 'working'
 
 /** The runs with `incoming` laid over them by id, oldest first, at most KEEP_RUNS (the oldest ended ones go). */
 export function merge(runs: readonly Run[], incoming: readonly Run[]): Run[] {

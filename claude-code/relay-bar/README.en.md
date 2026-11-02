@@ -56,9 +56,9 @@ With `language` at `auto`, the band follows Claude Code's `language` setting, th
 Each agent-relay run has a folder under `$XDG_STATE_HOME/agent-relay/runs/` (by default `~/.local/state/agent-relay/runs/`). While the agent works `relay.py` rewrites its `status.json` about once a second, and once more as it ends:
 
 ```json
-{"v": 1, "cli": "codex", "model": "gpt-5.5", "effort": "high", "pid": 12345, "cwd": "/repo",
+{"v": 2, "cli": "codex", "model": "gpt-5.5", "effort": "high", "pid": 12345, "cwd": "/repo",
  "prompt": "first 200 characters", "started": 1761700000.0, "updated": 1761700130.0,
- "state": "starting | running | done | failed | asked", "session_id": "…", "caller_session": "…",
+ "state": "working | blocked | done | error", "session_id": "…", "caller_session": "…",
  "tools": {"done": 7, "total": 8},
  "steps": [{"type": "thought", "text": "…"}, {"type": "tool", "title": "Edit src/x.ts", "kind": "edit", "status": "in_progress"}],
  "ok": true, "error": null, "files_changed": 3, "ended": 1761700135.0}

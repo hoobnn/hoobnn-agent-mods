@@ -1,5 +1,5 @@
-/** Where a run stands: still at work (`starting`, `running`), or how it ended; `lost` when its process went without a last word. */
-export type RunState = 'starting' | 'running' | 'done' | 'failed' | 'asked' | 'lost'
+/** Where a run stands, in OSC 7501 words: still `working`, `blocked` on a question, or how it ended; `lost` when its process went without a last word. */
+export type RunState = 'working' | 'done' | 'blocked' | 'error' | 'lost'
 
 /** One step of a run, as agent-relay's status.json lists its latest: a tool call, or a stretch of thought or message. */
 export type Step =

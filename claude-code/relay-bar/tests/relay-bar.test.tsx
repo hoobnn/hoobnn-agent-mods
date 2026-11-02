@@ -33,8 +33,8 @@ let during: (() => Promise<void>) | null = null
 
 function status(over: Record<string, unknown> = {}): string {
   return JSON.stringify({
-    v: 1, cli: 'codex', model: 'gpt-5.5', effort: 'high', pid: 1, cwd: '/repo', prompt: '评审 src/a.ts',
-    started: (T0 + 1000) / 1000, updated: (T0 + 2000) / 1000, state: 'running', session_id: 's1',
+    v: 2, cli: 'codex', model: 'gpt-5.5', effort: 'high', pid: 1, cwd: '/repo', prompt: '评审 src/a.ts',
+    started: (T0 + 1000) / 1000, updated: (T0 + 2000) / 1000, state: 'working', session_id: 's1',
     tools: { done: 1, total: 2 },
     steps: [{ type: 'thought', text: '先读文件' }, { type: 'tool', title: 'Read src/a.ts', kind: 'read', status: 'in_progress' }],
     ...over,
@@ -112,6 +112,9 @@ test('runs helpers', async () => {
   expect(run.startedAt).toBe(T0 + 1000)
   expect(doing(run)).toEqual({ mark: '⚙', text: 'Read src/a.ts' })
   expect(fromStatus(DIR, '{"v":2}')).toBe(null)
+  // An older relay.py's version 1 words still read.
+  expect(fromStatus(DIR, status({ v: 1, state: 'asked' }))!.state).toBe('blocked')
+  expect(fromStatus(DIR, status({ v: 1, state: 'running' }))!.state).toBe('working')
   expect(fromStatus(DIR, 'not json')).toBe(null)
   expect(formatDuration(130_000)).toBe('2m 10s')
   // A thought shows its last sentence whole, never cut at the front.
@@ -119,7 +122,7 @@ test('runs helpers', async () => {
   const msg = fromStatus(DIR, status({ steps: [{ type: 'message', text: '第一行\n第二行\n' }] }))!
   expect(paneLines(msg).map(l => l.text)).toEqual(['第一行', '第二行'])
   // Over the cap, the oldest that ended goes; a live run stays.
-  const many: Run[] = Array.from({ length: 11 }, (_, i) => ({ ...run, id: String(i), startedAt: i, state: i === 0 ? 'running' : 'done' }))
+  const many: Run[] = Array.from({ length: 11 }, (_, i) => ({ ...run, id: String(i), startedAt: i, state: i === 0 ? 'working' : 'done' }))
   expect(merge([], many).map(r => r.id)).toEqual(['0', '2', '3', '4', '5', '6', '7', '8', '9', '10'])
   for (const table of Object.values(MESSAGES)) expect(Object.keys(table).sort()).toEqual(Object.keys(MESSAGES.en).sort())
 })

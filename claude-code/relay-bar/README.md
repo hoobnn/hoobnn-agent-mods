@@ -56,9 +56,9 @@ claude plugin install relay-bar@hoobnn-agent-mods
 agent-relay 的每次运行在 `$XDG_STATE_HOME/agent-relay/runs/`（默认 `~/.local/state/agent-relay/runs/`）下有一个目录，`relay.py` 在 agent 工作期间大约每秒重写一次其中的 `status.json`，结束时再写一次最终状态：
 
 ```json
-{"v": 1, "cli": "codex", "model": "gpt-5.5", "effort": "high", "pid": 12345, "cwd": "/repo",
+{"v": 2, "cli": "codex", "model": "gpt-5.5", "effort": "high", "pid": 12345, "cwd": "/repo",
  "prompt": "前 200 字", "started": 1761700000.0, "updated": 1761700130.0,
- "state": "starting | running | done | failed | asked", "session_id": "…", "caller_session": "…",
+ "state": "working | blocked | done | error", "session_id": "…", "caller_session": "…",
  "tools": {"done": 7, "total": 8},
  "steps": [{"type": "thought", "text": "…"}, {"type": "tool", "title": "Edit src/x.ts", "kind": "edit", "status": "in_progress"}],
  "ok": true, "error": null, "files_changed": 3, "ended": 1761700135.0}

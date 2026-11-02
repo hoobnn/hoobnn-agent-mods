@@ -130,7 +130,7 @@ async function poll($: EngineInterface): Promise<void> {
           const before = known.get(r.id)
           if (isLive(r) || (before && !isLive(before))) continue
           if (r.state === 'done') void $.ui.toast(r.filesChanged > 0 ? m('toast.done', { cli: r.cli, n: r.filesChanged }) : `${r.cli} ${m('band.done')}`)
-          else if (r.state === 'asked') void $.ui.toast(m('toast.asked', { cli: r.cli }))
+          else if (r.state === 'blocked') void $.ui.toast(m('toast.asked', { cli: r.cli }))
           else void $.ui.toast(m('toast.failed', { cli: r.cli }))
         }
       }
@@ -265,11 +265,10 @@ export const register: Register = (on, options) => {
 type Ui = Pick<Elements['terminal'], 'Box' | 'Text' | 'Button'>
 
 const MARK: Record<Run['state'], { glyph: string; color: string }> = {
-  starting: { glyph: '●', color: 'ide' },
-  running: { glyph: '●', color: 'ide' },
+  working: { glyph: '●', color: 'ide' },
   done: { glyph: '✓', color: 'success' },
-  asked: { glyph: '?', color: 'warning' },
-  failed: { glyph: '✗', color: 'error' },
+  blocked: { glyph: '?', color: 'warning' },
+  error: { glyph: '✗', color: 'error' },
   lost: { glyph: '✗', color: 'error' },
 }
 
@@ -279,9 +278,9 @@ const modelOf = (r: Run) => [r.model, r.effort].filter(Boolean).join('·')
 /** What a run's row says after its name: the step it is on, or how it ended. */
 function status(r: Run): { text: string; color?: string } {
   if (r.state === 'done') return { text: r.filesChanged > 0 ? `${m('band.done')} · ${m('band.files', { n: r.filesChanged })}` : m('band.done'), color: 'success' }
-  if (r.state === 'asked') return { text: m('band.asked'), color: 'warning' }
+  if (r.state === 'blocked') return { text: m('band.asked'), color: 'warning' }
   if (r.state === 'lost') return { text: m('band.lost'), color: 'error' }
-  if (r.state === 'failed') return { text: `${m('band.failed')}: ${(r.error ?? '').split('\n')[0]}`, color: 'error' }
+  if (r.state === 'error') return { text: `${m('band.failed')}: ${(r.error ?? '').split('\n')[0]}`, color: 'error' }
   const now = doing(r)
   return now ? { text: `${now.mark} ${now.text}` } : { text: m('band.starting') }
 }
