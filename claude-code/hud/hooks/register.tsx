@@ -399,7 +399,24 @@ export const register: Register = (on, options) => {
     if (keptTheme) useTheme(keptTheme)
     await update($, hiddenSet, () => ({ terminal: !config.isVisible, app: !config.isVisibleApp }))
 
-    await loadHostFacts(io, config.extraCmd)
+    // Each name a literal, as `$.env.get` asks; Windows has no /usr/bin/env to list them all.
+    const [HOME, USERPROFILE, CLAUDE_CONFIG_DIR, TMPDIR, TEMP, OS, COLUMNS, DEBUG, LANG, LC_ALL, LC_TIME] = await Promise.all(
+      [
+        $.env.get('HOME'),
+        $.env.get('USERPROFILE'),
+        $.env.get('CLAUDE_CONFIG_DIR'),
+        $.env.get('TMPDIR'),
+        $.env.get('TEMP'),
+        $.env.get('OS'),
+        $.env.get('COLUMNS'),
+        $.env.get('DEBUG'),
+        $.env.get('LANG'),
+        $.env.get('LC_ALL'),
+        $.env.get('LC_TIME'),
+      ].map(value => value.catch(() => undefined)),
+    )
+    const hostEnv = { HOME, USERPROFILE, CLAUDE_CONFIG_DIR, TMPDIR, TEMP, OS, COLUMNS, DEBUG, LANG, LC_ALL, LC_TIME }
+    await loadHostFacts(io, config.extraCmd, hostEnv)
     // claude-hud sets its language in each pass; the command's description is read before the first.
     await runWithFacts(async () => setLanguage((await loadConfig()).language))
     await $.command.register({ name: 'hud', description: m('cmd.description'), argumentHint: '[off|on [all] | detail | theme [name|next|reset]]', immediate: true })

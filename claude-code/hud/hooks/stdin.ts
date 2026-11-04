@@ -132,19 +132,24 @@ function projectSlug(dir: string): string {
 }
 
 export function claudeConfigDir(): string {
-  return processShim.env.CLAUDE_CONFIG_DIR?.trim() || `${sysinfo.home}/.claude`
+  const dir = processShim.env.CLAUDE_CONFIG_DIR?.trim()
+  return dir ? slashPath(dir) : `${sysinfo.home === '/' ? '' : sysinfo.home}/.claude`
 }
 
 async function findTranscript(io: Io, session: SessionApi, id: string, dirs: string[]): Promise<string | undefined> {
   const configDir = claudeConfigDir()
   for (const dir of dirs) {
     const candidate = `${configDir}/projects/${projectSlug(dir)}/${id}.jsonl`
-    if (await session.exists(candidate)) return candidate
+    if (await session.exists(candidate).catch(() => false)) return candidate
   }
-  const found = await io
-    .run(['/usr/bin/find', `${configDir}/projects`, '-maxdepth', '2', '-name', `${id}.jsonl`])
-    .catch(() => null)
-  return found?.stdout.split('\n').find(Boolean)
+  // Every project folder, as `find -maxdepth 2` would: listed through `$`, so Windows finds it too.
+  const projects = `${configDir}/projects`
+  for (const entry of await io.list(projects).catch(() => [])) {
+    if (entry.kind !== 'dir') continue
+    const files = await io.list(`${projects}/${entry.name}`).catch(() => [])
+    if (files.some(f => f.name === `${id}.jsonl`)) return `${projects}/${entry.name}/${id}.jsonl`
+  }
+  return undefined
 }
 
 async function gitWorktree(io: Io, cwd: string): Promise<string | undefined> {
@@ -264,24 +269,41 @@ export async function buildStdin(io: Io, session: SessionApi): Promise<StdinData
   }
 }
 
-export async function loadHostFacts(io: Io, extraCmd: string): Promise<void> {
-  const [env, uname, memsize] = await Promise.all([
-    io.run(['/usr/bin/env', '-0']).catch(() => null),
-    io.run(['/usr/bin/uname', '-s']).catch(() => null),
-    io.run(['/usr/sbin/sysctl', '-n', 'hw.memsize']).catch(() => null),
-  ])
+/** The variables the mod reads by name, from `$.env.get` (register.tsx); undefined when unset. */
+export type HostEnv = Record<string, string | undefined>
+
+/** `C:\Users\me\` → `C:/Users/me`: the mod joins paths with `/`, which Windows takes as well. */
+export function slashPath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/(?<=.)\/+$/, '')
+}
+
+export async function loadHostFacts(io: Io, extraCmd: string, hostEnv: HostEnv): Promise<void> {
+  const isWindows = hostEnv.OS === 'Windows_NT'
+  // No /usr/bin on Windows: the names the mod reads come from `$.env.get` all the same.
+  const [env, uname, memsize] = isWindows
+    ? [null, null, null]
+    : await Promise.all([
+        io.run(['/usr/bin/env', '-0']).catch(() => null),
+        io.run(['/usr/bin/uname', '-s']).catch(() => null),
+        io.run(['/usr/sbin/sysctl', '-n', 'hw.memsize']).catch(() => null),
+      ])
+  // The whole environment where /usr/bin/env answers (a `${VAR}` in the config may name any), then the named ones.
   for (const pair of env?.stdout.split('\0') ?? []) {
     const eq = pair.indexOf('=')
     if (eq > 0) processShim.env[pair.slice(0, eq)] = pair.slice(eq + 1)
   }
-  const platform = uname?.stdout.trim().toLowerCase() === 'linux' ? 'linux' : 'darwin'
+  for (const [name, value] of Object.entries(hostEnv)) if (value !== undefined) processShim.env[name] = value
+  const platform = isWindows ? 'win32' : uname?.stdout.trim().toLowerCase() === 'linux' ? 'linux' : 'darwin'
   processShim.platform = platform
   sysinfo.platform = platform
-  sysinfo.home = processShim.env.HOME ?? '/'
-  sysinfo.tmpdir = processShim.env.TMPDIR ?? '/tmp'
+  // Windows: USERPROFILE, as Node's os.homedir() and Claude Code take it; a HOME set by Git Bash may differ.
+  const home = isWindows ? processShim.env.USERPROFILE || processShim.env.HOME : processShim.env.HOME
+  sysinfo.home = home ? slashPath(home) : '/'
+  const tmp = processShim.env.TMPDIR || processShim.env.TEMP
+  sysinfo.tmpdir = tmp ? slashPath(tmp) : '/tmp'
   sysinfo.totalmem = Number.parseInt(memsize?.stdout.trim() ?? '', 10) || 0
   processShim.argv = extraCmd ? ['node', 'claude-hud', '--extra-cmd', extraCmd] : ['node', 'claude-hud']
-  markStable(['/usr/sbin/sysctl', '-n', 'hw.memsize'])
+  if (!isWindows) markStable(['/usr/sbin/sysctl', '-n', 'hw.memsize'])
   setCwdProvider(() => processShim.cwdPath)
   await loadHostClock(io, platform)
 }

@@ -16,18 +16,32 @@ function normalizeParts(parts: string[], isAbs: boolean): string[] {
   return out
 }
 
+// A Windows path (`C:\Users\me`, `C:/Users/me`) is taken with `/` and its drive kept as its root.
+const DRIVE = /^[A-Za-z]:[\\/]/
+
+function slashed(p: string): string {
+  return DRIVE.test(p) ? p.replace(/\\/g, '/') : p
+}
+
+/** `/`, `C:/`, or '' for a relative path. */
+function rootOf(p: string): string {
+  return DRIVE.test(p) ? `${p.slice(0, 2)}/` : p.startsWith('/') ? '/' : ''
+}
+
 export function isAbsolute(p: string): boolean {
-  return p.startsWith('/')
+  return rootOf(p) !== ''
 }
 
 export function normalize(p: string): string {
   if (!p) return '.'
-  const isAbs = isAbsolute(p)
+  p = slashed(p)
+  const root = rootOf(p)
+  const isAbs = root !== ''
   const trailing = p.endsWith('/')
-  let joined = normalizeParts(p.split('/'), isAbs).join('/')
+  let joined = normalizeParts(p.slice(root.length).split('/'), isAbs).join('/')
   if (!joined && !isAbs) joined = '.'
   if (joined && trailing) joined += '/'
-  return (isAbs ? '/' : '') + joined
+  return root + joined
 }
 
 export function join(...parts: string[]): string {
@@ -49,8 +63,9 @@ export function resolve(...parts: string[]): string {
     resolved = resolved ? `${part}/${resolved}` : part
   }
   if (!isAbsolute(resolved)) resolved = `${cwdProvider()}/${resolved}`
-  const out = '/' + normalizeParts(resolved.split('/'), true).join('/')
-  return out
+  resolved = slashed(resolved)
+  const root = rootOf(resolved) || '/'
+  return root + normalizeParts(resolved.slice(root.length).split('/'), true).join('/')
 }
 
 export function relative(from: string, to: string): string {

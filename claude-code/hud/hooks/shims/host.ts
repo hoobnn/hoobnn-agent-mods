@@ -8,6 +8,8 @@
 // written out only once a pass completes with no misses.
 import type { FsEntry, FsStat, ProcessRunInit, ProcessRunResult } from 'claude-code'
 
+import { sysinfo } from './os.js'
+
 /** The engine calls the shims make, closed over `$` in the hooks module. */
 export type Io = {
   stat: (path: string) => Promise<FsStat>
@@ -225,24 +227,55 @@ export async function runWithFacts<T>(pass: () => Promise<T>): Promise<T> {
 /** Reads the complete lines appended to a file since `offset` (bytes). */
 let lastAppend: Record<string, unknown> = {}
 
+const CHUNK_BYTES = 3_000_000
+
+// Windows has no /bin/sh: PowerShell 5.1, there on every Windows, seeks and answers base64 so no console code page touches the bytes.
+const WINDOWS_TAIL = [
+  "$f = [IO.File]::Open($env:HUD_TAIL_PATH, 'Open', 'Read', 'ReadWrite, Delete')",
+  'try {',
+  "  [void]$f.Seek([long]$env:HUD_TAIL_AT, 'Begin')",
+  `  $b = New-Object byte[] ${CHUNK_BYTES}`,
+  '  $n = 0',
+  '  while ($n -lt $b.Length) { $r = $f.Read($b, $n, $b.Length - $n); if ($r -le 0) { break }; $n += $r }',
+  '  [Console]::Out.Write([Convert]::ToBase64String($b, 0, $n))',
+  '} finally { $f.Dispose() }',
+].join('\n')
+
+/** Up to CHUNK_BYTES of the file from byte `at`, decoded, and how many bytes were read. */
+async function readChunk($: Io, path: string, at: number): Promise<{ text: string; bytes: number }> {
+  if (sysinfo.platform === 'win32') {
+    const out = await $.run(['powershell.exe', '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', WINDOWS_TAIL], {
+      env: { HUD_TAIL_PATH: path, HUD_TAIL_AT: String(at) },
+      timeoutMs: 60_000,
+    })
+    // 3,000,000 bytes are 4,000,000 of base64, under the 4 MiB stdout cap; cut or garbled, nothing is read this time.
+    if (out.exitCode !== 0 || out.isStdoutTruncated) return { text: '', bytes: 0 }
+    try {
+      const raw = Uint8Array.from(atob(out.stdout.trim()), c => c.charCodeAt(0))
+      return { text: new TextDecoder().decode(raw), bytes: raw.length }
+    } catch {
+      return { text: '', bytes: 0 }
+    }
+  }
+  const out = await $.run(['/bin/sh', '-c', `tail -c +"$1" "$2" | head -c ${CHUNK_BYTES}`, 'sh', String(at + 1), path], {
+    timeoutMs: 60_000,
+  })
+  return { text: out.stdout, bytes: new TextEncoder().encode(out.stdout).length }
+}
+
 export async function readAppendedLines(path: string, offset: number): Promise<{ lines: string[]; consumed: number }> {
   const $ = getIo()
   const lines: string[] = []
   let consumed = 0
   const encoder = new TextEncoder()
   for (;;) {
-    const at = offset + consumed
-    const out = await $.run(
-      ['/bin/sh', '-c', 'tail -c +"$1" "$2" | head -c 3000000', 'sh', String(at + 1), path],
-      { timeoutMs: 60_000 },
-    )
-    const text = out.stdout
+    const { text, bytes } = await readChunk($, path, offset + consumed)
     const end = text.lastIndexOf('\n')
     if (end < 0) break
     const chunk = text.slice(0, end + 1)
     consumed += encoder.encode(chunk).length
     lines.push(...chunk.slice(0, -1).split('\n'))
-    if (encoder.encode(text).length < 3_000_000) break
+    if (bytes < CHUNK_BYTES) break
   }
   lastAppend = { path, offset, lines: lines.length, consumed }
   return { lines, consumed }

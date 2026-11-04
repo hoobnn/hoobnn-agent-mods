@@ -999,3 +999,68 @@ test('the footer button is off by default, leaving the footer to the engine', as
   expect(await footer.find({ type: 'Button', key: 'hud-toggle' })).toBeUndefined()
   await footer.unmount()
 })
+
+test('on Windows the band finds the home, the transcript and its lines without /usr/bin or /bin/sh', async ($, on) => {
+  const home = 'C:/Users/u'
+  const cwd = 'C:\\Users\\u\\proj'
+  const transcript = `${home}/.claude/projects/C--Users-u-proj/sess-1.jsonl`
+  const files: Record<string, string> = { [`${home}/.claude/plugins/claude-hud/config.json`]: CONFIG, [transcript]: LINES }
+  const clock = mock.clock(on, { now: Date.parse('2026-10-02T06:01:00Z') })
+  mock.store(on, {})
+  mock.env(on, { USERPROFILE: 'C:\\Users\\u', OS: 'Windows_NT', TEMP: 'C:\\Users\\u\\AppData\\Local\\Temp' })
+  on('config.set', ($, e) => ({ value: e.value }))
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  // On Windows the engine hands `C:\...`; on POSIX it reads `C:/...` against its own cwd. The drive path, with `/`.
+  const drive = (path: string) => {
+    const slashed = path.replace(/\\/g, '/')
+    return slashed.includes('C:/') ? slashed.slice(slashed.indexOf('C:/')) : slashed
+  }
+  const isNetwork = (path: string) => /^[\\/][\\/]/.test(path)
+  const stat = (path: string) =>
+    drive(path) in files ? { kind: 'file' as const, size: files[drive(path)]!.length, mtimeMs: 1, isLink: false, realPath: path } : null
+  on('fs.exists', ($, e) => (isNetwork(e.path) ? { deny: 'a network location' } : { value: stat(e.path) !== null }))
+  on('fs.stat', ($, e) => {
+    const s = isNetwork(e.path) ? null : stat(e.path)
+    return s ? { value: s } : { deny: 'ENOENT' }
+  })
+  on('fs.read', ($, e) => (drive(e.path) in files ? { value: files[drive(e.path)]! } : { deny: 'ENOENT' }))
+  on('fs.list', () => ({ value: [] }))
+  on('fs.write', () => ({ value: undefined }))
+  const ran: string[] = []
+  on('process.run', ($, e) => {
+    ran.push(e.argv[0]!)
+    if (e.argv[0]!.startsWith('/')) return { deny: 'ENOENT' }
+    let stdout = ''
+    if (e.argv[0] === 'powershell.exe' && drive(e.init?.env?.HUD_TAIL_PATH ?? '') === transcript && e.init?.env?.HUD_TAIL_AT === '0') {
+      stdout = btoa(String.fromCharCode(...new TextEncoder().encode(LINES)))
+    }
+    return { value: { exitCode: stdout ? 0 : 1, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
+  on('session.id', () => ({ value: 'sess-1' }))
+  on('session.cwd', () => ({ value: cwd }))
+  on('session.repo', () => ({ value: null }))
+  on('session.root', () => ({ value: cwd }))
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('session.usage', () => ({
+    value: { startedAt: Date.parse('2026-10-02T06:00:00Z'), context: { tokens: 45_000, window: 200_000, percent: 23 }, rateLimits: [], cost: { usd: 1.23 } },
+  }))
+  on('session.version', () => ({ value: { version: '2.1.318', base: '2.1.318', builtAt: '2026-10-01T00:00:00Z' } }))
+  on('settings.read', () => ({ value: {} }))
+  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  on('tool.register', ($, e) => ({ value: { tool: e.name } }))
+  on('session.surfaces', () => ({ value: [] }))
+  on('ui.render', ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box key="core" />
+  })
+  await $.session.start({ cwd, surface: 'terminal', isInteractive: true })
+  for (let i = 0; i < 30; i++) await clock.settle()
+  const ui = await $.ui.mount({ plugin: 'hud', surface: 'terminal', ...BAND })
+  const shown = (await ui.findAll({ type: 'Text' })).map(t => t.text).join('')
+  expect(/Opus 5\.5/.test(shown)).toBe(true)
+  expect(/45k\/200k/.test(shown)).toBe(true)
+  // The transcript's lines came through PowerShell: the Read tool is listed.
+  expect(/◐ Read/.test(shown)).toBe(true)
+  expect(ran.some(cmd => cmd.startsWith('/usr/') || cmd === '/bin/sh')).toBe(false)
+  await ui.unmount()
+})
