@@ -5,19 +5,20 @@
     "url": "https://github.com/hoobnn"
   },
   "metadata": {
-    "description": "Mods for Claude Code: a claude-hud port, a Tailscale band, a Hitokoto band, spinner animations, a task progress band, a turn receipt and an agent-relay band",
+    "description": "Free, open-source Claude Code plugins (mods): a claude-hud statusline HUD port, a Tailscale band, a Hitokoto band, spinner animations, a task progress band, a turn receipt and an agent-relay band",
     "version": "0.10.1"
   },
   "plugins": [
     {
       "name": "hud",
       "source": "./claude-code/hud",
-      "description": "claude-hud 0.10.0 as a mod: model, project, git, context, usage, tools, agents and todos, below or above the prompt, plus alerts, budget, history, a task summary, a detail pane and switchable themes",
+      "description": "claude-hud 0.13.1 as a Claude Code mod (statusline HUD): model, project, git, context, usage, tools, agents and todos, below or above the prompt, plus alerts, budget, history, a task summary, a detail pane and switchable themes",
       "version": "0.16.2",
       "category": "monitoring",
       "tags": [
         "hud",
         "statusline",
+        "claude-hud",
         "mod"
       ]
     },

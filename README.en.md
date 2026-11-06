@@ -2,7 +2,9 @@
 
 # hoobnn-agent-mods
 
-A statusline HUD for Claude Code, plus a task progress bar, a turn receipt, spinner animations and more.
+Free, open-source mods for Claude Code: a statusline HUD, a task progress bar, a turn receipt, spinner animations and more.
+
+**hoobnn-agent-mods** is a Claude Code plugin marketplace with seven mods: a statusline HUD ([claude-hud](https://github.com/jarrodwatts/claude-hud) rebuilt as a mod), a task progress bar, a turn receipt, agent-relay progress, spinner animations with a companion pet, Tailscale node status and a Hitokoto quote. Add it with `claude plugin marketplace add hoobnn/hoobnn-agent-mods`; every mod installs on its own. MIT license.
 
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
@@ -120,6 +122,22 @@ The seven Claude Code mods live in `claude-code/`. Extensions for other coding-a
 - `bun scripts/spinner-shots.ts` renders `spinner`'s GIFs and stills again from its own frame tables (needs ffmpeg and Playwright's Chromium).
 - `bun scripts/mod-shots.ts [<mod> ...]` renders the previews of `ts-band`, `hitokoto`, `todo-bar` and `receipt` again: it drops `scripts/shots/<mod>.tsx` into the mod's `tests/` for one run, takes the tree the band really drew, and shoots it in a terminal window (needs Playwright's Chromium).
 - Release: bump `version` in the mod's `plugin.json` and its entry in `.claude-plugin/marketplace.json`, commit, then `claude plugin tag claude-code/<mod> --push` (tags look like `<mod>--v<version>`). Installs pick it up with the commands under Update.
+
+## FAQ
+
+**Which tools do these mods support?** For now they are all Claude Code mods, working in the terminal and in Claude Desktop. The `pi/` and `deepseek/` folders are reserved for pi and DeepSeek Harness and hold no extensions yet.
+
+**How do I install, update and uninstall?** See Install, Update and Uninstall above: plain `claude plugin` commands, each mod installed and updated on its own.
+
+**How does `hud` relate to claude-hud?** It ships claude-hud's source and reuses an existing claude-hud config (`~/.claude/plugins/claude-hud/config.json`). The difference is that it draws as a mod above or below the prompt and adds quota alerts, a usage forecast, a daily budget, a task summary, a detail pane and twelve themes. If you only want the classic `statusLine` approach, use [claude-hud](https://github.com/jarrodwatts/claude-hud) itself.
+
+**Does anything send my data somewhere?** By the reach levels in `scripts/reach.txt`, only `hitokoto` uses the network (it fetches a quote from hitokoto.cn); the other mods do not. `ts-band` runs `tailscale status` locally. `hud`'s task summary forks the conversation off the prompt cache and uses a few tokens; set `summaryEveryTurns` to 0 to turn it off. `todo-bar`, `receipt` and `relay-bar` read existing tool results and status files and use no tokens.
+
+**Installed, but nothing shows?** Run `claude plugin list` to check the mod is enabled, then check that its `visible` row in `/config` is on (`/hud on`, `/ts on` and the like also turn it on). The mod API is early access, so if a Claude Code update breaks a mod, update the mod to its latest version and try again.
+
+**How do I change the theme and options?** `/hud theme` switches the theme; every option is a row in `/config` or lives under `pluginConfigs` in `~/.claude/settings.json`. See Usage above.
+
+**Can I install just one?** Yes. Each mod is its own plugin and works out of the box.
 
 ## License
 

@@ -10,6 +10,7 @@
   "repository": "https://github.com/hoobnn/hoobnn-agent-mods",
   "license": "MIT",
   "keywords": [
+    "claude-code",
     "agent-relay",
     "acp",
     "subagents",

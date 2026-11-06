@@ -2,7 +2,9 @@
 
 # hoobnn-agent-mods
 
-Claude Code 状态栏 HUD，附带任务进度条、回合回执、运行动画等 mod。
+免费开源的 Claude Code 插件（mod）合集：状态栏 HUD、任务进度条、回合回执、运行动画等。
+
+**hoobnn-agent-mods** 是一个 Claude Code 插件市场（marketplace），收录 7 个 mod：状态栏 HUD（[claude-hud](https://github.com/jarrodwatts/claude-hud) 的 mod 版）、任务进度条、回合回执、agent-relay 派活进度、运行动画与宠物、Tailscale 节点状态、一言。用 `claude plugin marketplace add hoobnn/hoobnn-agent-mods` 添加后，每个 mod 都可单独安装，MIT 许可。
 
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
@@ -120,6 +122,22 @@ Claude Code 的七个 mod 放在 `claude-code/`。其他编程 Agent 工具的�
 - `bun scripts/spinner-shots.ts` 用 `spinner` 自己的帧表重新渲染它的 GIF 和静态图（需要 ffmpeg 和 Playwright 的 Chromium）。
 - `bun scripts/mod-shots.ts [<mod> ...]` 重新渲染 `ts-band`、`hitokoto`、`todo-bar`、`receipt` 的预览图：把 `scripts/shots/<mod>.tsx` 临时放进该 mod 的 `tests/` 跑一遍，取出横条真实画出的元素树，再套上终端窗口截图（需要 Playwright 的 Chromium）。
 - 发布：把 mod 的 `plugin.json` 和 `.claude-plugin/marketplace.json` 里对应条目的 `version` 改掉，提交，然后执行 `claude plugin tag claude-code/<mod> --push`（tag 格式是 `<mod>--v<version>`）。已安装的用户按「更新」一节的命令升级。
+
+## 常见问题
+
+**这些 mod 支持哪些工具？** 目前都是 Claude Code 的 mod，终端和 Claude Desktop 都能用。`pi/`、`deepseek/` 目录是给 pi 和 DeepSeek Harness 预留的，还没有收录扩展。
+
+**怎么安装、更新和卸载？** 见上面的「安装」「更新」「卸载」三节，都是 `claude plugin` 命令，每个 mod 单独装、单独更新。
+
+**和 claude-hud 是什么关系？** `hud` 带着 claude-hud 的源码，已有的 claude-hud 配置（`~/.claude/plugins/claude-hud/config.json`）会直接沿用；区别是它作为 mod 画在输入框上方或下方，并多了额度预警、耗尽预测、每日预算、任务摘要、详情面板和 12 套主题。只想要传统 `statusLine` 方案，直接用 [claude-hud](https://github.com/jarrodwatts/claude-hud) 即可。
+
+**会把我的数据发到哪里吗？** 按 `scripts/reach.txt` 的分级，只有 `hitokoto` 会联网（请求 hitokoto.cn 取一句话），其余 mod 都不联网。`ts-band` 会在本机运行 `tailscale status`。`hud` 的任务摘要会在提示缓存上分叉一次对话来生成，会用掉少量 token，把 `summaryEveryTurns` 设为 0 即可关闭；`todo-bar`、`receipt`、`relay-bar` 只读已有的调用结果和状态文件，不消耗 token。
+
+**装好了但没有显示怎么办？** 先 `claude plugin list` 确认已启用，再看 `/config` 里该 mod 的 `visible` 是否为开（`/hud on`、`/ts on` 等同样可以打开）。mod API 还在早期阶段，Claude Code 升级后若失效，可更新到最新的 mod 版本再试。
+
+**怎么改主题和选项？** `/hud theme` 切主题，所有选项都在 `/config` 里，或写进 `~/.claude/settings.json` 的 `pluginConfigs`；见上面的「使用」。
+
+**可以只装其中一个吗？** 可以，每个 mod 都是独立的插件，开箱即用。
 
 ## 许可证
 
